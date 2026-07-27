@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>MEGA GYM v041 — JSON Data</title>
+<title>MEGA GYM v042 — JSON Data</title>
 <style>
 :root{--gold:#d4af37;--gold2:#f2d56b;--panel:#171717;--muted:#aaa}
 *{box-sizing:border-box}
@@ -794,6 +794,15 @@ button.video-btn{
 }
 
 #programDetail button[onclick^="openProgram("]{
+  border-width:1px !important;
+}
+
+
+
+/* MEGA GYM v042 - Information button border 1px */
+#programDetail button[onclick*="showProgramInfo"],
+#programDetail button.info,
+#programDetail .info-btn{
   border-width:1px !important;
 }
 
