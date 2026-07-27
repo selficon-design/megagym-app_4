@@ -664,6 +664,71 @@ border:1px solid rgba(55,229,111,.45);background:rgba(7,44,26,.42);color:#baf8ce
 font-size:13px;text-align:center}
 .data-status.error{border-color:rgba(255,159,26,.65);background:rgba(65,35,5,.5);color:#ffd18b}
 
+
+/* =========================================================
+   BORDER COLOR UPDATE — ONLY MAIN APP SCREENS
+   Timer and calculator screen (#tools) intentionally excluded
+   ========================================================= */
+
+/* Stronger blue borders on main cards, navigation and choices */
+#home .btn,
+#programs .topbar,
+#programs .card,
+#programs .btn,
+#programDetail .topbar,
+#programDetail .card,
+#programDetail .btn,
+#days .topbar,
+#days .choice,
+#muscles .topbar,
+#muscles .choice,
+#exercise .topbar,
+#exercise .card,
+#exercise .equipment-card,
+#exercise .btn,
+#exercise .back {
+  border-width: 3px !important;
+  border-style: solid !important;
+  border-color: #3bd8ff !important;
+  box-shadow:
+    0 0 10px rgba(59,216,255,.75),
+    0 0 22px rgba(59,216,255,.34) !important;
+}
+
+/* Orange action buttons: exact RGB(255,102,0) */
+#exercise .actions .btn,
+#exercise button[onclick*="openExecution"],
+#exercise button[onclick*="openEquipmentTools"] {
+  border-width: 3px !important;
+  border-style: solid !important;
+  border-color: #FF6600 !important;
+  box-shadow:
+    0 0 10px rgba(255,102,0,.82),
+    0 0 22px rgba(255,102,0,.38) !important;
+}
+
+/* Hover states — main app only */
+#home .btn:hover,
+#programs .btn:hover,
+#programDetail .btn:hover,
+#days .choice:hover,
+#muscles .choice:hover,
+#exercise .btn:hover {
+  border-color: #67E7FF !important;
+  box-shadow:
+    0 0 13px rgba(59,216,255,.95),
+    0 0 28px rgba(59,216,255,.48) !important;
+}
+
+#exercise .actions .btn:hover,
+#exercise button[onclick*="openExecution"]:hover,
+#exercise button[onclick*="openEquipmentTools"]:hover {
+  border-color: #FF6600 !important;
+  box-shadow:
+    0 0 14px rgba(255,102,0,.98),
+    0 0 30px rgba(255,102,0,.50) !important;
+}
+
 </style>
 </head>
 <body>
