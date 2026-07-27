@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>MEGA GYM v040 — JSON Data</title>
+<title>MEGA GYM v041 — JSON Data</title>
 <style>
 :root{--gold:#d4af37;--gold2:#f2d56b;--panel:#171717;--muted:#aaa}
 *{box-sizing:border-box}
@@ -767,6 +767,34 @@ button.video-btn{
   box-shadow:
     inset 0 0 18px rgba(57,217,255,.16),
     0 0 18px rgba(57,217,255,.58) !important;
+}
+
+
+/* =========================================================
+   MEGA GYM v041
+   1. Back arrow: stronger blue visibility
+   2. Start Program button: 1px border
+   ========================================================= */
+.back{
+  width:47px !important;
+  height:47px !important;
+  border:2px solid #3bd8ff !important;
+  background:linear-gradient(145deg,rgba(13,57,83,.96),rgba(4,22,37,.99)) !important;
+  color:#3bd8ff !important;
+  font-size:29px !important;
+  font-weight:900 !important;
+  line-height:1 !important;
+  text-shadow:
+    0 0 5px rgba(59,216,255,1),
+    0 0 13px rgba(59,216,255,.78) !important;
+  box-shadow:
+    inset 0 0 13px rgba(59,216,255,.13),
+    0 0 9px rgba(59,216,255,.85),
+    0 0 21px rgba(59,216,255,.42) !important;
+}
+
+#programDetail button[onclick^="openProgram("]{
+  border-width:1px !important;
 }
 
 </style>
