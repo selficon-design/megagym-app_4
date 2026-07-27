@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>MEGA GYM v043 — JSON Data</title>
+<title>MEGA GYM v046 — JSON Data</title>
 <style>
 :root{--gold:#d4af37;--gold2:#f2d56b;--panel:#171717;--muted:#aaa}
 *{box-sizing:border-box}
@@ -811,6 +811,27 @@ button.video-btn{
 /* MEGA GYM v043 - Correct selector for ΠΛΗΡΟΦΟΡΙΕΣ buttons */
 #programs button[onclick^="openProgramDetail("]{
   border-width:1px !important;
+}
+
+
+
+/* =========================================================
+   MEGA GYM v044
+   Exact 1px border for ΧΡΟΝΟΜΕΤΡΟ and ΥΠΟΛΟΓΙΣΤΗΣ KG
+   ========================================================= */
+#exercise .equipment-card .actions > button:nth-child(3),
+#exercise .equipment-card .actions > button:nth-child(4){
+  border:1px solid #39d9ff !important;
+  box-shadow:
+    inset 0 0 8px rgba(57,217,255,.07),
+    0 0 5px rgba(57,217,255,.20) !important;
+}
+
+
+/* v046 - Timer & Calculator buttons 2px border */
+#exercise .equipment-card .actions > button:nth-child(3),
+#exercise .equipment-card .actions > button:nth-child(4){
+    border:2px solid #39d9ff !important;
 }
 
 </style>
