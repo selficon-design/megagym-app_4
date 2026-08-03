@@ -2680,11 +2680,20 @@ window.addEventListener('load',()=>{
     const list=(DB.programs||[])
       .filter(p=>yes(p.active) && getProgramGender(p)===gender)
       .filter(p=>{
-        const raw=String(p.programCategory||p.category||'OTHER');
-        const values=raw.split(/[,;|]/).map(norm).filter(Boolean);
-        return wanted==='OTHER'
-          ? values.length===0 || values.includes('OTHER')
-          : values.includes(wanted);
+        const categoryRaw=String(p.programCategory||p.category||'');
+        const categoryValues=categoryRaw.split(/[,;|]/).map(norm).filter(Boolean);
+
+        const familyRaw=String(p.programFamily||p.family||'');
+        const familyValues=familyRaw.split(/[,;|]/).map(norm).filter(Boolean);
+
+        if(wanted==='OTHER'){
+          return familyValues.length===0 ||
+                 familyValues.includes('OTHER') ||
+                 familyValues.includes('ΑΛΛΑ') ||
+                 familyValues.includes('ΑΛΛΑ ΠΡΟΓΡΑΜΜΑΤΑ');
+        }
+
+        return categoryValues.includes(wanted);
       })
       .sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));
 
@@ -3011,7 +3020,7 @@ window.addEventListener('load',()=>{
 
 <style>
 /* =========================================================
-   MEGA GYM v074 — Exact centering fix
+   MEGA GYM v075 — Program family filter fixed
    ========================================================= */
 #megaIntroOverlay{
   display:none;
