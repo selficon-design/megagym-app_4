@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>MEGA GYM v048 — JSON Data</title>
+<title>MEGA GYM v057 — ONLINE READY</title>
 <style>
 :root{--gold:#d4af37;--gold2:#f2d56b;--panel:#171717;--muted:#aaa}
 *{box-sizing:border-box}
@@ -854,17 +854,117 @@ button.video-btn{
     0 0 16px rgba(59,216,255,.28) !important;
 }
 
+
+/* =========================================================
+   MEGA GYM v053 — Cardio exercise integrated in DAY ONE
+   ========================================================= */
+.cardio-exercise-card{
+  border:2px solid rgba(59,216,255,.75);
+  border-radius:20px;
+  overflow:hidden;
+  background:linear-gradient(145deg,rgba(12,31,46,.96),rgba(5,13,21,.99));
+  box-shadow:0 0 22px rgba(0,190,255,.20),inset 0 0 24px rgba(0,190,255,.05);
+}
+.cardio-exercise-body{padding:16px}
+.cardio-param-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin:14px 0;
+}
+.cardio-param{
+  border:1px solid rgba(59,216,255,.3);
+  border-radius:12px;
+  padding:11px;
+  text-align:center;
+  background:rgba(3,13,22,.75);
+}
+.cardio-param span{display:block;font-size:10px;color:#8fa8b7;font-weight:800}
+.cardio-param strong{display:block;margin-top:6px;font-size:18px}
+.cardio-equipment-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:9px;
+}
+.cardio-equipment-actions .graph-btn{
+  border:2px solid #ff9a27!important;
+  background:linear-gradient(145deg,#6b3503,#251300)!important;
+  box-shadow:0 0 14px rgba(255,138,0,.30)!important;
+}
+.cardio-frame{
+  width:100%;
+  min-height:1080px;
+  border:0;
+  display:block;
+  border-radius:18px;
+  background:#020509;
+}
+@media(max-width:720px){
+  .cardio-equipment-actions{grid-template-columns:1fr}
+  .cardio-frame{min-height:1250px}
+}
+
+
+/* =========================================================
+   MEGA GYM v055 — Program category navigation
+   ========================================================= */
+.program-family-grid,
+.transformation-category-grid{
+  display:grid;
+  gap:16px;
+}
+.program-family-card,
+.transformation-category-card{
+  border:2px solid rgba(59,216,255,.72);
+  border-radius:20px;
+  overflow:hidden;
+  background:
+    linear-gradient(145deg,rgba(12,31,46,.96),rgba(5,13,21,.99));
+  box-shadow:
+    0 0 22px rgba(0,190,255,.17),
+    inset 0 0 24px rgba(0,190,255,.04);
+}
+.program-family-body,
+.transformation-category-body{
+  padding:18px;
+}
+.program-family-body h3,
+.transformation-category-body h3{
+  margin:8px 0 12px;
+}
+.program-family-body .btn,
+.transformation-category-body .btn{
+  width:100%;
+  margin-top:12px;
+}
+.category-result{
+  margin-top:12px;
+  padding:12px;
+  border-left:4px solid #ff8a00;
+  border-radius:10px;
+  background:rgba(255,138,0,.07);
+}
+.category-result b{
+  display:block;
+  margin-bottom:6px;
+  color:#ffb35a;
+}
+
 </style>
 </head>
 <body>
 <div class="app">
 <section id="home" class="screen active"></section>
+<section id="programFamilies" class="screen"></section>
+<section id="transformationCategories" class="screen"></section>
 <section id="programs" class="screen"></section>
 <section id="programDetail" class="screen"></section>
 <section id="days" class="screen"></section>
 <section id="muscles" class="screen"></section>
 <section id="exercise" class="screen"></section>
 <section id="tools" class="screen"></section>
+<section id="cardioExercise" class="screen"></section>
+<section id="cardioGraph" class="screen"></section>
 </div>
 
 <div id="modal" class="modal">
@@ -928,29 +1028,102 @@ function renderHome(){
     <div class="hero">
       <div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div>
       <h1>YOUR TRAINING PLAN</h1>
-      <p class="muted">Επίλεξε κατηγορία προγράμματος.</p>
+      <p class="muted">Επίλεξε πρώτα φύλο και μετά κατηγορία προγράμματος.</p>
       <div class="data-status ${dataLoadStatus.loaded?'':'error'}">
         ${dataLoadStatus.loaded
           ? '✓ ΤΑ ΔΕΔΟΜΕΝΑ ΦΟΡΤΩΘΗΚΑΝ ΑΠΟ mega_gym_data.json'
           : `ΠΡΟΣΟΧΗ: ΧΡΗΣΗ ΕΝΣΩΜΑΤΩΜΕΝΩΝ ΔΕΔΟΜΕΝΩΝ — ${dataLoadStatus.error||'Το JSON δεν φορτώθηκε.'}`}
       </div>
       <div class="gender-actions">
-        <button class="btn primary" onclick="renderPrograms('ΑΝΔΡΩΝ')">ΠΡΟΓΡΑΜΜΑΤΑ ΑΝΔΡΩΝ</button>
-        <button class="btn dark" onclick="renderPrograms('ΓΥΝΑΙΚΩΝ')">ΠΡΟΓΡΑΜΜΑΤΑ ΓΥΝΑΙΚΩΝ</button>
+        <button class="btn primary" onclick="renderProgramFamilies('ΑΝΔΡΩΝ')">ΑΝΔΡΕΣ</button>
+        <button class="btn dark" onclick="renderProgramFamilies('ΓΥΝΑΙΚΩΝ')">ΓΥΝΑΙΚΕΣ</button>
       </div>
     </div>`;
 }
+
+const TRANSFORMATION_PROGRAM_CATEGORIES=[
+  {
+    code:"FAT_LOSS",
+    title:"ΚΑΥΣΗ ΛΙΠΟΥΣ",
+    description:"Προγράμματα με στόχο την αύξηση της ενεργειακής δαπάνης, τη βελτίωση της φυσικής κατάστασης και τη σταδιακή μείωση του σωματικού λίπους.",
+    results:"Βελτίωση αντοχής, υψηλότερη κατανάλωση θερμίδων και καλύτερη συνολική φυσική κατάσταση."
+  },
+  {
+    code:"MUSCLE_GAIN",
+    title:"ΑΥΞΗΣΗ ΜΥΪΚΟΥ ΙΣΤΟΥ",
+    description:"Προγράμματα προοδευτικής επιβάρυνσης με έμφαση στην τεχνική, στον προπονητικό όγκο και στη συστηματική αύξηση της δύναμης.",
+    results:"Αύξηση μυϊκής μάζας, βελτίωση δύναμης και καλύτερη σωματική σύνθεση."
+  }
+];
+
+function renderProgramFamilies(gender){
+  state.gender=gender;
+
+  $('programFamilies').innerHTML=`
+    <div class="topbar">${back('home')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
+    <h2>ΠΡΟΓΡΑΜΜΑΤΑ ${gender}</h2>
+
+    <div class="program-family-grid">
+      <article class="program-family-card">
+        <div class="program-family-body">
+          <span class="badge">TRANSFORMATION</span>
+          <h3>ΠΡΟΓΡΑΜΜΑΤΑ TRANSFORMATION</h3>
+          <p class="muted">Εξειδικευμένα προγράμματα ανάλογα με τον βασικό στόχο του ασκούμενου.</p>
+          <button class="btn primary" onclick="renderTransformationCategories('${gender}')">ΕΠΙΛΟΓΗ ΚΑΤΗΓΟΡΙΑΣ</button>
+        </div>
+      </article>
+
+      <article class="program-family-card">
+        <div class="program-family-body">
+          <span class="badge">TRAINING</span>
+          <h3>ΑΛΛΑ ΠΡΟΓΡΑΜΜΑΤΑ</h3>
+          <p class="muted">Τα υπάρχοντα προγράμματα ημερών, γενικής ενδυνάμωσης και προπόνησης με όργανα.</p>
+          <button class="btn dark" onclick="renderPrograms('${gender}','OTHER')">ΠΡΟΒΟΛΗ ΠΡΟΓΡΑΜΜΑΤΩΝ</button>
+        </div>
+      </article>
+    </div>`;
+  show('programFamilies');
+}
+
+function renderTransformationCategories(gender){
+  state.gender=gender;
+
+  $('transformationCategories').innerHTML=`
+    <div class="topbar">${back('programFamilies')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
+    <h2>TRANSFORMATION — ${gender}</h2>
+
+    <div class="transformation-category-grid">
+      ${TRANSFORMATION_PROGRAM_CATEGORIES.map(c=>`
+        <article class="transformation-category-card">
+          <div class="transformation-category-body">
+            <span class="badge">ΚΑΤΗΓΟΡΙΑ</span>
+            <h3>${c.title}</h3>
+            <div class="info"><b>ΠΕΡΙΓΡΑΦΗ</b><div class="muted">${c.description}</div></div>
+            <div class="category-result"><b>ΑΠΟΤΕΛΕΣΜΑΤΑ</b><div class="muted">${c.results}</div></div>
+            <button class="btn primary" onclick="renderPrograms('${gender}','${c.code}')">ΠΡΟΒΟΛΗ ΠΡΟΓΡΑΜΜΑΤΩΝ</button>
+          </div>
+        </article>`).join('')}
+    </div>`;
+  show('transformationCategories');
+}
+
 function getProgramGender(p){
   return p.gender || p.sex || (String(p.code).toUpperCase().startsWith('WOM') ? 'ΓΥΝΑΙΚΩΝ' : 'ΑΝΔΡΩΝ');
 }
-function renderPrograms(gender){
+function renderPrograms(gender,category='OTHER'){
+  state.gender=gender;
+  state.programCategory=category;
   const list=DB.programs
     .filter(p=>p.active==='ΝΑΙ' && getProgramGender(p)===gender)
+    .filter(p=>{
+      const ownCategory=String(p.category||p.programCategory||'OTHER').toUpperCase();
+      return category==='OTHER' ? ownCategory==='OTHER' : ownCategory===category;
+    })
     .sort((a,b)=>a.order-b.order);
 
   $('programs').innerHTML=`
-    <div class="topbar">${back('home')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
-    <h2>ΠΡΟΓΡΑΜΜΑΤΑ ${gender}</h2>
+    <div class="topbar">${back(category==='OTHER'?'programFamilies':'transformationCategories')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
+    <h2>${category==='OTHER'?'ΑΛΛΑ ΠΡΟΓΡΑΜΜΑΤΑ':(TRANSFORMATION_PROGRAM_CATEGORIES.find(c=>c.code===category)?.title||'ΠΡΟΓΡΑΜΜΑΤΑ')} — ${gender}</h2>
     ${list.length ? list.map(p=>`
       <article class="card">
         ${img(p.image,'ΦΩΤΟΓΡΑΦΙΑ ΠΡΟΓΡΑΜΜΑΤΟΣ','program-img')}
@@ -962,7 +1135,7 @@ function renderPrograms(gender){
         </div>
       </article>`).join('') : `
       <div class="empty-state">
-        Δεν έχουν καταχωριστεί ακόμη ενεργά προγράμματα ${gender.toLowerCase()} στο Excel.
+        ${category==='OTHER' ? `Δεν έχουν καταχωριστεί ακόμη ενεργά προγράμματα ${gender.toLowerCase()} στο Excel.` : 'Δεν έχουν συνδεθεί ακόμη προγράμματα με αυτή την κατηγορία. Η κατηγορία είναι έτοιμη για σύνδεση από το Excel.'}
       </div>`}`;
   show('programs');
 }
@@ -1005,7 +1178,12 @@ function openDay(day){
       <button class="choice" onclick="openExercise('${r.exerciseCode}')">
         <b>${r.muscleTitle}</b>
         <div class="exercise-name">${r.exerciseName}</div>
-      </button>`).join('')}`;
+      </button>`).join('')}
+    ${state.programCode==='MEN004' && day===1 ? `
+      <button class="choice" onclick="openIntegratedCardioExercise()">
+        <b>CARDIO – ΑΕΡΟΒΙΟ</b>
+        <div class="exercise-name">Διάδρομος 30 λεπτά με σταθερή κλίση</div>
+      </button>` : ''}`;
   show('muscles');
 }
 function openExercise(code){
@@ -1026,11 +1204,13 @@ function openExercise(code){
         <div class="param"><span>TEMPO</span><strong>${e.tempo}</strong></div>
         <div class="param"><span>ΔΙΑΛΕΙΜΜΑ</span><strong>${e.rest} sec</strong></div>
       </div>
+      <div class="info"><b>ΕΝΤΑΣΗ</b><div class="muted">${e.intensity||'Δεν έχει συμπληρωθεί ακόμη η ένταση στο Excel.'}</div></div>
       <div class="info"><b>ΤΕΧΝΙΚΗ</b><div class="muted">${e.technique}</div></div>
       <div class="info"><b>ΑΝΑΠΝΟΗ</b><div class="muted">${e.breathing}</div></div>
       <div class="info"><b>WARM UP</b><div class="muted">${e.warmup}</div></div>
       <div class="info"><b>ΣΥΧΝΑ ΛΑΘΗ</b><div class="muted">${e.mistakes}</div></div>
       <div class="info"><b>ΣΚΟΠΟΣ</b><div class="muted">${e.purpose}</div></div>
+      <div class="info"><b>COOL DOWN</b><div class="muted">${e.cooldown||'Δεν έχει συμπληρωθεί ακόμη το cool down στο Excel.'}</div></div>
     </div></div>
 
     <h2>ΠΡΟΤΕΙΝΟΜΕΝΟΣ ΕΞΟΠΛΙΣΜΟΣ</h2>
@@ -1582,7 +1762,539 @@ function resetNextSetCalculator(){
 }
 
 function closeModal(){$('modal').classList.remove('show');}
+
+/* =========================================================
+   MEGA GYM v053 — Integrated cardio exercise
+   ========================================================= */
+const CARDIO_EXERCISE_CONFIG={
+  name:"Διάδρομος 30 λεπτά με σταθερή κλίση",
+  durationMinutes:30,
+  drillEveryMinutes:6,
+  highSpeed:8.0,
+  lowSpeed:5.0,
+  minIncline:3,
+  maxIncline:3,
+  drillType:"ΑΛΛΑΓΗ ΤΑΧΥΤΗΤΑΣ"
+};
+
+const INTEGRATED_CARDIO_BASE64="PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ImVsIj4KPGhlYWQ+CjxtZXRhIGNoYXJzZXQ9IlVURi04Ij4KPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCxpbml0aWFsLXNjYWxlPTEsdmlld3BvcnQtZml0PWNvdmVyIj4KPHRpdGxlPk1FR0EgR1lNIENBUkRJTyAzMCBNSU4g4oCUIElOVEVHUkFURUQ8L3RpdGxlPgo8c3R5bGU+Cjpyb290ewogIC0tYmc6IzAzMDcwYjstLXBhbmVsOiMwYjE3MjI7LS1jeWFuOiMyZmRjZmY7LS1jeWFuMjojOGNmNGZmOwogIC0tb3JhbmdlOiNmZjhhMDA7LS1vcmFuZ2UyOiNmZmIzM2Y7LS1yZWQ6I2ZmMzM0ODsKICAtLXRleHQ6I2VlZmJmZjstLW11dGVkOiM5M2FhYmE7CiAgLS1iYXItc21hbGw6NzRweDstLWJhci1tZWRpdW06MTA2cHg7LS1iYXItbGFyZ2U6MTM4cHg7LS1iYXItZHJpbGw6MjI0cHg7Cn0KKntib3gtc2l6aW5nOmJvcmRlci1ib3h9Cmh0bWwsYm9keXttYXJnaW46MDttaW4taGVpZ2h0OjEwMCU7YmFja2dyb3VuZDojMDIwNTA5O2NvbG9yOnZhcigtLXRleHQpO2ZvbnQtZmFtaWx5OkFyaWFsLEhlbHZldGljYSxzYW5zLXNlcmlmfQpib2R5e3BhZGRpbmc6MTRweDtiYWNrZ3JvdW5kOnJhZGlhbC1ncmFkaWVudChjaXJjbGUgYXQgNTAlIC0xMCUscmdiYSgwLDE5MCwyNTUsLjE2KSx0cmFuc3BhcmVudCA0MiUpLGxpbmVhci1ncmFkaWVudCgxNDVkZWcsIzAyMDUwOSwjMDYxMTFhIDQ4JSwjMDIwNDA3KX0KLmFwcHttYXgtd2lkdGg6MTAyMHB4O21hcmdpbjphdXRvfQouaGVhZGVye2Rpc3BsYXk6ZmxleDtqdXN0aWZ5LWNvbnRlbnQ6c3BhY2UtYmV0d2VlbjtnYXA6MTJweDthbGlnbi1pdGVtczpmbGV4LWVuZDttYXJnaW4tYm90dG9tOjE0cHh9Ci5icmFuZHtmb250LXdlaWdodDo5MDA7bGV0dGVyLXNwYWNpbmc6MnB4O2NvbG9yOiNkZmZhZmY7dGV4dC1zaGFkb3c6MCAwIDEycHggcmdiYSg0NywyMjAsMjU1LC43KX0KLnRpdGxle2ZvbnQtc2l6ZTpjbGFtcCgyM3B4LDV2dywzOHB4KTtmb250LXdlaWdodDo5MDA7bWFyZ2luLXRvcDo2cHh9Ci5iYWRnZXtib3JkZXI6MXB4IHNvbGlkIHJnYmEoNDcsMjIwLDI1NSwuNjIpO2NvbG9yOnZhcigtLWN5YW4yKTtwYWRkaW5nOjlweCAxM3B4O2JvcmRlci1yYWRpdXM6OTk5cHg7Zm9udC13ZWlnaHQ6OTAwfQoucGFuZWx7Ym9yZGVyOjJweCBzb2xpZCByZ2JhKDQ3LDIyMCwyNTUsLjgpO2JvcmRlci1yYWRpdXM6MjJweDtiYWNrZ3JvdW5kOmxpbmVhci1ncmFkaWVudCgxNDVkZWcscmdiYSgxMiwzMSw0NiwuOTYpLHJnYmEoNSwxMywyMSwuOTkpKTtib3gtc2hhZG93OjAgMCAyNHB4IHJnYmEoMCwxOTAsMjU1LC4yKSxpbnNldCAwIDAgMjhweCByZ2JhKDAsMTkwLDI1NSwuMDUpO292ZXJmbG93OmhpZGRlbn0KLmluZm8tZ3JpZHtkaXNwbGF5OmdyaWQ7Z3JpZC10ZW1wbGF0ZS1jb2x1bW5zOnJlcGVhdCg0LDFmcik7Z2FwOjEwcHg7cGFkZGluZzoxNHB4fQouaW5mby1ib3h7bWluLWhlaWdodDo3OHB4O2JvcmRlci1yYWRpdXM6MTVweDtwYWRkaW5nOjExcHg7dGV4dC1hbGlnbjpjZW50ZXI7Ym9yZGVyOjJweCBzb2xpZCB0cmFuc3BhcmVudH0KLmluZm8tYm94IHNwYW57ZGlzcGxheTpibG9jaztmb250LXNpemU6MTFweDtmb250LXdlaWdodDo5MDA7bGV0dGVyLXNwYWNpbmc6LjdweH0KLmluZm8tYm94IHN0cm9uZ3tkaXNwbGF5OmJsb2NrO21hcmdpbi10b3A6OHB4O2ZvbnQtc2l6ZToyNHB4fQoub3JhbmdlLWJveHtib3JkZXItY29sb3I6dmFyKC0tb3JhbmdlMik7YmFja2dyb3VuZDpsaW5lYXItZ3JhZGllbnQoMTQ1ZGVnLHJnYmEoMTEyLDUxLDAsLjkpLHJnYmEoMzUsMTYsMCwuOTgpKTtib3gtc2hhZG93OjAgMCAxNHB4IHJnYmEoMjU1LDEzOCwwLC4yOCl9Ci5ibHVlLWJveHtib3JkZXItY29sb3I6dmFyKC0tY3lhbjIpO2JhY2tncm91bmQ6bGluZWFyLWdyYWRpZW50KDE0NWRlZyxyZ2JhKDAsODQsMTI1LC45MikscmdiYSgyLDI0LDM5LC45OSkpO2JveC1zaGFkb3c6MCAwIDE0cHggcmdiYSg0NywyMjAsMjU1LC4yOCl9Ci5zdGF0c3tkaXNwbGF5OmdyaWQ7Z3JpZC10ZW1wbGF0ZS1jb2x1bW5zOnJlcGVhdCgyLDFmcik7Z2FwOjEwcHg7cGFkZGluZzowIDE0cHggMTRweH0KLnN0YXR7bWluLWhlaWdodDo3OHB4O2JvcmRlcjoxcHggc29saWQgcmdiYSg0NywyMjAsMjU1LC4yOCk7Ym9yZGVyLXJhZGl1czoxNXB4O2JhY2tncm91bmQ6cmdiYSgzLDEzLDIyLC43OCk7cGFkZGluZzoxMHB4O3RleHQtYWxpZ246Y2VudGVyfQouc3RhdCBzcGFue2Rpc3BsYXk6YmxvY2s7Zm9udC1zaXplOjExcHg7Y29sb3I6dmFyKC0tbXV0ZWQpO2ZvbnQtd2VpZ2h0OjgwMDtsZXR0ZXItc3BhY2luZzouOHB4fQouc3RhdCBzdHJvbmd7ZGlzcGxheTpibG9jazttYXJnaW4tdG9wOjhweDtmb250LXNpemU6MjRweH0KI21lc3NhZ2VCb3h7Z3JpZC1jb2x1bW46c3BhbiAyfQojbWVzc2FnZVRpdGxle2ZvbnQtc2l6ZToxOHB4fQojbWVzc2FnZUFjdGlvbntmb250LXNpemU6MjJweH0KI21lc3NhZ2VCb3gud2FybXVwLCNtZXNzYWdlQm94LnJlY292ZXJ5LCNtZXNzYWdlQm94LmNvb2xkb3due2JvcmRlci1jb2xvcjp2YXIoLS1vcmFuZ2UyKTtiYWNrZ3JvdW5kOmxpbmVhci1ncmFkaWVudCgxNDVkZWcscmdiYSgxMDAsNDgsMCwuODgpLHJnYmEoMzYsMTcsMSwuOTgpKTthbmltYXRpb246b3JhbmdlRmxhc2ggLjU4cyBpbmZpbml0ZX0KI21lc3NhZ2VCb3guZHJpbGx7Ym9yZGVyLWNvbG9yOnZhcigtLWN5YW4yKTtiYWNrZ3JvdW5kOmxpbmVhci1ncmFkaWVudCgxNDVkZWcscmdiYSgwLDkwLDEzMCwuOTQpLHJnYmEoMiwyNiw0MiwuOTkpKTthbmltYXRpb246Ymx1ZUZsYXNoIC40NnMgaW5maW5pdGV9CiNtZXNzYWdlQm94LmZpbmlzaGVke2JvcmRlci1jb2xvcjojNzdmZjlhO2JhY2tncm91bmQ6bGluZWFyLWdyYWRpZW50KDE0NWRlZyxyZ2JhKDgsOTQsMzcsLjk0KSxyZ2JhKDMsMzQsMTUsLjk5KSk7YW5pbWF0aW9uOmZpbmlzaEZsYXNoIC41cyBpbmZpbml0ZX0KQGtleWZyYW1lcyBibHVlRmxhc2h7MCUsMTAwJXtib3gtc2hhZG93OjAgMCA4cHggcmdiYSg0NywyMjAsMjU1LC40KTtmaWx0ZXI6YnJpZ2h0bmVzcygxKX01MCV7Ym94LXNoYWRvdzowIDAgMzRweCByZ2JhKDQ3LDIyMCwyNTUsMSk7ZmlsdGVyOmJyaWdodG5lc3MoMS40NSl9fQpAa2V5ZnJhbWVzIG9yYW5nZUZsYXNoezAlLDEwMCV7Ym94LXNoYWRvdzowIDAgOHB4IHJnYmEoMjU1LDEzOCwwLC40KTtmaWx0ZXI6YnJpZ2h0bmVzcygxKX01MCV7Ym94LXNoYWRvdzowIDAgMzBweCByZ2JhKDI1NSwxMzgsMCwuOTgpO2ZpbHRlcjpicmlnaHRuZXNzKDEuMzgpfX0KQGtleWZyYW1lcyBmaW5pc2hGbGFzaHswJSwxMDAle2JveC1zaGFkb3c6MCAwIDlweCByZ2JhKDgyLDI1NSwxMjgsLjQ1KTtmaWx0ZXI6YnJpZ2h0bmVzcygxKX01MCV7Ym94LXNoYWRvdzowIDAgMzZweCByZ2JhKDgyLDI1NSwxMjgsMSk7ZmlsdGVyOmJyaWdodG5lc3MoMS40Mil9fQouZ3JhcGgtd3JhcHtwb3NpdGlvbjpyZWxhdGl2ZTtoZWlnaHQ6MzY1cHg7bWFyZ2luOjAgMTRweCAxNHB4O292ZXJmbG93OmhpZGRlbjtib3JkZXI6MXB4IHNvbGlkIHJnYmEoNDcsMjIwLDI1NSwuMzYpO2JvcmRlci1yYWRpdXM6MjBweDtiYWNrZ3JvdW5kOmxpbmVhci1ncmFkaWVudChyZ2JhKDQ3LDIyMCwyNTUsLjA0KSAxcHgsdHJhbnNwYXJlbnQgMXB4KSxsaW5lYXItZ3JhZGllbnQoOTBkZWcscmdiYSg0NywyMjAsMjU1LC4wNCkgMXB4LHRyYW5zcGFyZW50IDFweCksIzA2MTAxYTtiYWNrZ3JvdW5kLXNpemU6MjhweCAyOHB4fQouZ3JhcGgtdHJhY2t7cG9zaXRpb246YWJzb2x1dGU7bGVmdDo1MCU7Ym90dG9tOjQ0cHg7aGVpZ2h0OjI3OHB4O2Rpc3BsYXk6ZmxleDthbGlnbi1pdGVtczpmbGV4LWVuZDt3aWxsLWNoYW5nZTp0cmFuc2Zvcm19Ci5taW51dGV7cG9zaXRpb246cmVsYXRpdmU7d2lkdGg6NjBweDtoZWlnaHQ6MTAwJTtmbGV4OjAgMCA2MHB4O2Rpc3BsYXk6ZmxleDthbGlnbi1pdGVtczpmbGV4LWVuZDtqdXN0aWZ5LWNvbnRlbnQ6Y2VudGVyfQouYmFye3dpZHRoOjQzcHg7aGVpZ2h0OnZhcigtLWJhci1sYXJnZSk7Ym9yZGVyLXJhZGl1czo0cHggNHB4IDAgMDtib3JkZXI6MXB4IHNvbGlkIHJnYmEoMjU1LDIyNCwxNTksLjQ4KTtiYWNrZ3JvdW5kOmxpbmVhci1ncmFkaWVudCg5MGRlZywjMmQxNjAzIDAlLCM5YjY0MTcgNDMlLCNmZmU2YTYgNTQlLCM3MzQwMDkgNjclLCMxZTBlMDMgMTAwJSk7Ym94LXNoYWRvdzowIDAgMTJweCByZ2JhKDI1NSwxNjMsMzUsLjIyKSxpbnNldCAwIDAgOXB4IHJnYmEoMjU1LDI1NSwyNTUsLjExKX0KLm1pbnV0ZS5waGFzZS1zbWFsbCAuYmFye2hlaWdodDp2YXIoLS1iYXItc21hbGwpfQoubWludXRlLnBoYXNlLW1lZGl1bSAuYmFye2hlaWdodDp2YXIoLS1iYXItbWVkaXVtKX0KLm1pbnV0ZS5waGFzZS1sYXJnZSAuYmFyLC5taW51dGUubm9ybWFsIC5iYXIsLm1pbnV0ZS5yZWNvdmVyeSAuYmFye2hlaWdodDp2YXIoLS1iYXItbGFyZ2UpfQoubWludXRlLmRyaWxsIC5iYXJ7d2lkdGg6NDdweDtoZWlnaHQ6dmFyKC0tYmFyLWRyaWxsKTtiYWNrZ3JvdW5kOmxpbmVhci1ncmFkaWVudCg5MGRlZywjMDAxMTFjIDAlLCMwNzUxN2EgMzYlLCNhOGY3ZmYgNTIlLCMwNjM5NTcgNjglLCMwMDBlMTcgMTAwJSk7Ym9yZGVyLWNvbG9yOnJnYmEoMTEyLDIzMCwyNTUsLjg4KTtib3gtc2hhZG93OjAgMCAxOHB4IHJnYmEoMzIsMjAzLDI1NSwuNTgpfQoubWludXRlLmFjdGl2ZS1ibHVlIC5iYXJ7YW5pbWF0aW9uOmFjdGl2ZUJsdWUgLjQycyBpbmZpbml0ZX0KLm1pbnV0ZS5hY3RpdmUtb3JhbmdlIC5iYXJ7YW5pbWF0aW9uOmFjdGl2ZU9yYW5nZSAuNDhzIGluZmluaXRlfQpAa2V5ZnJhbWVzIGFjdGl2ZUJsdWV7MCUsMTAwJXtmaWx0ZXI6YnJpZ2h0bmVzcygxKTtib3gtc2hhZG93OjAgMCAxOHB4IHJnYmEoMzIsMjAzLDI1NSwuNjUpfTUwJXtmaWx0ZXI6YnJpZ2h0bmVzcygxLjc1KTtib3gtc2hhZG93OjAgMCA0MHB4IHJnYmEoODUsMjMwLDI1NSwxKSwwIDAgNjRweCByZ2JhKDQ1LDIxMywyNTUsLjgyKX19CkBrZXlmcmFtZXMgYWN0aXZlT3JhbmdlezAlLDEwMCV7ZmlsdGVyOmJyaWdodG5lc3MoMSk7Ym94LXNoYWRvdzowIDAgMTJweCByZ2JhKDI1NSwxMzgsMCwuMzUpfTUwJXtmaWx0ZXI6YnJpZ2h0bmVzcygxLjcpO2JveC1zaGFkb3c6MCAwIDMycHggcmdiYSgyNTUsMTM4LDAsMSksMCAwIDUwcHggcmdiYSgyNTUsMTM4LDAsLjcpfX0KLmxhYmVse3Bvc2l0aW9uOmFic29sdXRlO2xlZnQ6NTAlO3RvcDo1MCU7dHJhbnNmb3JtOnRyYW5zbGF0ZSgtNTAlLC01MCUpIHJvdGF0ZSgtOTBkZWcpO3otaW5kZXg6Mztmb250LXNpemU6MTFweDtmb250LXdlaWdodDo5MDA7bGV0dGVyLXNwYWNpbmc6MXB4O3doaXRlLXNwYWNlOm5vd3JhcDtjb2xvcjojZjhmYmZmO3RleHQtc2hhZG93OjAgMCA4cHggcmdiYSgyNTUsMjU1LDI1NSwuNDUpfQoubWludXRlLmRyaWxsIC5sYWJlbHtjb2xvcjojYmFmN2ZmO3RleHQtc2hhZG93OjAgMCAxMHB4IHJnYmEoNDcsMjIwLDI1NSwuOSl9Ci5taW51dGUud2FybS1sYWJlbCAubGFiZWwsLm1pbnV0ZS5jb29sLWxhYmVsIC5sYWJlbHtjb2xvcjojZmZjNTZlO3RleHQtc2hhZG93OjAgMCAxMHB4IHJnYmEoMjU1LDEzOCwwLC43NSl9Ci5taW51dGUtbnVte3Bvc2l0aW9uOmFic29sdXRlO2JvdHRvbTotMjlweDt3aWR0aDoxMDAlO3RleHQtYWxpZ246Y2VudGVyO2ZvbnQtc2l6ZToxMHB4O2NvbG9yOiM3Njk1YTd9Ci5uZWVkbGV7CiAgcG9zaXRpb246YWJzb2x1dGU7CiAgbGVmdDo1MCU7CiAgdG9wOjQycHg7CiAgYm90dG9tOjMycHg7CiAgd2lkdGg6MnB4OwogIHRyYW5zZm9ybTp0cmFuc2xhdGVYKC01MCUpOwogIHotaW5kZXg6ODsKICBib3JkZXItcmFkaXVzOjk5OXB4OwogIGJhY2tncm91bmQ6bGluZWFyLWdyYWRpZW50KAogICAgMTgwZGVnLAogICAgcmdiYSgyMjAsMjUyLDI1NSwxKSAwJSwKICAgIHJnYmEoOTIsMjM2LDI1NSwxKSAxOCUsCiAgICByZ2JhKDAsMTc3LDI1NSwxKSA1MiUsCiAgICByZ2JhKDgyLDIzMiwyNTUsMSkgODIlLAogICAgcmdiYSgyMjUsMjUzLDI1NSwxKSAxMDAlCiAgKTsKICBib3gtc2hhZG93OgogICAgMCAwIDRweCByZ2JhKDIyNCwyNTMsMjU1LDEpLAogICAgMCAwIDEwcHggcmdiYSg2MywyMjQsMjU1LDEpLAogICAgMCAwIDIycHggcmdiYSgwLDE3NCwyNTUsLjk1KSwKICAgIDAgMCA0MnB4IHJnYmEoMCwxNzQsMjU1LC41NSk7Cn0KLm5lZWRsZTpiZWZvcmV7CiAgY29udGVudDoiIjsKICBwb3NpdGlvbjphYnNvbHV0ZTsKICBsZWZ0OjUwJTsKICB0b3A6LTE2cHg7CiAgd2lkdGg6MDsKICBoZWlnaHQ6MDsKICB0cmFuc2Zvcm06dHJhbnNsYXRlWCgtNTAlKTsKICBib3JkZXItbGVmdDo3cHggc29saWQgdHJhbnNwYXJlbnQ7CiAgYm9yZGVyLXJpZ2h0OjdweCBzb2xpZCB0cmFuc3BhcmVudDsKICBib3JkZXItdG9wOjA7CiAgYm9yZGVyLWJvdHRvbToxM3B4IHNvbGlkICM4M2VmZmY7CiAgZmlsdGVyOmRyb3Atc2hhZG93KDAgMCA3cHggcmdiYSg2OSwyMjUsMjU1LDEpKQogICAgICAgICBkcm9wLXNoYWRvdygwIDAgMTZweCByZ2JhKDAsMTc0LDI1NSwuOCkpOwp9Ci5uZWVkbGU6YWZ0ZXJ7CiAgY29udGVudDoiIjsKICBwb3NpdGlvbjphYnNvbHV0ZTsKICBsZWZ0OjUwJTsKICBib3R0b206LTdweDsKICB3aWR0aDo4cHg7CiAgaGVpZ2h0OjhweDsKICB0cmFuc2Zvcm06dHJhbnNsYXRlWCgtNTAlKTsKICBib3JkZXItcmFkaXVzOjUwJTsKICBiYWNrZ3JvdW5kOnJhZGlhbC1ncmFkaWVudChjaXJjbGUsI2YyZmZmZiAwIDE4JSwjNWVlYWZmIDI4JSwjMDA4ZGZmIDYyJSxyZ2JhKDAsNzAsMTIwLC4yKSAxMDAlKTsKICBib3gtc2hhZG93OgogICAgMCAwIDdweCByZ2JhKDIyNSwyNTMsMjU1LDEpLAogICAgMCAwIDE4cHggcmdiYSg1MCwyMjAsMjU1LDEpLAogICAgMCAwIDM0cHggcmdiYSgwLDE1MywyNTUsLjc1KTsKfQoubm93LWxpbmV7CiAgcG9zaXRpb246YWJzb2x1dGU7CiAgbGVmdDo1MCU7CiAgYm90dG9tOjdweDsKICB0cmFuc2Zvcm06dHJhbnNsYXRlWCgtNTAlKTsKICBjb2xvcjojOGNmNGZmOwogIGZvbnQtc2l6ZToxMXB4OwogIGZvbnQtd2VpZ2h0OjkwMDsKICBsZXR0ZXItc3BhY2luZzoxLjJweDsKICB0ZXh0LXNoYWRvdzoKICAgIDAgMCA1cHggcmdiYSgyMjAsMjUzLDI1NSwxKSwKICAgIDAgMCAxMnB4IHJnYmEoNDcsMjIwLDI1NSwuOTUpOwp9Ci5jb250cm9sc3tkaXNwbGF5OmdyaWQ7Z3JpZC10ZW1wbGF0ZS1jb2x1bW5zOnJlcGVhdCg0LDFmcik7Z2FwOjEwcHg7cGFkZGluZzowIDE0cHggMTRweH0KYnV0dG9uLHNlbGVjdHttaW4taGVpZ2h0OjQ5cHg7Ym9yZGVyLXJhZGl1czoxMnB4O2JvcmRlcjoxcHggc29saWQgcmdiYSg0NywyMjAsMjU1LC41OCk7YmFja2dyb3VuZDpsaW5lYXItZ3JhZGllbnQoMTQ1ZGVnLCMxMjM2NGQsIzA3MWMyYik7Y29sb3I6d2hpdGU7Zm9udC13ZWlnaHQ6OTAwO2N1cnNvcjpwb2ludGVyfQpidXR0b246aG92ZXJ7Ym9yZGVyLWNvbG9yOiM3NmVmZmY7Ym94LXNoYWRvdzowIDAgMTVweCByZ2JhKDQ3LDIyMCwyNTUsLjMpfQouZGFuZ2Vye2JvcmRlci1jb2xvcjpyZ2JhKDI1NSw1MSw3MiwuNzUpO2JhY2tncm91bmQ6bGluZWFyLWdyYWRpZW50KDE0NWRlZywjOWMxODI2LCM0MTA4MTApfQouZm9vdGVyLW5vdGV7dGV4dC1hbGlnbjpjZW50ZXI7Y29sb3I6IzhmYThiNztmb250LXNpemU6MTJweDttYXJnaW4tdG9wOjEwcHh9CkBtZWRpYShtYXgtd2lkdGg6NzIwcHgpewogYm9keXtwYWRkaW5nOjhweH0uaW5mby1ncmlkLC5zdGF0c3tncmlkLXRlbXBsYXRlLWNvbHVtbnM6MWZyIDFmcjtwYWRkaW5nOjhweH0jbWVzc2FnZUJveHtncmlkLWNvbHVtbjpzcGFuIDJ9CiAuZ3JhcGgtd3JhcHtoZWlnaHQ6MzIwcHg7bWFyZ2luOjAgOHB4IDEwcHh9Lm1pbnV0ZXt3aWR0aDo0OHB4O2ZsZXgtYmFzaXM6NDhweH0uYmFye3dpZHRoOjM1cHh9Lm1pbnV0ZS5kcmlsbCAuYmFye3dpZHRoOjM5cHh9CiAuY29udHJvbHN7Z3JpZC10ZW1wbGF0ZS1jb2x1bW5zOjFmciAxZnI7cGFkZGluZzowIDhweCAxMHB4fQp9Cjwvc3R5bGU+CjwvaGVhZD4KPGJvZHk+CjxkaXYgY2xhc3M9ImFwcCI+CiAgPGRpdiBjbGFzcz0iaGVhZGVyIj4KICAgIDxkaXY+CiAgICAgIDxkaXYgY2xhc3M9ImJyYW5kIj5NRUdBIEdZTSBUUkFJTklORyBTWVNURU08L2Rpdj4KICAgICAgPGRpdiBjbGFzcz0idGl0bGUiIGlkPSJwcm9ncmFtVGl0bGUiPjwvZGl2PgogICAgPC9kaXY+CiAgICA8ZGl2IGNsYXNzPSJiYWRnZSIgaWQ9Im1vZGVCYWRnZSI+PC9kaXY+CiAgPC9kaXY+CgogIDxzZWN0aW9uIGNsYXNzPSJwYW5lbCI+CiAgICA8ZGl2IGNsYXNzPSJpbmZvLWdyaWQiPgogICAgICA8ZGl2IGNsYXNzPSJpbmZvLWJveCBvcmFuZ2UtYm94Ij48c3Bhbj7OnM6ZzprOoc6XIM6kzpHOp86lzqTOl86kzpE8L3NwYW4+PHN0cm9uZyBpZD0ibG93U3BlZWQiPjwvc3Ryb25nPjwvZGl2PgogICAgICA8ZGl2IGNsYXNzPSJpbmZvLWJveCBibHVlLWJveCI+PHNwYW4+zpzOlc6TzpHOm86XIM6kzpHOp86lzqTOl86kzpE8L3NwYW4+PHN0cm9uZyBpZD0iaGlnaFNwZWVkIj48L3N0cm9uZz48L2Rpdj4KICAgICAgPGRpdiBjbGFzcz0iaW5mby1ib3ggb3JhbmdlLWJveCI+PHNwYW4+zpXOm86RzqfOmc6jzqTOlyDOms6bzpnOo86XPC9zcGFuPjxzdHJvbmcgaWQ9Im1pbkluY2xpbmUiPjwvc3Ryb25nPjwvZGl2PgogICAgICA8ZGl2IGNsYXNzPSJpbmZvLWJveCBibHVlLWJveCI+PHNwYW4+zpzOlc6TzpnOo86kzpcgzprOm86ZzqPOlzwvc3Bhbj48c3Ryb25nIGlkPSJtYXhJbmNsaW5lIj48L3N0cm9uZz48L2Rpdj4KICAgIDwvZGl2PgoKICAgIDxkaXYgY2xhc3M9InN0YXRzIj4KICAgICAgPGRpdiBjbGFzcz0ic3RhdCI+PHNwYW4+zqfOoc6fzp3On86jPC9zcGFuPjxzdHJvbmcgaWQ9InRpbWUiPjAwOjAwPC9zdHJvbmc+PC9kaXY+CiAgICAgIDxkaXYgY2xhc3M9InN0YXQiPjxzcGFuPs6bzpXOoM6kzp88L3NwYW4+PHN0cm9uZyBpZD0ibWludXRlIj48L3N0cm9uZz48L2Rpdj4KICAgICAgPGRpdiBpZD0ibWVzc2FnZUJveCIgY2xhc3M9InN0YXQgd2FybXVwIj4KICAgICAgICA8c3BhbiBpZD0ibWVzc2FnZVRpdGxlIj5XQVJNIFVQPC9zcGFuPgogICAgICAgIDxzdHJvbmcgaWQ9Im1lc3NhZ2VBY3Rpb24iPjwvc3Ryb25nPgogICAgICA8L2Rpdj4KICAgICAgPGRpdiBjbGFzcz0ic3RhdCI+PHNwYW4+zqPOpc6dzp/Om86ZzprOlyDOlM6ZzpHOoc6azpXOmc6RPC9zcGFuPjxzdHJvbmcgaWQ9ImR1cmF0aW9uIj48L3N0cm9uZz48L2Rpdj4KICAgICAgPGRpdiBjbGFzcz0ic3RhdCI+CiAgICAgICAgPHNwYW4+zqTOkc6nzqXOpM6XzqTOkSDOoM6hzp/Oks6fzpvOl86jPC9zcGFuPgogICAgICAgIDxzZWxlY3QgaWQ9ImRlbW9TcGVlZCI+CiAgICAgICAgICA8b3B0aW9uIHZhbHVlPSIxIj7OoM6hzpHOk86czpHOpM6ZzprOn86jIM6nzqHOn86dzp/Oozwvb3B0aW9uPgogICAgICAgICAgPG9wdGlvbiB2YWx1ZT0iMTAiPjEww5c8L29wdGlvbj4KICAgICAgICAgIDxvcHRpb24gdmFsdWU9IjMwIiBzZWxlY3RlZD4zMMOXIERFTU88L29wdGlvbj4KICAgICAgICAgIDxvcHRpb24gdmFsdWU9IjYwIj42MMOXPC9vcHRpb24+CiAgICAgICAgPC9zZWxlY3Q+CiAgICAgIDwvZGl2PgogICAgPC9kaXY+CgogICAgPGRpdiBjbGFzcz0iZ3JhcGgtd3JhcCI+CiAgICAgIDxkaXYgaWQ9InRyYWNrIiBjbGFzcz0iZ3JhcGgtdHJhY2siPjwvZGl2PgogICAgICA8ZGl2IGNsYXNzPSJuZWVkbGUiPjwvZGl2PjxkaXYgY2xhc3M9Im5vdy1saW5lIj5OT1c8L2Rpdj4KICAgIDwvZGl2PgoKICAgIDxkaXYgY2xhc3M9ImNvbnRyb2xzIj4KICAgICAgPGJ1dHRvbiBpZD0ic3RhcnQiPlNUQVJUPC9idXR0b24+CiAgICAgIDxidXR0b24gaWQ9InBhdXNlIj5TVE9QIC8gzqDOkc6lzqPOlzwvYnV0dG9uPgogICAgICA8YnV0dG9uIGlkPSJyZXN1bWUiPs6jzqXOnc6VzqfOlc6ZzpE8L2J1dHRvbj4KICAgICAgPGJ1dHRvbiBpZD0icmVzZXQiIGNsYXNzPSJkYW5nZXIiPs6VzqDOkc6dzpHOps6fzqHOkTwvYnV0dG9uPgogICAgPC9kaXY+CiAgPC9zZWN0aW9uPgogIDxkaXYgY2xhc3M9ImZvb3Rlci1ub3RlIj7Oms6szrjOtSDOvM+AzqzPgc6xID0gMSDOu861z4DPhM+MLiDOpM6/IFdBUk0gVVAgzrrOsc65IM+Ezr8gQ09PTCBET1dOIM6tz4fOv8+Fzr0gMyDPhs6sz4POtc65z4IgzrrOsc65IDMgzrTOuc6xz4bOv8+BzrXPhM65zrrOrCDPjc+IzrcuPC9kaXY+CjwvZGl2PgoKPHNjcmlwdD4KLyogOCBFeGNlbCBjb2x1bW5zICovCmNvbnN0IGNmZz17CiAgcHJvZ3JhbU5hbWU6Is6UzpnOkc6UzqHOn86czp/OoyAzMCDOm86VzqDOpM6RIM6czpUgzqPOpM6RzpjOlc6hzpcgzprOm86ZzqPOlyIsCiAgZHVyYXRpb25NaW51dGVzOjMwLAogIGRyaWxsRXZlcnlNaW51dGVzOjYsCiAgaGlnaFNwZWVkOjguMCwKICBsb3dTcGVlZDo1LjAsCiAgbWluSW5jbGluZTozLAogIG1heEluY2xpbmU6MywKICBkcmlsbFR5cGU6Is6RzpvOm86RzpPOlyDOpM6RzqfOpc6kzpfOpM6RzqMiCn07Cgpjb25zdCBUT1RBTF9TRUNPTkRTPWNmZy5kdXJhdGlvbk1pbnV0ZXMqNjA7CmNvbnN0IFdBUk1VUF9CQVJTPTM7CmNvbnN0IENPT0xET1dOX0JBUlM9MzsKY29uc3QgUkVDT1ZFUllfU0VDT05EUz01Owpjb25zdCBGSU5JU0hfTUVTU0FHRV9TRUNPTkRTPTEwOwpjb25zdCBwaGFzZVByb21wdFNlY29uZHM9WzE1LDEwLDEwXTsKCmZ1bmN0aW9uIGNyZWF0ZVBsYW4oKXsKICBjb25zdCBwbGFuPUFycmF5LmZyb20oe2xlbmd0aDpjZmcuZHVyYXRpb25NaW51dGVzfSwoXyxpKT0+KHsKICAgIG1pbnV0ZTppKzEsdHlwZToibm9ybWFsIixzcGVlZDpjZmcubG93U3BlZWQsaW5jbGluZTpjZmcubWluSW5jbGluZQogIH0pKTsKCiAgLy8gMyB3YXJtLXVwIGJhcnM6IHNtYWxsLCBtZWRpdW0sIGxhcmdlCiAgWyJwaGFzZS1zbWFsbCIsInBoYXNlLW1lZGl1bSIsInBoYXNlLWxhcmdlIl0uZm9yRWFjaCgoc2l6ZSxpKT0+ewogICAgaWYocGxhbltpXSl7CiAgICAgIHBsYW5baV0udHlwZT1gd2FybXVwLSR7aSsxfSAke3NpemV9YDsKICAgICAgcGxhbltpXS5zcGVlZD1jZmcubG93U3BlZWQ7CiAgICB9CiAgfSk7CgogIC8vIERyaWxscyBvbmx5IGlmID4gMCwgb3V0c2lkZSB3YXJtLXVwIGFuZCBjb29sZG93bgogIGlmKGNmZy5kcmlsbEV2ZXJ5TWludXRlcz4wKXsKICAgIGZvcihsZXQgbT1jZmcuZHJpbGxFdmVyeU1pbnV0ZXM7bTw9Y2ZnLmR1cmF0aW9uTWludXRlcy1DT09MRE9XTl9CQVJTO20rPWNmZy5kcmlsbEV2ZXJ5TWludXRlcyl7CiAgICAgIGlmKG08PVdBUk1VUF9CQVJTKSBjb250aW51ZTsKICAgICAgcGxhblttLTFdLnR5cGU9ImRyaWxsIjsKICAgICAgaWYoY2ZnLmRyaWxsVHlwZT09PSLOkc6bzpvOkc6TzpcgzprOm86ZzqPOl86jIil7CiAgICAgICAgcGxhblttLTFdLmluY2xpbmU9Y2ZnLm1heEluY2xpbmU7CiAgICAgIH1lbHNlewogICAgICAgIHBsYW5bbS0xXS5zcGVlZD1jZmcuaGlnaFNwZWVkOwogICAgICB9CiAgICAgIGlmKHBsYW5bbV0pewogICAgICAgIHBsYW5bbV0udHlwZT0icmVjb3ZlcnkiOwogICAgICAgIHBsYW5bbV0uc3BlZWQ9Y2ZnLmxvd1NwZWVkOwogICAgICAgIHBsYW5bbV0uaW5jbGluZT1jZmcubWluSW5jbGluZTsKICAgICAgfQogICAgfQogIH0KCiAgLy8gMyBjb29sZG93biBiYXJzOiBsYXJnZSwgbWVkaXVtLCBzbWFsbAogIGNvbnN0IG49cGxhbi5sZW5ndGg7CiAgaWYobj49Myl7CiAgICBwbGFuW24tM10udHlwZT0iY29vbGRvd24tMSBwaGFzZS1sYXJnZSI7CiAgICBwbGFuW24tMl0udHlwZT0iY29vbGRvd24tMiBwaGFzZS1tZWRpdW0iOwogICAgcGxhbltuLTFdLnR5cGU9ImNvb2xkb3duLTMgcGhhc2Utc21hbGwiOwogICAgW24tMyxuLTIsbi0xXS5mb3JFYWNoKGk9PnsKICAgICAgcGxhbltpXS5zcGVlZD1jZmcubG93U3BlZWQ7CiAgICAgIHBsYW5baV0uaW5jbGluZT1jZmcubWluSW5jbGluZTsKICAgIH0pOwogIH0KICByZXR1cm4gcGxhbjsKfQoKY29uc3QgcGxhbj1jcmVhdGVQbGFuKCk7CmNvbnN0IHRyYWNrPWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJ0cmFjayIpOwpjb25zdCBib3g9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoIm1lc3NhZ2VCb3giKTsKCmRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJwcm9ncmFtVGl0bGUiKS50ZXh0Q29udGVudD1jZmcucHJvZ3JhbU5hbWU7CmRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJtb2RlQmFkZ2UiKS50ZXh0Q29udGVudD1jZmcuZHJpbGxFdmVyeU1pbnV0ZXM9PT0wPyLOp86pzqHOmc6jIERSSUxMIjpjZmcuZHJpbGxUeXBlOwpkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgibG93U3BlZWQiKS50ZXh0Q29udGVudD1gJHtjZmcubG93U3BlZWQudG9GaXhlZCgxKX0ga20vaGA7CmRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJoaWdoU3BlZWQiKS50ZXh0Q29udGVudD1gJHtjZmcuaGlnaFNwZWVkLnRvRml4ZWQoMSl9IGttL2hgOwpkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgibWluSW5jbGluZSIpLnRleHRDb250ZW50PWAke2NmZy5taW5JbmNsaW5lfSVgOwpkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgibWF4SW5jbGluZSIpLnRleHRDb250ZW50PWAke2NmZy5tYXhJbmNsaW5lfSVgOwpkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiZHVyYXRpb24iKS50ZXh0Q29udGVudD1gJHtjZmcuZHVyYXRpb25NaW51dGVzfTowMGA7CgpmdW5jdGlvbiByZW5kZXJCYXJzKCl7CiAgdHJhY2suaW5uZXJIVE1MPXBsYW4ubWFwKHA9PnsKICAgIGxldCBsYWJlbD0iIjsKICAgIGxldCBleHRyYT0iIjsKICAgIGlmKHAudHlwZS5zdGFydHNXaXRoKCJ3YXJtdXAtMSIpKXtsYWJlbD0iV0FSTSBVUCI7ZXh0cmE9Indhcm0tbGFiZWwiO30KICAgIGlmKHAudHlwZT09PSJkcmlsbCIpbGFiZWw9IkRSSUxMIjsKICAgIGlmKHAudHlwZS5zdGFydHNXaXRoKCJjb29sZG93bi0xIikpe2xhYmVsPSJDT09MIERPV04iO2V4dHJhPSJjb29sLWxhYmVsIjt9CiAgICByZXR1cm4gYDxkaXYgY2xhc3M9Im1pbnV0ZSAke3AudHlwZX0gJHtleHRyYX0iIGRhdGEtbWludXRlPSIke3AubWludXRlfSI+CiAgICAgIDxkaXYgY2xhc3M9ImJhciI+PC9kaXY+JHtsYWJlbD9gPGRpdiBjbGFzcz0ibGFiZWwiPiR7bGFiZWx9PC9kaXY+YDoiIn0KICAgICAgPGRpdiBjbGFzcz0ibWludXRlLW51bSI+JHtwLm1pbnV0ZX08L2Rpdj4KICAgIDwvZGl2PmA7CiAgfSkuam9pbigiIik7Cn0KCmxldCBlbGFwc2VkPTAscnVubmluZz1mYWxzZSxsYXN0VHM9bnVsbCxyYWZJZD1udWxsLGZpbmlzaGVkPWZhbHNlOwoKZnVuY3Rpb24gbWludXRlV2lkdGgoKXtyZXR1cm4gd2luZG93LmlubmVyV2lkdGg8PTcyMD80ODo2MH0KZnVuY3Rpb24gZm9ybWF0VGltZShzZWMpewogIGNvbnN0IHM9TWF0aC5tYXgoMCxNYXRoLm1pbihUT1RBTF9TRUNPTkRTLE1hdGguZmxvb3Ioc2VjKSkpOwogIHJldHVybiBgJHtTdHJpbmcoTWF0aC5mbG9vcihzLzYwKSkucGFkU3RhcnQoMiwiMCIpfToke1N0cmluZyhzJTYwKS5wYWRTdGFydCgyLCIwIil9YDsKfQpmdW5jdGlvbiBzZXRNZXNzYWdlKG1vZGUsdGl0bGUsYWN0aW9uKXsKICBib3guY2xhc3NOYW1lPWBzdGF0ICR7bW9kZX1gOwogIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJtZXNzYWdlVGl0bGUiKS50ZXh0Q29udGVudD10aXRsZTsKICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgibWVzc2FnZUFjdGlvbiIpLnRleHRDb250ZW50PWFjdGlvbjsKfQpmdW5jdGlvbiBjbGVhckJhcnMoKXsKICBkb2N1bWVudC5xdWVyeVNlbGVjdG9yQWxsKCIubWludXRlIikuZm9yRWFjaCh4PT54LmNsYXNzTGlzdC5yZW1vdmUoImFjdGl2ZS1ibHVlIiwiYWN0aXZlLW9yYW5nZSIpKTsKfQpmdW5jdGlvbiBwaGFzZUluZGV4KHR5cGUscHJlZml4KXsKICBjb25zdCBtPXR5cGUubWF0Y2gobmV3IFJlZ0V4cChgJHtwcmVmaXh9LShcXGQpYCkpOwogIHJldHVybiBtP051bWJlcihtWzFdKS0xOjA7Cn0KZnVuY3Rpb24gdXBkYXRlKCl7CiAgaWYoZmluaXNoZWQpewogICAgc2V0TWVzc2FnZSgiZmluaXNoZWQiLCLOpM6VzpvOn86jIM6gzqHOn86TzqHOkc6czpzOkc6kzp/OoyEiLCLOnM6gzqHOkc6Szp8gzpPOmc6RIM6kzpfOnSDOoM6hzp/Oo86gzpHOmM6VzpnOkSDOo86RzqMiKTsKICAgIHJldHVybjsKICB9CgogIGNvbnN0IGN1cnJlbnRNaW51dGU9TWF0aC5taW4oY2ZnLmR1cmF0aW9uTWludXRlcyxNYXRoLmZsb29yKGVsYXBzZWQvNjApKzEpOwogIGNvbnN0IHA9cGxhbltjdXJyZW50TWludXRlLTFdOwogIGNvbnN0IHNlY29uZEluTWludXRlPU1hdGguZmxvb3IoZWxhcHNlZCU2MCk7CgogIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJ0aW1lIikudGV4dENvbnRlbnQ9Zm9ybWF0VGltZShlbGFwc2VkKTsKICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgibWludXRlIikudGV4dENvbnRlbnQ9YCR7Y3VycmVudE1pbnV0ZX0gLyAke2NmZy5kdXJhdGlvbk1pbnV0ZXN9YDsKCiAgY2xlYXJCYXJzKCk7CiAgY29uc3QgYmFyPWRvY3VtZW50LnF1ZXJ5U2VsZWN0b3IoYC5taW51dGVbZGF0YS1taW51dGU9IiR7Y3VycmVudE1pbnV0ZX0iXWApOwoKICBpZihwLnR5cGUuc3RhcnRzV2l0aCgid2FybXVwLSIpKXsKICAgIGNvbnN0IGlkeD1waGFzZUluZGV4KHAudHlwZSwid2FybXVwIik7CiAgICBjb25zdCBwcm9tcHQ9cGhhc2VQcm9tcHRTZWNvbmRzW2lkeF18fDEwOwogICAgaWYoc2Vjb25kSW5NaW51dGU8cHJvbXB0KXsKICAgICAgY29uc3Qgd2FybXVwQWN0aW9uID0gaWR4PT09MgogICAgICAgID8gYM6RzqXOns6XzqPOpM6VIM6kzpHOp86lzqTOl86kzpEgzpXOqc6jIM6kzpcgzpzOmc6azqHOlyDOpM6RzqfOpc6kzpfOpM6RICgke2NmZy5sb3dTcGVlZC50b0ZpeGVkKDEpfSBrbS9oKWAKICAgICAgICA6ICLOkc6lzp7Ol86jzqTOlSDOo86kzpHOlM6ZzpHOms6RIM6kzpfOnSDOpM6RzqfOpc6kzpfOpM6RIjsKICAgICAgc2V0TWVzc2FnZSgid2FybXVwIiwiV0FSTSBVUCIsd2FybXVwQWN0aW9uKTsKICAgICAgYmFyPy5jbGFzc0xpc3QuYWRkKCJhY3RpdmUtb3JhbmdlIik7CiAgICB9ZWxzZXsKICAgICAgc2V0TWVzc2FnZSgiIiwiV0FSTSBVUCIsIs6UzpnOkc6kzpfOoc6XzqPOlyDOpM6RzqfOpc6kzpfOpM6RzqMiKTsKICAgIH0KICB9ZWxzZSBpZihwLnR5cGU9PT0iZHJpbGwiKXsKICAgIC8vIM6XIM68z4DOu861IM68z4DOrM+BzrEgzrHOvc6xzrLOv8+DzrLOrs69zrXOuSDPg861IM+MzrvOtyDPhM63IM60zrnOrM+BzrrOtc65zrEgz4TOv8+FIERSSUxMLgogICAgYmFyPy5jbGFzc0xpc3QuYWRkKCJhY3RpdmUtYmx1ZSIpOwoKICAgIC8vIM6kzr8gz4DOu86xzq/Pg865zr8gzrHOvc6xzrLOv8+DzrLOrs69zrXOuSDOvM+Mzr3OvyDOs865zrEgz4TOsSDPgM+Bz47PhM6xIDEwIM60zrXPhc+EzrXPgc+MzrvOtc+Az4TOsS4KICAgIGlmKHNlY29uZEluTWludXRlPDEwKXsKICAgICAgaWYoY2ZnLmRyaWxsVHlwZT09PSLOkc6bzpvOkc6TzpcgzprOm86ZzqPOl86jIil7CiAgICAgICAgc2V0TWVzc2FnZSgKICAgICAgICAgICJkcmlsbCIsCiAgICAgICAgICAiRFJJTEwiLAogICAgICAgICAgYM6RzqXOns6XzqPOpM6VIM6azpvOmc6jzpcgzpXOqc6jIM6kzpcgzpzOlc6TzpnOo86kzpcgzprOm86ZzqPOlyAoJHtjZmcubWF4SW5jbGluZX0lKWAKICAgICAgICApOwogICAgICB9ZWxzZXsKICAgICAgICBzZXRNZXNzYWdlKAogICAgICAgICAgImRyaWxsIiwKICAgICAgICAgICJEUklMTCIsCiAgICAgICAgICBgzpHOpc6ezpfOo86kzpUgzqTOkc6nzqXOpM6XzqTOkSDOlc6pzqMgzqTOlyDOnM6VzpPOkc6bzpcgzqTOkc6nzqXOpM6XzqTOkSAoJHtjZmcuaGlnaFNwZWVkLnRvRml4ZWQoMSl9IGttL2gpYAogICAgICAgICk7CiAgICAgIH0KICAgIH1lbHNlewogICAgICBpZihjZmcuZHJpbGxUeXBlPT09Is6RzpvOm86RzpPOlyDOms6bzpnOo86XzqMiKXsKICAgICAgICBzZXRNZXNzYWdlKCIiLCJEUklMTCIsYM6UzpnOkc6kzpfOoc6XzqPOpM6VIM6jzqTOkc6YzpXOoc6XIM6azpvOmc6jzpcgKCR7Y2ZnLm1heEluY2xpbmV9JSlgKTsKICAgICAgfWVsc2V7CiAgICAgICAgc2V0TWVzc2FnZSgiIiwiRFJJTEwiLGDOlM6ZzpHOpM6XzqHOl86jzqTOlSDOo86kzpHOmM6VzqHOlyDOpM6RzqfOpc6kzpfOpM6RICgke2NmZy5oaWdoU3BlZWQudG9GaXhlZCgxKX0ga20vaClgKTsKICAgICAgfQogICAgfQogIH1lbHNlIGlmKHAudHlwZT09PSJyZWNvdmVyeSIgJiYgc2Vjb25kSW5NaW51dGU8UkVDT1ZFUllfU0VDT05EUyl7CiAgICBpZihjZmcuZHJpbGxUeXBlPT09Is6RzpvOm86RzpPOlyDOms6bzpnOo86XzqMiKXsKICAgICAgc2V0TWVzc2FnZSgKICAgICAgICAicmVjb3ZlcnkiLAogICAgICAgICJSRUNPVkVSWSIsCiAgICAgICAgYM6czpXOmc6pzqPOpM6VIM6kzpfOnSDOms6bzpnOo86XIM6VzqnOoyDOpM6Xzp0gzpXOm86RzqfOmc6jzqTOlyDOms6bzpnOo86XICgke2NmZy5taW5JbmNsaW5lfSUpYAogICAgICApOwogICAgfWVsc2V7CiAgICAgIHNldE1lc3NhZ2UoCiAgICAgICAgInJlY292ZXJ5IiwKICAgICAgICAiUkVDT1ZFUlkiLAogICAgICAgIGDOnM6VzpnOqc6jzqTOlSDOpM6RzqfOpc6kzpfOpM6RIM6VzqnOoyDOpM6XIM6czpnOms6hzpcgzqTOkc6nzqXOpM6XzqTOkSAoJHtjZmcubG93U3BlZWQudG9GaXhlZCgxKX0ga20vaClgCiAgICAgICk7CiAgICB9CiAgICBiYXI/LmNsYXNzTGlzdC5hZGQoImFjdGl2ZS1vcmFuZ2UiKTsKICB9ZWxzZSBpZihwLnR5cGUuc3RhcnRzV2l0aCgiY29vbGRvd24tIikpewogICAgY29uc3QgaWR4PXBoYXNlSW5kZXgocC50eXBlLCJjb29sZG93biIpOwogICAgY29uc3QgcHJvbXB0PXBoYXNlUHJvbXB0U2Vjb25kc1tpZHhdfHwxMDsKICAgIGlmKHNlY29uZEluTWludXRlPHByb21wdCl7CiAgICAgIHNldE1lc3NhZ2UoCiAgICAgICAgImNvb2xkb3duIiwKICAgICAgICAiQ09PTCBET1dOIiwKICAgICAgICBgzpzOlc6ZzqnOo86kzpUgzqTOkc6nzqXOpM6XzqTOkSDOlc6pzqMgzqTOlyDOnM6ZzprOoc6XIM6kzpHOp86lzqTOl86kzpEgKCR7Y2ZnLmxvd1NwZWVkLnRvRml4ZWQoMSl9IGttL2gpYAogICAgICApOwogICAgICBiYXI/LmNsYXNzTGlzdC5hZGQoImFjdGl2ZS1vcmFuZ2UiKTsKICAgIH1lbHNlewogICAgICBzZXRNZXNzYWdlKCIiLCJDT09MIERPV04iLCLOlM6ZzpHOpM6XzqHOl86jzpcgzqTOkc6nzqXOpM6XzqTOkc6jIik7CiAgICB9CiAgfWVsc2V7CiAgICBzZXRNZXNzYWdlKCIiLCLOms6Rzp3On86dzpnOms6fzqMgzqHOpc6YzpzOn86jIiwizpTOmc6RzqTOl86hzpfOo86kzpUgzqTOkc6nzqXOpM6XzqTOkSIpOwogIH0KCiAgdHJhY2suc3R5bGUudHJhbnNmb3JtPWB0cmFuc2xhdGVYKCR7LShlbGFwc2VkLzYwKSptaW51dGVXaWR0aCgpfXB4KWA7Cn0KCmZ1bmN0aW9uIHRpY2sodHMpewogIGlmKCFydW5uaW5nKXJldHVybjsKICBpZihsYXN0VHM9PT1udWxsKWxhc3RUcz10czsKICBlbGFwc2VkKz0odHMtbGFzdFRzKS8xMDAwKihOdW1iZXIoZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoImRlbW9TcGVlZCIpLnZhbHVlKXx8MSk7CiAgbGFzdFRzPXRzOwoKICBpZihlbGFwc2VkPj1UT1RBTF9TRUNPTkRTKXsKICAgIGVsYXBzZWQ9VE9UQUxfU0VDT05EUzsKICAgIHJ1bm5pbmc9ZmFsc2U7CiAgICBmaW5pc2hlZD10cnVlOwogICAgdXBkYXRlKCk7CiAgICByZXR1cm47CiAgfQoKICB1cGRhdGUoKTsKICByYWZJZD1yZXF1ZXN0QW5pbWF0aW9uRnJhbWUodGljayk7Cn0KCmRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJzdGFydCIpLm9uY2xpY2s9KCk9PnsKICBpZihlbGFwc2VkPj1UT1RBTF9TRUNPTkRTKXtlbGFwc2VkPTA7ZmluaXNoZWQ9ZmFsc2V9CiAgcnVubmluZz10cnVlO2xhc3RUcz1udWxsO2NhbmNlbEFuaW1hdGlvbkZyYW1lKHJhZklkKTtyYWZJZD1yZXF1ZXN0QW5pbWF0aW9uRnJhbWUodGljaykKfTsKZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoInBhdXNlIikub25jbGljaz0oKT0+e3J1bm5pbmc9ZmFsc2U7Y2FuY2VsQW5pbWF0aW9uRnJhbWUocmFmSWQpfTsKZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoInJlc3VtZSIpLm9uY2xpY2s9KCk9PnsKICBpZihlbGFwc2VkPFRPVEFMX1NFQ09ORFMpe3J1bm5pbmc9dHJ1ZTtsYXN0VHM9bnVsbDtjYW5jZWxBbmltYXRpb25GcmFtZShyYWZJZCk7cmFmSWQ9cmVxdWVzdEFuaW1hdGlvbkZyYW1lKHRpY2spfQp9Owpkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgicmVzZXQiKS5vbmNsaWNrPSgpPT57CiAgcnVubmluZz1mYWxzZTtlbGFwc2VkPTA7ZmluaXNoZWQ9ZmFsc2U7bGFzdFRzPW51bGw7Y2FuY2VsQW5pbWF0aW9uRnJhbWUocmFmSWQpO3VwZGF0ZSgpCn07CndpbmRvdy5hZGRFdmVudExpc3RlbmVyKCJyZXNpemUiLHVwZGF0ZSk7CgpyZW5kZXJCYXJzKCk7CnVwZGF0ZSgpOwo8L3NjcmlwdD4KPC9ib2R5Pgo8L2h0bWw+";
+let cardioBlobUrl="";
+
+function openIntegratedCardioExercise(){
+  const p=CARDIO_EXERCISE_CONFIG;
+  $('cardioExercise').innerHTML=`
+    <div class="topbar">${back('muscles')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
+    <div class="logo">CARDIO – ΑΕΡΟΒΙΟ</div>
+    <h2>${p.name}</h2>
+
+    <div class="cardio-exercise-card">
+      <div class="cardio-exercise-body">
+        <div class="info"><b>ΠΕΡΙΓΡΑΦΗ</b><div class="muted">Αερόβια άσκηση σε διάδρομο διάρκειας ${p.durationMinutes} λεπτών, με ελεγχόμενη κλιμάκωση ταχύτητας και σταθερή κλίση.</div></div>
+
+        <div class="cardio-param-grid">
+          <div class="cardio-param"><span>ΔΙΑΡΚΕΙΑ</span><strong>${p.durationMinutes} λεπτά</strong></div>
+          <div class="cardio-param"><span>ΤΥΠΟΣ DRILL</span><strong>${p.drillType}</strong></div>
+          <div class="cardio-param"><span>ΜΙΚΡΗ ΤΑΧΥΤΗΤΑ</span><strong>${p.lowSpeed.toFixed(1)} km/h</strong></div>
+          <div class="cardio-param"><span>ΜΕΓΑΛΗ ΤΑΧΥΤΗΤΑ</span><strong>${p.highSpeed.toFixed(1)} km/h</strong></div>
+          <div class="cardio-param"><span>ΕΛΑΧΙΣΤΗ ΚΛΙΣΗ</span><strong>${p.minIncline}%</strong></div>
+          <div class="cardio-param"><span>ΜΕΓΙΣΤΗ ΚΛΙΣΗ</span><strong>${p.maxIncline}%</strong></div>
+        </div>
+
+        <div class="info"><b>ΕΝΤΑΣΗ</b><div class="muted">Μεταβαλλόμενη ένταση με φάσεις WARM UP, κανονικού ρυθμού, DRILL, RECOVERY και COOL DOWN.</div></div>
+
+        <div class="info"><b>ΤΕΧΝΙΚΗ</b><div class="muted">Διατηρήστε όρθιο κορμό, φυσική κίνηση χεριών και σταθερό πάτημα στο κέντρο του διαδρόμου. Μην κρατιέστε από τις χειρολαβές κατά τη διάρκεια της άσκησης, εκτός αν απαιτείται για λόγους ασφάλειας.</div></div>
+
+        <div class="info"><b>ΑΝΑΠΝΟΗ</b><div class="muted">Αναπνέετε σταθερά και ρυθμικά. Στα DRILL αυξήστε τον ρυθμό της αναπνοής χωρίς να κρατάτε την αναπνοή σας.</div></div>
+
+        <div class="info"><b>WARM UP</b><div class="muted">Τρεις διαδοχικές φάσεις προοδευτικής αύξησης της ταχύτητας, μέχρι να φτάσετε στη μικρή ταχύτητα του προγράμματος.</div></div>
+
+        <div class="info"><b>ΣΥΧΝΑ ΛΑΘΗ</b><div class="muted">Απότομη αύξηση ταχύτητας, υπερβολικά μεγάλο βήμα, κλίση του κορμού προς τα εμπρός, συνεχές κράτημα από τις χειρολαβές και αλλαγή της ταχύτητας πριν εμφανιστεί η αντίστοιχη οδηγία.</div></div>
+
+        <div class="info"><b>ΣΚΟΠΟΣ</b><div class="muted">Βελτίωση καρδιοαναπνευστικής αντοχής, ελεγχόμενη εναλλαγή έντασης και προοδευτική εξοικείωση με διαστήματα αυξημένης ταχύτητας.</div></div>
+
+        <div class="info"><b>COOL DOWN</b><div class="muted">Τρεις διαδοχικές φάσεις σταδιακής μείωσης της ταχύτητας. Παραμείνετε στον διάδρομο μέχρι να ολοκληρωθεί πλήρως το πρόγραμμα και να εμφανιστεί το μήνυμα λήξης.</div></div>
+      </div>
+    </div>
+
+    <h2>ΠΡΟΤΕΙΝΟΜΕΝΟΣ ΕΞΟΠΛΙΣΜΟΣ</h2>
+    <article class="equipment-card">
+      <div class="eq-body">
+        <span class="badge">1η ΠΡΟΤΕΡΑΙΟΤΗΤΑ</span>
+        <h3>ΔΙΑΔΡΟΜΟΣ</h3>
+        <p class="muted">Αερόβιο πρόγραμμα 30 λεπτών</p>
+        <div class="cardio-equipment-actions">
+          <button class="btn primary" onclick="showIntegratedCardioPhoto()">ΑΣΚΗΣΗ</button>
+          <button class="btn dark" onclick="showIntegratedCardioVideo()">VIDEO</button>
+          <button class="btn graph-btn" onclick="openIntegratedCardioGraph()">ΓΡΑΦΗΜΑ ΕΝΤΑΣΗΣ</button>
+        </div>
+      </div>
+    </article>`;
+  show('cardioExercise');
+}
+
+function showIntegratedCardioPhoto(){
+  $('modalBody').innerHTML=`
+    <div class="logo">ΑΣΚΗΣΗ</div>
+    <h2>Διάδρομος 30 λεπτά</h2>
+    <div class="notice">Δεν έχει συμπληρωθεί ακόμη φωτογραφία εκτέλεσης για τη συγκεκριμένη αερόβια άσκηση.</div>`;
+  $('modal').classList.add('show');
+}
+
+function showIntegratedCardioVideo(){
+  $('modalBody').innerHTML=`
+    <div class="logo">VIDEO</div>
+    <h2>Διάδρομος 30 λεπτά</h2>
+    <div class="notice">Δεν έχει συμπληρωθεί ακόμη video για τη συγκεκριμένη αερόβια άσκηση.</div>`;
+  $('modal').classList.add('show');
+}
+
+function openIntegratedCardioGraph(){
+  $('cardioGraph').innerHTML=`
+    <div class="topbar">${back('cardioExercise')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
+    <iframe id="cardioFrame" class="cardio-frame" title="MEGA GYM Cardio Intensity Graph"></iframe>`;
+  show('cardioGraph');
+
+  if(cardioBlobUrl) URL.revokeObjectURL(cardioBlobUrl);
+  const binary=atob(INTEGRATED_CARDIO_BASE64);
+  const bytes=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+  const blob=new Blob([bytes],{type:"text/html;charset=utf-8"});
+  cardioBlobUrl=URL.createObjectURL(blob);
+  $('cardioFrame').src=cardioBlobUrl;
+}
+
+
 loadAppData();
 </script>
+
+<script>
+/* =========================================================
+   MEGA GYM v049 — Dynamic height reporting for Wix
+   Sends the real document height to the parent container.
+   ========================================================= */
+(() => {
+  const MESSAGE_TYPE = 'MEGAGYM_HEIGHT';
+  let lastHeight = 0;
+  let rafId = 0;
+
+  function getDocumentHeight() {
+    const body = document.body;
+    const doc = document.documentElement;
+    return Math.ceil(Math.max(
+      body ? body.scrollHeight : 0,
+      body ? body.offsetHeight : 0,
+      doc ? doc.scrollHeight : 0,
+      doc ? doc.offsetHeight : 0,
+      doc ? doc.clientHeight : 0
+    ));
+  }
+
+  function reportHeight(force = false) {
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(() => {
+      const height = getDocumentHeight();
+      if (!force && Math.abs(height - lastHeight) < 2) return;
+      lastHeight = height;
+
+      const payload = {
+        type: MESSAGE_TYPE,
+        height,
+        version: 'v049'
+      };
+
+      try {
+        window.parent.postMessage(payload, '*');
+      } catch (error) {
+        console.warn('MEGA GYM height message failed:', error);
+      }
+    });
+  }
+
+  window.addEventListener('load', () => {
+    reportHeight(true);
+    setTimeout(() => reportHeight(true), 150);
+    setTimeout(() => reportHeight(true), 500);
+  });
+
+  window.addEventListener('resize', () => reportHeight(true));
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => reportHeight(true), 250);
+  });
+
+  document.addEventListener('click', () => {
+    setTimeout(() => reportHeight(true), 0);
+    setTimeout(() => reportHeight(true), 250);
+  }, true);
+
+  document.addEventListener('input', () => reportHeight(), true);
+  document.addEventListener('change', () => reportHeight(), true);
+
+  if ('ResizeObserver' in window) {
+    const resizeObserver = new ResizeObserver(() => reportHeight());
+    resizeObserver.observe(document.documentElement);
+    if (document.body) resizeObserver.observe(document.body);
+  }
+
+  if ('MutationObserver' in window) {
+    const mutationObserver = new MutationObserver(() => reportHeight());
+    mutationObserver.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      characterData: true
+    });
+  }
+
+  window.MEGAGYM_reportHeight = () => reportHeight(true);
+})();
+</script>
+
+
+<style>
+/* =========================================================
+   MEGA GYM v063 — JSON-driven cardio integration
+   ========================================================= */
+.cardio-v063-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+.cardio-v063-stat{padding:12px;border-radius:13px;text-align:center;border:1px solid rgba(59,216,255,.35);background:rgba(3,13,22,.78)}
+.cardio-v063-stat.orange{border-color:rgba(255,159,26,.78);box-shadow:0 0 14px rgba(255,159,26,.15)}
+.cardio-v063-stat.blue{border-color:rgba(59,216,255,.78);box-shadow:0 0 14px rgba(59,216,255,.15)}
+.cardio-v063-stat span{display:block;font-size:10px;color:#9eb4c5;font-weight:900;letter-spacing:.7px}
+.cardio-v063-stat strong{display:block;margin-top:7px;font-size:20px}
+.cardio-v063-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-top:12px}
+.cardio-v063-actions .graph{border:2px solid #ff9f1a!important}
+.cardio-live{border:2px solid #3bd8ff;border-radius:20px;padding:14px;background:linear-gradient(145deg,rgba(7,24,38,.98),rgba(2,8,14,.99));box-shadow:0 0 24px rgba(0,190,255,.2)}
+.cardio-live-header{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.cardio-live-box{padding:11px;border-radius:12px;text-align:center;background:rgba(2,13,22,.82);border:1px solid rgba(59,216,255,.3)}
+.cardio-live-box span{display:block;font-size:10px;color:#9eb4c5;font-weight:900}
+.cardio-live-box strong{display:block;font-size:23px;margin-top:5px}
+.cardio-message{min-height:100px;display:grid;place-items:center;text-align:center;padding:16px;border-radius:15px;border:2px solid rgba(59,216,255,.5);background:rgba(5,25,40,.9);font-weight:900;font-size:20px;line-height:1.25}
+.cardio-message.orange{border-color:#ff9f1a;background:rgba(75,39,5,.88);animation:cardioOrangePulse .55s infinite}
+.cardio-message.blue{border-color:#3bd8ff;background:rgba(2,55,82,.9);animation:cardioBluePulse .45s infinite}
+.cardio-message.finished{border-color:#42e879;background:rgba(4,65,29,.9);animation:cardioFinishPulse .55s infinite}
+.cardio-chart-shell{overflow-x:auto;margin:14px 0;padding:12px;border:1px solid rgba(59,216,255,.35);border-radius:16px;background:rgba(2,11,18,.86)}
+.cardio-bars{height:300px;display:flex;align-items:flex-end;gap:4px;min-width:max-content;padding:28px 10px 26px;position:relative}
+.cardio-bar-wrap{width:34px;height:100%;display:flex;align-items:flex-end;justify-content:center;position:relative}
+.cardio-bar{width:26px;min-height:54px;border-radius:5px 5px 0 0;background:linear-gradient(90deg,#321a04,#ff9f1a 48%,#ffe4a0 55%,#673607);border:1px solid rgba(255,197,94,.55);box-shadow:0 0 10px rgba(255,159,26,.22);position:relative}
+.cardio-bar.drill{background:linear-gradient(90deg,#00111c,#0576a7 40%,#a8f7ff 53%,#063a58 72%,#000e17);border-color:#70eaff;box-shadow:0 0 16px rgba(59,216,255,.55)}
+.cardio-bar.active{filter:brightness(1.75);animation:cardioBarPulse .42s infinite}
+.cardio-bar-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-90deg);font-size:9px;font-weight:900;white-space:nowrap}
+.cardio-minute{position:absolute;bottom:-20px;font-size:9px;color:#7695a7}
+.cardio-now{position:absolute;top:0;bottom:18px;width:2px;background:linear-gradient(#e4fdff,#00b7ff,#e4fdff);box-shadow:0 0 8px #3bd8ff,0 0 20px #00aeea;z-index:10;pointer-events:none}
+.cardio-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@keyframes cardioOrangePulse{50%{filter:brightness(1.45);box-shadow:0 0 28px rgba(255,159,26,.7)}}
+@keyframes cardioBluePulse{50%{filter:brightness(1.55);box-shadow:0 0 34px rgba(59,216,255,.8)}}
+@keyframes cardioFinishPulse{50%{filter:brightness(1.45);box-shadow:0 0 34px rgba(66,232,121,.75)}}
+@keyframes cardioBarPulse{50%{filter:brightness(2.1);box-shadow:0 0 30px currentColor}}
+@media(max-width:650px){
+ .cardio-v063-actions{grid-template-columns:1fr}
+ .cardio-live-header{grid-template-columns:1fr 1fr}
+}
+</style>
+
+<script>
+/* =========================================================
+   MEGA GYM v063 — Dynamic data layer and cardio renderer
+   ========================================================= */
+(function(){
+  const norm=v=>String(v??'').trim().toUpperCase();
+  const yes=v=>['ΝΑΙ','NAI','YES','TRUE','1'].includes(norm(v));
+  const safe=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const num=(v,d=0)=>{const n=Number(String(v??'').replace(',','.'));return Number.isFinite(n)?n:d};
+  const jsq=v=>String(v??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r?\n/g,' ');
+
+  window.getProgramGender=function(p){
+    const g=norm(p.gender||p.sex);
+    if(g.includes('ΓΥΝ')||g.includes('WOM')) return 'ΓΥΝΑΙΚΩΝ';
+    return 'ΑΝΔΡΩΝ';
+  };
+
+  function familyOf(p){
+    const v=norm(p.programFamily||p.family||'ΑΛΛΑ');
+    if(v.includes('TRANS')) return 'TRANSFORMATION';
+    return 'OTHER';
+  }
+  function categoryOf(p){
+    return norm(p.programCategory||p.category||'');
+  }
+
+  window.renderPrograms=function(gender,category='OTHER'){
+    state.gender=gender;
+    state.programCategory=category;
+    const targetFamily=category==='OTHER'?'OTHER':'TRANSFORMATION';
+    const list=(DB.programs||[])
+      .filter(p=>yes(p.active) && getProgramGender(p)===gender)
+      .filter(p=>familyOf(p)===targetFamily)
+      .filter(p=>targetFamily==='OTHER' || categoryOf(p)===norm(category))
+      .sort((a,b)=>num(a.order)-num(b.order));
+
+    $('programs').innerHTML=`
+      <div class="topbar">${back(category==='OTHER'?'programFamilies':'transformationCategories')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
+      <h2>${category==='OTHER'?'ΑΛΛΑ ΠΡΟΓΡΑΜΜΑΤΑ':(TRANSFORMATION_PROGRAM_CATEGORIES.find(c=>c.code===category)?.title||'ΠΡΟΓΡΑΜΜΑΤΑ')} — ${gender}</h2>
+      ${list.length ? list.map(p=>`
+        <article class="card">
+          ${img(p.image,'ΦΩΤΟΓΡΑΦΙΑ ΠΡΟΓΡΑΜΜΑΤΟΣ','program-img')}
+          <div class="card-body">
+            <span class="badge">${safe(p.total_days||p.totalDays||'—')} ΗΜΕΡΕΣ</span>
+            <h3>${safe(p.name)}</h3>
+            <p class="muted">${safe(p.description)}</p>
+            <button class="btn primary" style="width:100%" onclick="openProgramDetail('${jsq(p.code)}')">ΠΛΗΡΟΦΟΡΙΕΣ</button>
+          </div>
+        </article>`).join('') : `<div class="empty-state">Δεν υπάρχουν ενεργά προγράμματα σε αυτή την κατηγορία.</div>`}`;
+    show('programs');
+  };
+
+  function isCardioRow(row){
+    const ex=(DB.exercises||{})[row.exerciseCode]||{};
+    return norm(row.exerciseType||ex.exerciseType)==='CARDIO';
+  }
+
+  window.openDay=function(day){
+    state.day=day;
+    const rows=(DB.builder||[])
+      .filter(x=>x.programCode===state.programCode && num(x.day)===num(day) && yes(x.active))
+      .sort((a,b)=>num(a.muscleOrder)-num(b.muscleOrder));
+
+    if(!rows.length){
+      $('muscles').innerHTML=`<div class="topbar">${back('days')}<div class="logo">MEGA GYM</div></div><div class="empty-state">Δεν υπάρχουν ασκήσεις για αυτή την ημέρα.</div>`;
+      show('muscles'); return;
+    }
+
+    $('muscles').innerHTML=`
+      <div class="topbar">${back('days')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
+      <div class="logo">${safe(rows[0].dayButton)}</div>
+      <h2>${safe(rows[0].dayTitle)}</h2>
+      ${rows.map(r=>`
+        <button class="choice" onclick="${isCardioRow(r)?`openCardioExercise('${jsq(r.exerciseCode)}')`:`openExercise('${jsq(r.exerciseCode)}')`}">
+          <b>${safe(r.muscleTitle||r.muscle||(isCardioRow(r)?'CARDIO – ΑΕΡΟΒΙΟ':'ΑΣΚΗΣΗ'))}</b>
+          <div class="exercise-name">${safe(r.exerciseName||((DB.exercises||{})[r.exerciseCode]?.name)||r.exerciseCode)}</div>
+        </button>`).join('')}`;
+    show('muscles');
+  };
+
+  const originalOpenExercise=window.openExercise;
+  window.openExercise=function(code){
+    const e=(DB.exercises||{})[code];
+    if(e && norm(e.exerciseType)==='CARDIO') return openCardioExercise(code);
+    return originalOpenExercise(code);
+  };
+
+  function cardioDataForExercise(code){
+    const e=(DB.exercises||{})[code]||{};
+    const dataCode=e.exerciseDataCode||e.dataCode;
+    return {
+      exercise:e,
+      dataCode,
+      cardio:(DB.cardioPrograms||{})[dataCode]||null
+    };
+  }
+
+  window.openCardioExercise=function(code){
+    state.exerciseCode=code;
+    const {exercise:e,cardio:c,dataCode}=cardioDataForExercise(code);
+    if(!c){
+      $('cardioExercise').innerHTML=`
+        <div class="topbar">${back('muscles')}<div class="logo">MEGA GYM</div></div>
+        <div class="notice">Δεν βρέθηκε αερόβιο πρόγραμμα για ExerciseDataCode: ${safe(dataCode||'ΚΕΝΟ')}.</div>`;
+      show('cardioExercise'); return;
+    }
+
+    const rec=((DB.recommended||{})[code]||[]).filter(x=>yes(x.active));
+    const duration=num(c.durationMinutes);
+    const drillTarget=norm(c.drillTarget||c.drillMode);
+    const targetLabel=drillTarget==='INCLINE'?'ΑΛΛΑΓΗ ΚΛΙΣΗΣ':drillTarget==='NONE'?'ΣΤΑΘΕΡΗ ΕΝΤΑΣΗ':'ΑΛΛΑΓΗ ΤΑΧΥΤΗΤΑΣ';
+
+    $('cardioExercise').innerHTML=`
+      <div class="topbar">${back('muscles')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
+      <div class="logo">${safe(e.muscle||'CARDIO')}</div>
+      <h2>${safe(e.name||c.name)}</h2>
+
+      <div class="card"><div class="card-body">
+        <div class="info"><b>ΠΕΡΙΓΡΑΦΗ</b><div class="muted">${safe(e.description||'Αερόβιο πρόγραμμα ελεγχόμενης έντασης.')}</div></div>
+        <div class="cardio-v063-grid">
+          <div class="cardio-v063-stat orange"><span>ΜΙΚΡΗ ΤΑΧΥΤΗΤΑ</span><strong>${safe(c.lowSpeed)} km/h</strong></div>
+          <div class="cardio-v063-stat blue"><span>ΜΕΓΑΛΗ ΤΑΧΥΤΗΤΑ</span><strong>${safe(c.highSpeed)} km/h</strong></div>
+          <div class="cardio-v063-stat orange"><span>ΕΛΑΧΙΣΤΗ ΚΛΙΣΗ</span><strong>${safe(c.minIncline)}%</strong></div>
+          <div class="cardio-v063-stat blue"><span>ΜΕΓΙΣΤΗ ΚΛΙΣΗ</span><strong>${safe(c.maxIncline)}%</strong></div>
+        </div>
+        <div class="params">
+          <div class="param"><span>ΔΙΑΡΚΕΙΑ</span><strong>${duration} λεπτά</strong></div>
+          <div class="param"><span>DRILL</span><strong>${num(c.drillEveryMinutes)>0?`ανά ${num(c.drillEveryMinutes)} λεπτά`:'ΧΩΡΙΣ DRILL'}</strong></div>
+        </div>
+        <div class="info"><b>ΕΝΤΑΣΗ</b><div class="muted">${safe(e.intensity||targetLabel)}</div></div>
+        <div class="info"><b>ΤΕΧΝΙΚΗ</b><div class="muted">${safe(e.technique||'Σταθερός κορμός, φυσικός διασκελισμός και ομαλές μεταβολές έντασης.')}</div></div>
+        <div class="info"><b>ΑΝΑΠΝΟΗ</b><div class="muted">${safe(e.breathing||'Ρυθμική αναπνοή χωρίς κράτημα της αναπνοής.')}</div></div>
+        <div class="info"><b>WARM UP</b><div class="muted">${safe(e.warmup||`${num(c.warmUpMinutes)} λεπτά σταδιακής προθέρμανσης.`)}</div></div>
+        <div class="info"><b>ΣΥΧΝΑ ΛΑΘΗ</b><div class="muted">${safe(e.mistakes||'Απότομες αλλαγές, κράτημα από τις χειρολαβές και υπερβολικά μεγάλο βήμα.')}</div></div>
+        <div class="info"><b>ΣΚΟΠΟΣ</b><div class="muted">${safe(e.purpose||'Βελτίωση καρδιοαναπνευστικής αντοχής και ελεγχόμενη προοδευτική επιβάρυνση.')}</div></div>
+        <div class="info"><b>COOL DOWN</b><div class="muted">${safe(e.cooldown||`${num(c.coolDownMinutes)} λεπτά σταδιακής αποθεραπείας.`)}</div></div>
+      </div></div>
+
+      <h2>ΠΡΟΤΕΙΝΟΜΕΝΟΣ ΕΞΟΠΛΙΣΜΟΣ</h2>
+      ${(rec.length?rec:[{priority:1,equipmentName:c.equipment||'ΑΕΡΟΒΙΟ ΟΡΓΑΝΟ',machinePhoto:'',executionCode:'',executionName:c.name||e.name}]).map(item=>`
+        <article class="equipment-card">
+          ${img(item.machinePhoto,'ΦΩΤΟΓΡΑΦΙΑ ΜΗΧΑΝΗΜΑΤΟΣ','machine-photo')}
+          <div class="eq-body">
+            <span class="badge">${safe(item.priority||1)}η ΠΡΟΤΕΡΑΙΟΤΗΤΑ</span>
+            <h3>${safe(item.equipmentName||c.equipment)}</h3>
+            <p class="muted">${safe(item.executionName||c.name||e.name)}</p>
+            <div class="cardio-v063-actions">
+              <button class="btn primary" onclick="openExecutionPhoto('${jsq(item.executionCode||'')}')">ΑΣΚΗΣΗ</button>
+              <button class="btn dark" onclick="openExecutionVideo('${jsq(item.executionCode||'')}')">VIDEO</button>
+              <button class="btn graph" onclick="openCardioGraph('${jsq(code)}')">ΓΡΑΦΗΜΑ ΕΝΤΑΣΗΣ</button>
+            </div>
+          </div>
+        </article>`).join('')}`;
+    show('cardioExercise');
+  };
+
+  function buildCardioPhases(c){
+    const total=Math.max(1,Math.round(num(c.durationMinutes,30)));
+    const warm=Math.max(0,Math.min(total,Math.round(num(c.warmUpMinutes,3))));
+    const cool=Math.max(0,Math.min(total-warm,Math.round(num(c.coolDownMinutes,3))));
+    const mainEnd=total-cool;
+    const drillEvery=Math.max(0,Math.round(num(c.drillEveryMinutes,0)));
+    const target=norm(c.drillTarget||c.drillMode||'NONE');
+    const phases=[];
+    for(let m=1;m<=total;m++){
+      let type='normal', label='NORMAL', level=3;
+      if(m<=warm){
+        const f=m/Math.max(1,warm);
+        type='warmup';label='WARM UP';level=f<=.34?1:f<=.67?2:3;
+      }else if(m>mainEnd){
+        const pos=m-mainEnd, f=pos/Math.max(1,cool);
+        type='cooldown';label='COOL DOWN';level=f<=.34?3:f<=.67?2:1;
+      }else if(drillEvery>0 && target!=='NONE' && ((m-warm)%drillEvery===0)){
+        type='drill';label='DRILL';level=4;
+      }
+      phases.push({minute:m,type,label,level});
+    }
+    return phases;
+  }
+
+  let cardioRuntime={code:'',elapsed:0,running:false,interval:null,phases:[],totalSeconds:0,lastPhase:''};
+
+  function instructionAt(c,elapsed){
+    const minute=Math.min(c.durationMinutes,Math.floor(elapsed/60)+1);
+    const phase=cardioRuntime.phases[Math.max(0,minute-1)]||cardioRuntime.phases[0];
+    const secInMinute=elapsed%60;
+    const target=norm(c.drillTarget||c.drillMode||'NONE');
+    const speedMode=target!=='INCLINE';
+
+    if(elapsed>=cardioRuntime.totalSeconds) return {cls:'finished',title:'ΤΕΛΟΣ ΠΡΟΓΡΑΜΜΑΤΟΣ!',action:'ΜΠΡΑΒΟ ΓΙΑ ΤΗΝ ΠΡΟΣΠΑΘΕΙΑ ΣΑΣ'};
+    if(phase.type==='warmup'){
+      if(secInMinute< (minute===1?15:10)){
+        const finalWarm=minute===Math.round(num(c.warmUpMinutes));
+        return {cls:'orange',title:'WARM UP',action:finalWarm?`ΑΥΞΗΣΤΕ ΤΑΧΥΤΗΤΑ ΕΩΣ ${c.lowSpeed} km/h`:'ΑΥΞΗΣΤΕ ΣΤΑΔΙΑΚΑ ΤΗΝ ΤΑΧΥΤΗΤΑ'};
+      }
+      return {cls:'',title:'WARM UP',action:'ΔΙΑΤΗΡΗΣΤΕ ΣΤΑΘΕΡΗ ΤΑΧΥΤΗΤΑ'};
+    }
+    if(phase.type==='drill'){
+      if(secInMinute<10){
+        return {cls:'blue',title:'DRILL',action:speedMode?`ΑΥΞΗΣΤΕ ΤΑΧΥΤΗΤΑ ΕΩΣ ${c.highSpeed} km/h`:`ΑΥΞΗΣΤΕ ΚΛΙΣΗ ΕΩΣ ${c.maxIncline}%`};
+      }
+      return {cls:'blue',title:'DRILL',action:speedMode?'ΔΙΑΤΗΡΗΣΤΕ ΣΤΑΘΕΡΗ ΤΑΧΥΤΗΤΑ':'ΔΙΑΤΗΡΗΣΤΕ ΣΤΑΘΕΡΗ ΚΛΙΣΗ'};
+    }
+    const prev=cardioRuntime.phases[Math.max(0,minute-2)];
+    if(prev?.type==='drill' && secInMinute<5){
+      return {cls:'orange',title:'ΜΕΙΩΣΤΕ ΕΝΤΑΣΗ',action:speedMode?`ΜΕΙΩΣΤΕ ΤΑΧΥΤΗΤΑ ΕΩΣ ${c.lowSpeed} km/h`:`ΜΕΙΩΣΤΕ ΚΛΙΣΗ ΕΩΣ ${c.minIncline}%`};
+    }
+    if(phase.type==='cooldown'){
+      if(secInMinute<10){
+        return {cls:'orange',title:'COOL DOWN',action:`ΜΕΙΩΣΤΕ ΣΤΑΔΙΑΚΑ ΤΗΝ ΤΑΧΥΤΗΤΑ ΕΩΣ ${c.lowSpeed} km/h`};
+      }
+      return {cls:'',title:'COOL DOWN',action:'ΔΙΑΤΗΡΗΣΤΕ ΕΛΕΓΧΟΜΕΝΟ ΡΥΘΜΟ'};
+    }
+    return {cls:'',title:'ΚΑΝΟΝΙΚΟΣ ΡΥΘΜΟΣ',action:'ΔΙΑΤΗΡΗΣΤΕ ΤΑΧΥΤΗΤΑ'};
+  }
+
+  function updateCardioUI(c){
+    const remaining=Math.max(0,cardioRuntime.totalSeconds-cardioRuntime.elapsed);
+    const mm=String(Math.floor(remaining/60)).padStart(2,'0');
+    const ss=String(remaining%60).padStart(2,'0');
+    if($('cardioRemaining')) $('cardioRemaining').textContent=`${mm}:${ss}`;
+    if($('cardioElapsed')) $('cardioElapsed').textContent=`${Math.floor(cardioRuntime.elapsed/60)+1}/${c.durationMinutes}`;
+    const msg=instructionAt(c,cardioRuntime.elapsed);
+    if($('cardioMessage')){
+      $('cardioMessage').className=`cardio-message ${msg.cls}`;
+      $('cardioMessage').innerHTML=`<div><div style="font-size:13px;color:#b9d8e7;margin-bottom:7px">${safe(msg.title)}</div>${safe(msg.action)}</div>`;
+    }
+    document.querySelectorAll('.cardio-bar').forEach(x=>x.classList.remove('active'));
+    const idx=Math.min(cardioRuntime.phases.length-1,Math.floor(cardioRuntime.elapsed/60));
+    document.querySelector(`.cardio-bar[data-index="${idx}"]`)?.classList.add('active');
+    const now=$('cardioNow');
+    if(now){
+      const pct=Math.min(100,(cardioRuntime.elapsed/cardioRuntime.totalSeconds)*100);
+      now.style.left=`${pct}%`;
+    }
+  }
+
+  window.openCardioGraph=function(code){
+    const {exercise:e,cardio:c}=cardioDataForExercise(code);
+    if(!c) return;
+    if(cardioRuntime.interval) clearInterval(cardioRuntime.interval);
+    cardioRuntime={code,elapsed:0,running:false,interval:null,phases:buildCardioPhases(c),totalSeconds:Math.round(num(c.durationMinutes,30)*60),lastPhase:''};
+
+    $('cardioGraph').innerHTML=`
+      <div class="topbar">${back('cardioExercise')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
+      <h2>${safe(e.name||c.name)}</h2>
+      <div class="cardio-live">
+        <div class="cardio-live-header">
+          <div class="cardio-live-box"><span>ΥΠΟΛΟΙΠΟ</span><strong id="cardioRemaining">00:00</strong></div>
+          <div class="cardio-live-box"><span>ΤΡΕΧΟΝ ΛΕΠΤΟ</span><strong id="cardioElapsed">1/${safe(c.durationMinutes)}</strong></div>
+        </div>
+        <div id="cardioMessage" class="cardio-message"></div>
+        <div class="cardio-chart-shell">
+          <div class="cardio-bars">
+            <div id="cardioNow" class="cardio-now" style="left:0"></div>
+            ${cardioRuntime.phases.map((p,i)=>`
+              <div class="cardio-bar-wrap">
+                <div class="cardio-bar ${p.type==='drill'?'drill':''}" data-index="${i}" style="height:${p.level===1?74:p.level===2?106:p.level===3?138:224}px">
+                  <div class="cardio-bar-label">${safe(p.label)}</div>
+                </div>
+                <div class="cardio-minute">${p.minute}</div>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div class="cardio-controls">
+          <button class="btn primary" onclick="startCardioProgram()">START</button>
+          <button class="btn dark" onclick="stopCardioProgram()">STOP</button>
+        </div>
+        <button class="btn dark" style="width:100%;margin-top:10px" onclick="resetCardioProgram()">ΕΠΑΝΑΦΟΡΑ</button>
+      </div>`;
+    show('cardioGraph');
+    updateCardioUI(c);
+  };
+
+  window.startCardioProgram=function(){
+    if(cardioRuntime.running) return;
+    const {cardio:c}=cardioDataForExercise(cardioRuntime.code);
+    if(!c) return;
+    if(cardioRuntime.elapsed>=cardioRuntime.totalSeconds) return;
+    cardioRuntime.running=true;
+    cardioRuntime.interval=setInterval(()=>{
+      cardioRuntime.elapsed++;
+      if(cardioRuntime.elapsed>=cardioRuntime.totalSeconds){
+        cardioRuntime.elapsed=cardioRuntime.totalSeconds;
+        clearInterval(cardioRuntime.interval);
+        cardioRuntime.interval=null;
+        cardioRuntime.running=false;
+        if(navigator.vibrate) navigator.vibrate([180,100,180,100,250]);
+      }
+      updateCardioUI(c);
+    },1000);
+  };
+  window.stopCardioProgram=function(){
+    if(cardioRuntime.interval) clearInterval(cardioRuntime.interval);
+    cardioRuntime.interval=null; cardioRuntime.running=false;
+  };
+  window.resetCardioProgram=function(){
+    stopCardioProgram();
+    cardioRuntime.elapsed=0;
+    const {cardio:c}=cardioDataForExercise(cardioRuntime.code);
+    if(c) updateCardioUI(c);
+  };
+})();
+</script>
+
 </body>
 </html>
