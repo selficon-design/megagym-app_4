@@ -1963,7 +1963,7 @@ loadAppData();
 .cardio-v063-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-top:12px}
 .cardio-v063-actions .graph{border:2px solid #ff9f1a!important}
 .cardio-live{border:2px solid #3bd8ff;border-radius:20px;padding:14px;background:linear-gradient(145deg,rgba(7,24,38,.98),rgba(2,8,14,.99));box-shadow:0 0 24px rgba(0,190,255,.2)}
-.cardio-live-header{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.cardio-live-header{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
 .cardio-live-box{padding:11px;border-radius:12px;text-align:center;background:rgba(2,13,22,.82);border:1px solid rgba(59,216,255,.3)}
 .cardio-live-box span{display:block;font-size:10px;color:#9eb4c5;font-weight:900}
 .cardio-live-box strong{display:block;font-size:23px;margin-top:5px}
@@ -2020,16 +2020,23 @@ loadAppData();
   window.renderPrograms=function(gender,category='OTHER'){
     state.gender=gender;
     state.programCategory=category;
-    const targetFamily=category==='OTHER'?'OTHER':'TRANSFORMATION';
+
+    const wantedCategory=norm(category);
     const list=(DB.programs||[])
       .filter(p=>yes(p.active) && getProgramGender(p)===gender)
-      .filter(p=>familyOf(p)===targetFamily)
-      .filter(p=>targetFamily==='OTHER' || categoryOf(p)===norm(category))
+      .filter(p=>{
+        const ownCategory=norm(p.programCategory||p.category||'OTHER');
+        return wantedCategory==='OTHER'
+          ? ownCategory==='' || ownCategory==='OTHER' || ownCategory==='ΑΛΛΑ'
+          : ownCategory===wantedCategory;
+      })
       .sort((a,b)=>num(a.order)-num(b.order));
 
     $('programs').innerHTML=`
       <div class="topbar">${back(category==='OTHER'?'programFamilies':'transformationCategories')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
-      <h2>${category==='OTHER'?'ΑΛΛΑ ΠΡΟΓΡΑΜΜΑΤΑ':(TRANSFORMATION_PROGRAM_CATEGORIES.find(c=>c.code===category)?.title||'ΠΡΟΓΡΑΜΜΑΤΑ')} — ${gender}</h2>
+      <h2>${category==='OTHER'
+        ? 'ΑΛΛΑ ΠΡΟΓΡΑΜΜΑΤΑ'
+        : (TRANSFORMATION_PROGRAM_CATEGORIES.find(c=>c.code===category)?.title||'ΠΡΟΓΡΑΜΜΑΤΑ TRANSFORMATION')} — ${gender}</h2>
       ${list.length ? list.map(p=>`
         <article class="card">
           ${img(p.image,'ΦΩΤΟΓΡΑΦΙΑ ΠΡΟΓΡΑΜΜΑΤΟΣ','program-img')}
@@ -2039,7 +2046,12 @@ loadAppData();
             <p class="muted">${safe(p.description)}</p>
             <button class="btn primary" style="width:100%" onclick="openProgramDetail('${jsq(p.code)}')">ΠΛΗΡΟΦΟΡΙΕΣ</button>
           </div>
-        </article>`).join('') : `<div class="empty-state">Δεν υπάρχουν ενεργά προγράμματα σε αυτή την κατηγορία.</div>`}`;
+        </article>`).join('') : `
+        <div class="empty-state">
+          ${category==='OTHER'
+            ? 'Δεν υπάρχουν ενεργά Άλλα Προγράμματα.'
+            : 'Δεν υπάρχουν ακόμη προγράμματα συνδεδεμένα με αυτή την κατηγορία Transformation.'}
+        </div>`}`;
     show('programs');
   };
 
@@ -2241,6 +2253,22 @@ loadAppData();
         <div class="cardio-live-header">
           <div class="cardio-live-box"><span>ΥΠΟΛΟΙΠΟ</span><strong id="cardioRemaining">00:00</strong></div>
           <div class="cardio-live-box"><span>ΤΡΕΧΟΝ ΛΕΠΤΟ</span><strong id="cardioElapsed">1/${safe(c.durationMinutes)}</strong></div>
+          <div class="cardio-live-box" style="border-color:#ff9f1a;box-shadow:0 0 14px rgba(255,159,26,.18)">
+            <span>ΜΙΚΡΗ ΤΑΧΥΤΗΤΑ</span>
+            <strong>${safe(c.lowSpeed)} km/h</strong>
+          </div>
+          <div class="cardio-live-box" style="border-color:#3bd8ff;box-shadow:0 0 14px rgba(59,216,255,.22)">
+            <span>ΜΕΓΑΛΗ ΤΑΧΥΤΗΤΑ</span>
+            <strong>${safe(c.highSpeed)} km/h</strong>
+          </div>
+          <div class="cardio-live-box" style="border-color:#ff9f1a;box-shadow:0 0 14px rgba(255,159,26,.18)">
+            <span>ΕΛΑΧΙΣΤΗ ΚΛΙΣΗ</span>
+            <strong>${safe(c.minIncline)}%</strong>
+          </div>
+          <div class="cardio-live-box" style="border-color:#3bd8ff;box-shadow:0 0 14px rgba(59,216,255,.22)">
+            <span>ΜΕΓΙΣΤΗ ΚΛΙΣΗ</span>
+            <strong>${safe(c.maxIncline)}%</strong>
+          </div>
         </div>
         <div id="cardioMessage" class="cardio-message"></div>
         <div class="cardio-chart-shell">
@@ -2295,6 +2323,769 @@ loadAppData();
   };
 })();
 </script>
+
+
+<script>
+window.addEventListener('load',()=>{
+  try{
+    console.table((DB.programs||[]).map(p=>({
+      code:p.code,
+      name:p.name,
+      programFamily:p.programFamily||'',
+      programCategory:p.programCategory||p.category||'OTHER',
+      active:p.active
+    })));
+  }catch(e){}
+});
+</script>
+
+
+<script>
+/* =========================================================
+   MEGA GYM v067 — Add cardio exercise to MEN004 / DAY ONE
+   ========================================================= */
+(function(){
+  const norm=v=>String(v??'').trim().toUpperCase();
+  const yes=v=>['ΝΑΙ','NAI','YES','TRUE','1'].includes(norm(v));
+
+  window.ensureCardioOnDayOne=function(){
+    DB.builder = Array.isArray(DB.builder) ? DB.builder : [];
+    DB.exercises = DB.exercises || {};
+    DB.cardioPrograms = DB.cardioPrograms || {};
+
+    const exists = DB.builder.some(r =>
+      String(r.programCode)==='MEN004' &&
+      Number(r.day)===1 &&
+      (
+        norm(r.exerciseType)==='CARDIO' ||
+        norm(DB.exercises?.[r.exerciseCode]?.exerciseType)==='CARDIO'
+      )
+    );
+    if(exists) return;
+
+    const entries = Object.entries(DB.cardioPrograms)
+      .filter(([code,c]) => c && (c.active===undefined || yes(c.active)));
+
+    if(!entries.length) return;
+
+    const selected = entries.find(([code]) => norm(code)==='TREADMILL_30_FIXED') || entries[0];
+    const [dataCode, cardio] = selected;
+    const exerciseCode = 'EX_CARDIO_TREADMILL_30';
+
+    DB.exercises[exerciseCode] = {
+      code: exerciseCode,
+      muscle: 'CARDIO',
+      name: cardio.name || 'Διάδρομος 30 λεπτά',
+      description: 'Αερόβιο πρόγραμμα ελεγχόμενης έντασης.',
+      intensity: 'Σταδιακή αύξηση έντασης με προγραμματισμένα drills.',
+      technique: 'Σταθερός κορμός, φυσικός διασκελισμός και ομαλές μεταβολές έντασης.',
+      breathing: 'Ρυθμική αναπνοή χωρίς κράτημα.',
+      warmup: `${Number(cardio.warmUpMinutes||3)} λεπτά σταδιακής προθέρμανσης.`,
+      mistakes: 'Απότομες αλλαγές ταχύτητας, κράτημα από τις χειρολαβές και υπερβολικός διασκελισμός.',
+      purpose: 'Βελτίωση καρδιοαναπνευστικής αντοχής και ενεργειακής δαπάνης.',
+      cooldown: `${Number(cardio.coolDownMinutes||3)} λεπτά σταδιακής αποθεραπείας.`,
+      exerciseType: 'CARDIO',
+      exerciseDataCode: dataCode,
+      active: 'ΝΑΙ'
+    };
+
+    const rows = DB.builder.filter(r => String(r.programCode)==='MEN004' && Number(r.day)===1);
+    const maxOrder = rows.reduce((m,r)=>Math.max(m,Number(r.muscleOrder)||0),0);
+
+    DB.builder.push({
+      programCode: 'MEN004',
+      day: 1,
+      dayButton: rows[0]?.dayButton || 'DAY ONE',
+      dayTitle: rows[0]?.dayTitle || 'ΠΡΟΠΟΝΗΣΗ ΗΜΕΡΑΣ',
+      muscleOrder: maxOrder + 1,
+      muscle: 'CARDIO',
+      muscleTitle: 'CARDIO – ΑΕΡΟΒΙΟ',
+      exerciseCode: exerciseCode,
+      exerciseType: 'CARDIO',
+      exerciseName: DB.exercises[exerciseCode].name,
+      active: 'ΝΑΙ'
+    });
+  };
+
+  const originalRenderHome = window.renderHome;
+  window.renderHome = function(){
+    ensureCardioOnDayOne();
+    return originalRenderHome();
+  };
+
+  ensureCardioOnDayOne();
+})();
+</script>
+
+
+<script>
+/* =========================================================
+   MEGA GYM v068 — Guaranteed visible CARDIO in MEN004 / DAY ONE
+   ========================================================= */
+(function(){
+  const norm=v=>String(v??'').trim().toUpperCase();
+  const yes=v=>['ΝΑΙ','NAI','YES','TRUE','1'].includes(norm(v));
+  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+  function prepareGuaranteedCardio(){
+    DB.exercises = DB.exercises || {};
+    DB.cardioPrograms = DB.cardioPrograms || {};
+
+    let entries=Object.entries(DB.cardioPrograms).filter(([code,c])=>c && (c.active===undefined || yes(c.active)));
+
+    if(!entries.length){
+      DB.cardioPrograms.TREADMILL_30_FIXED={
+        code:'TREADMILL_30_FIXED',
+        name:'Διάδρομος 30 λεπτά με σταθερή κλίση',
+        equipment:'Διάδρομος',
+        durationMinutes:30,
+        warmUpMinutes:3,
+        coolDownMinutes:3,
+        drillEveryMinutes:6,
+        drillTarget:'SPEED',
+        lowSpeed:5,
+        highSpeed:8,
+        minIncline:3,
+        maxIncline:3,
+        active:'ΝΑΙ'
+      };
+      entries=[['TREADMILL_30_FIXED',DB.cardioPrograms.TREADMILL_30_FIXED]];
+    }
+
+    const selected=entries.find(([code])=>norm(code)==='TREADMILL_30_FIXED') || entries[0];
+    const [dataCode,c]=selected;
+
+    DB.exercises.EX_CARDIO_TREADMILL_30={
+      code:'EX_CARDIO_TREADMILL_30',
+      muscle:'CARDIO',
+      name:c.name||'Διάδρομος 30 λεπτά',
+      description:'Αερόβιο πρόγραμμα ελεγχόμενης έντασης.',
+      intensity:'Σταδιακή αύξηση έντασης με προγραμματισμένα drills.',
+      technique:'Σταθερός κορμός, φυσικός διασκελισμός και ομαλές μεταβολές έντασης.',
+      breathing:'Ρυθμική αναπνοή χωρίς κράτημα.',
+      warmup:`${Number(c.warmUpMinutes||3)} λεπτά σταδιακής προθέρμανσης.`,
+      mistakes:'Απότομες αλλαγές ταχύτητας και παρατεταμένο κράτημα από τις χειρολαβές.',
+      purpose:'Βελτίωση καρδιοαναπνευστικής αντοχής και αύξηση ενεργειακής δαπάνης.',
+      cooldown:`${Number(c.coolDownMinutes||3)} λεπτά σταδιακής αποθεραπείας.`,
+      exerciseType:'CARDIO',
+      exerciseDataCode:dataCode,
+      active:'ΝΑΙ'
+    };
+  }
+
+  window.openDay=function(day){
+    state.day=day;
+    prepareGuaranteedCardio();
+
+    const rows=(DB.builder||[])
+      .filter(x=>String(x.programCode)===String(state.programCode) && Number(x.day)===Number(day) && yes(x.active))
+      .sort((a,b)=>(Number(a.muscleOrder)||0)-(Number(b.muscleOrder)||0));
+
+    if(!rows.length){
+      $('muscles').innerHTML=`
+        <div class="topbar">${back('days')}<div class="logo">MEGA GYM</div></div>
+        <div class="empty-state">Δεν υπάρχουν ασκήσεις για αυτή την ημέρα.</div>`;
+      show('muscles');
+      return;
+    }
+
+    const cardioButton=(String(state.programCode)==='MEN004' && Number(day)===1)
+      ? `
+        <button class="choice" onclick="openCardioExercise('EX_CARDIO_TREADMILL_30')">
+          <b>CARDIO – ΑΕΡΟΒΙΟ</b>
+          <div class="exercise-name">${esc(DB.exercises.EX_CARDIO_TREADMILL_30.name)}</div>
+        </button>`
+      : '';
+
+    $('muscles').innerHTML=`
+      <div class="topbar">${back('days')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
+      <div class="logo">${esc(rows[0].dayButton)}</div>
+      <h2>${esc(rows[0].dayTitle)}</h2>
+      ${rows.map(r=>{
+        const e=(DB.exercises||{})[r.exerciseCode]||{};
+        const cardio=norm(r.exerciseType||e.exerciseType)==='CARDIO';
+        return `
+          <button class="choice" onclick="${cardio?`openCardioExercise('${String(r.exerciseCode).replace(/'/g,"\\'")}')`:`openExercise('${String(r.exerciseCode).replace(/'/g,"\\'")}')`}">
+            <b>${esc(r.muscleTitle||r.muscle||'ΑΣΚΗΣΗ')}</b>
+            <div class="exercise-name">${esc(r.exerciseName||e.name||r.exerciseCode)}</div>
+          </button>`;
+      }).join('')}
+      ${cardioButton}`;
+    show('muscles');
+  };
+
+  prepareGuaranteedCardio();
+})();
+</script>
+
+
+<style>
+/* MEGA GYM v071 — category photos and banners */
+.category-card-photo{
+  width:100%;
+  height:210px;
+  object-fit:cover;
+  display:block;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+.category-banner{
+  width:100%;
+  height:230px;
+  object-fit:cover;
+  display:block;
+  margin:0 0 18px;
+  border:2px solid #3bd8ff!important;
+  border-radius:18px!important;
+}
+.category-photo-placeholder{
+  height:210px;
+  display:grid;
+  place-items:center;
+  text-align:center;
+  padding:18px;
+  color:#7695a7;
+  background:linear-gradient(145deg,rgba(11,35,52,.94),rgba(3,12,20,.98));
+  border-bottom:1px solid rgba(59,216,255,.32);
+  font-weight:900;
+}
+</style>
+
+<script>
+/* =========================================================
+   MEGA GYM v071 — Categories fully controlled by JSON/Excel
+   ========================================================= */
+(function(){
+  const norm=v=>String(v??'').trim().toUpperCase();
+  const yes=v=>['ΝΑΙ','NAI','YES','TRUE','1'].includes(norm(v));
+  const safeText=v=>String(v??'').replace(/[&<>"']/g,m=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
+
+  const fallbackCategories={
+    TRANSFORMATION:{
+      code:'TRANSFORMATION',parent:'ROOT',order:1,
+      title:'ΠΡΟΓΡΑΜΜΑΤΑ TRANSFORMATION',
+      description:'Εξειδικευμένα προγράμματα ανάλογα με τον βασικό στόχο του ασκούμενου.',
+      results:'',cardPhoto:'',bannerPhoto:'',active:'ΝΑΙ'
+    },
+    OTHER:{
+      code:'OTHER',parent:'ROOT',order:2,
+      title:'ΑΛΛΑ ΠΡΟΓΡΑΜΜΑΤΑ',
+      description:'Προγράμματα ημερών, γενικής ενδυνάμωσης και προπόνησης με όργανα.',
+      results:'',cardPhoto:'',bannerPhoto:'',active:'ΝΑΙ'
+    },
+    FAT_LOSS:{
+      code:'FAT_LOSS',parent:'TRANSFORMATION',order:1,
+      title:'ΚΑΥΣΗ ΛΙΠΟΥΣ',
+      description:'Προγράμματα με στόχο την αύξηση της ενεργειακής δαπάνης και τη σταδιακή μείωση του σωματικού λίπους.',
+      results:'Βελτίωση αντοχής, αυξημένη κατανάλωση θερμίδων και καλύτερη συνολική φυσική κατάσταση.',
+      cardPhoto:'',bannerPhoto:'',active:'ΝΑΙ'
+    },
+    MUSCLE_GAIN:{
+      code:'MUSCLE_GAIN',parent:'TRANSFORMATION',order:2,
+      title:'ΑΥΞΗΣΗ ΜΥΪΚΟΥ ΙΣΤΟΥ',
+      description:'Προγράμματα προοδευτικής επιβάρυνσης με έμφαση στην τεχνική και στον προπονητικό όγκο.',
+      results:'Αύξηση μυϊκής μάζας, βελτίωση δύναμης και καλύτερη σωματική σύνθεση.',
+      cardPhoto:'',bannerPhoto:'',active:'ΝΑΙ'
+    }
+  };
+
+  function categories(){
+    const source=DB.programCategories && Object.keys(DB.programCategories).length
+      ? DB.programCategories
+      : fallbackCategories;
+    return Object.values(source)
+      .filter(c=>c && (c.active===undefined || yes(c.active)))
+      .sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));
+  }
+
+  function category(code){
+    return categories().find(c=>norm(c.code)===norm(code)) || fallbackCategories[norm(code)] || null;
+  }
+
+  function categoryPhoto(c,label){
+    return c?.cardPhoto
+      ? `<img class="category-card-photo" src="${safeText(c.cardPhoto)}" alt="${safeText(label)}">`
+      : `<div class="category-photo-placeholder">ΦΩΤΟΓΡΑΦΙΑ ΚΑΤΗΓΟΡΙΑΣ<br><small>Συμπλήρωσε CardPhoto στο Excel</small></div>`;
+  }
+
+  function categoryBanner(c){
+    return c?.bannerPhoto
+      ? `<img class="category-banner" src="${safeText(c.bannerPhoto)}" alt="${safeText(c.title)}">`
+      : '';
+  }
+
+  window.renderProgramFamilies=function(gender){
+    state.gender=gender;
+    const roots=categories().filter(c=>norm(c.parent)==='ROOT');
+
+    $('programFamilies').innerHTML=`
+      <div class="topbar">${back('home')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
+      <h2>ΠΡΟΓΡΑΜΜΑΤΑ ${safeText(gender)}</h2>
+      <div class="program-family-grid">
+        ${roots.map(c=>`
+          <article class="program-family-card">
+            ${categoryPhoto(c,c.title)}
+            <div class="program-family-body">
+              <span class="badge">${norm(c.code)==='TRANSFORMATION'?'TRANSFORMATION':'TRAINING'}</span>
+              <h3>${safeText(c.title)}</h3>
+              <p class="muted">${safeText(c.description)}</p>
+              <button class="btn ${norm(c.code)==='TRANSFORMATION'?'primary':'dark'}"
+                onclick="${norm(c.code)==='TRANSFORMATION'
+                  ? `renderTransformationCategories('${String(gender).replace(/'/g,"\\'")}')`
+                  : `renderPrograms('${String(gender).replace(/'/g,"\\'")}','${String(c.code).replace(/'/g,"\\'")}')`}">
+                ${norm(c.code)==='TRANSFORMATION'?'ΕΠΙΛΟΓΗ ΚΑΤΗΓΟΡΙΑΣ':'ΠΡΟΒΟΛΗ ΠΡΟΓΡΑΜΜΑΤΩΝ'}
+              </button>
+            </div>
+          </article>`).join('')}
+      </div>`;
+    show('programFamilies');
+  };
+
+  window.renderTransformationCategories=function(gender){
+    state.gender=gender;
+    const parent=category('TRANSFORMATION');
+    const children=categories().filter(c=>norm(c.parent)==='TRANSFORMATION');
+
+    $('transformationCategories').innerHTML=`
+      <div class="topbar">${back('programFamilies')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
+      ${categoryBanner(parent)}
+      <h2>${safeText(parent?.title||'TRANSFORMATION')} — ${safeText(gender)}</h2>
+      <div class="transformation-category-grid">
+        ${children.map(c=>`
+          <article class="transformation-category-card">
+            ${categoryPhoto(c,c.title)}
+            <div class="transformation-category-body">
+              <span class="badge">ΚΑΤΗΓΟΡΙΑ</span>
+              <h3>${safeText(c.title)}</h3>
+              <div class="info"><b>ΠΕΡΙΓΡΑΦΗ</b><div class="muted">${safeText(c.description)}</div></div>
+              <div class="category-result"><b>ΑΠΟΤΕΛΕΣΜΑΤΑ</b><div class="muted">${safeText(c.results)}</div></div>
+              <button class="btn primary" onclick="renderPrograms('${String(gender).replace(/'/g,"\\'")}','${String(c.code).replace(/'/g,"\\'")}')">
+                ΠΡΟΒΟΛΗ ΠΡΟΓΡΑΜΜΑΤΩΝ
+              </button>
+            </div>
+          </article>`).join('')}
+      </div>`;
+    show('transformationCategories');
+  };
+
+  window.renderPrograms=function(gender,categoryCode='OTHER'){
+    state.gender=gender;
+    state.programCategory=categoryCode;
+    const c=category(categoryCode);
+    const wanted=norm(categoryCode);
+
+    const list=(DB.programs||[])
+      .filter(p=>yes(p.active) && getProgramGender(p)===gender)
+      .filter(p=>{
+        const raw=String(p.programCategory||p.category||'OTHER');
+        const values=raw.split(/[,;|]/).map(norm).filter(Boolean);
+        return wanted==='OTHER'
+          ? values.length===0 || values.includes('OTHER')
+          : values.includes(wanted);
+      })
+      .sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));
+
+    $('programs').innerHTML=`
+      <div class="topbar">${back(wanted==='OTHER'?'programFamilies':'transformationCategories')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
+      ${categoryBanner(c)}
+      <h2>${safeText(c?.title||categoryCode)} — ${safeText(gender)}</h2>
+      ${list.length ? list.map(p=>`
+        <article class="card">
+          ${img(p.image,'ΦΩΤΟΓΡΑΦΙΑ ΠΡΟΓΡΑΜΜΑΤΟΣ','program-img')}
+          <div class="card-body">
+            <span class="badge">${safeText(p.total_days||p.totalDays||'—')} ΗΜΕΡΕΣ</span>
+            <h3>${safeText(p.name)}</h3>
+            <p class="muted">${safeText(p.description)}</p>
+            <button class="btn primary" style="width:100%" onclick="openProgramDetail('${String(p.code).replace(/'/g,"\\'")}')">ΠΛΗΡΟΦΟΡΙΕΣ</button>
+          </div>
+        </article>`).join('') : `<div class="empty-state">Δεν υπάρχουν ενεργά προγράμματα σε αυτή την κατηγορία.</div>`}`;
+    show('programs');
+  };
+})();
+</script>
+
+
+<style>
+/* =========================================================
+   MEGA GYM v072 — Fullscreen cinematic intro system
+   ========================================================= */
+#megaIntroOverlay{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  background:#000;
+  opacity:1;
+  transition:opacity .35s ease;
+}
+#megaIntroOverlay.show{display:flex}
+#megaIntroOverlay.fade-out{opacity:0;pointer-events:none}
+#megaIntroMedia{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  background:#000;
+}
+#megaIntroPhoto{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:none;
+}
+#megaIntroBrand{
+  position:absolute;
+  left:0;right:0;bottom:max(30px,env(safe-area-inset-bottom));
+  text-align:center;
+  pointer-events:none;
+  opacity:0;
+  animation:introBrandIn .75s ease 1.2s forwards;
+}
+#megaIntroBrand strong{
+  display:block;
+  font-family:Orbitron,Arial,sans-serif;
+  font-size:clamp(25px,8vw,48px);
+  letter-spacing:4px;
+  color:#e9fbff;
+  text-shadow:0 0 9px #3bd8ff,0 0 28px rgba(59,216,255,.85);
+}
+#megaIntroBrand span{
+  display:block;
+  margin-top:6px;
+  font-family:Orbitron,Arial,sans-serif;
+  font-size:clamp(9px,3vw,14px);
+  letter-spacing:3px;
+  color:#ffb34f;
+  text-shadow:0 0 12px rgba(255,159,26,.8);
+}
+#megaIntroLoading{
+  position:absolute;
+  left:50%;
+  bottom:max(14px,env(safe-area-inset-bottom));
+  transform:translateX(-50%);
+  width:min(220px,55vw);
+  height:3px;
+  border-radius:999px;
+  overflow:hidden;
+  background:rgba(255,255,255,.16);
+}
+#megaIntroLoading::after{
+  content:"";
+  display:block;
+  height:100%;
+  width:40%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#3bd8ff,#ff9f1a);
+  box-shadow:0 0 14px #3bd8ff;
+  animation:introLoader 1.05s linear infinite;
+}
+@keyframes introLoader{
+  from{transform:translateX(-120%)}
+  to{transform:translateX(350%)}
+}
+@keyframes introBrandIn{
+  from{opacity:0;transform:translateY(15px)}
+  to{opacity:1;transform:translateY(0)}
+}
+</style>
+
+<div id="megaIntroOverlay" aria-hidden="true">
+  <video id="megaIntroMedia" playsinline preload="auto"></video>
+  <img id="megaIntroPhoto" alt="">
+  <div id="megaIntroBrand">
+    <strong>MEGA GYM</strong>
+    <span>TRAINING SYSTEM</span>
+  </div>
+  <div id="megaIntroLoading"></div>
+</div>
+
+<script>
+/* =========================================================
+   MEGA GYM v072 — Excel/JSON controlled intro engine
+   ========================================================= */
+(function(){
+  const norm=v=>String(v??'').trim().toUpperCase();
+  const yes=v=>['ΝΑΙ','NAI','YES','TRUE','1'].includes(norm(v));
+
+  function setting(code,fallback=''){
+    const item=DB?.appSettings?.[code];
+    if(!item || (item.active!==undefined && !yes(item.active))) return fallback;
+    return item.value ?? fallback;
+  }
+
+  function categoryByCode(code){
+    const obj=DB?.programCategories||{};
+    return Object.values(obj).find(c=>norm(c.code)===norm(code))||null;
+  }
+
+  let transitionRunning=false;
+
+  window.playMegaIntro=function(config,onFinish){
+    if(transitionRunning) return;
+    const enabled=config.enabled===undefined ? true : yes(config.enabled);
+    const type=norm(config.type||'NONE');
+    const media=String(config.media||'').trim();
+    const duration=Math.max(0,Number(config.durationSeconds)||0);
+    const muted=config.muted===undefined ? true : yes(config.muted);
+    const fadeMs=Math.max(0,Number(config.fadeMs)||350);
+
+    if(!enabled || type==='NONE' || !media){
+      onFinish?.();
+      return;
+    }
+
+    transitionRunning=true;
+    const overlay=document.getElementById('megaIntroOverlay');
+    const video=document.getElementById('megaIntroMedia');
+    const photo=document.getElementById('megaIntroPhoto');
+    const brand=document.getElementById('megaIntroBrand');
+
+    overlay.classList.remove('fade-out');
+    overlay.classList.add('show');
+    overlay.setAttribute('aria-hidden','false');
+    video.style.display='none';
+    photo.style.display='none';
+    brand.style.display='block';
+
+    let done=false;
+    let timer=null;
+
+    const finish=()=>{
+      if(done)return;
+      done=true;
+      if(timer)clearTimeout(timer);
+      try{video.pause();video.removeAttribute('src');video.load();}catch(e){}
+      overlay.classList.add('fade-out');
+      setTimeout(()=>{
+        overlay.classList.remove('show','fade-out');
+        overlay.setAttribute('aria-hidden','true');
+        transitionRunning=false;
+        onFinish?.();
+      },fadeMs);
+    };
+
+    if(type==='VIDEO'){
+      video.style.display='block';
+      video.src=media;
+      video.muted=muted;
+      video.currentTime=0;
+      video.onended=finish;
+      video.onerror=finish;
+      const playPromise=video.play();
+      if(playPromise?.catch) playPromise.catch(finish);
+      if(duration>0) timer=setTimeout(finish,duration*1000);
+    }else{
+      photo.style.display='block';
+      photo.src=media;
+      photo.onerror=finish;
+      timer=setTimeout(finish,(duration>0?duration:2.5)*1000);
+    }
+  };
+
+  window.playCategoryIntro=function(code,next){
+    const c=categoryByCode(code);
+    if(!c){
+      next();
+      return;
+    }
+    playMegaIntro({
+      enabled:c.introEnabled,
+      type:c.introType,
+      media:c.introMedia,
+      durationSeconds:c.introDurationSeconds,
+      muted:c.introMuted,
+      fadeMs:Number(setting('APP_INTRO_FADE_MS',350))
+    },next);
+  };
+
+  // Wrap the category destinations so the transition intro is optional per category.
+  const originalTransformation=window.renderTransformationCategories;
+  window.renderTransformationCategories=function(gender){
+    playCategoryIntro('TRANSFORMATION',()=>originalTransformation(gender));
+  };
+
+  const originalPrograms=window.renderPrograms;
+  window.renderPrograms=function(gender,categoryCode='OTHER'){
+    playCategoryIntro(categoryCode,()=>originalPrograms(gender,categoryCode));
+  };
+
+  // Always use the startup intro as a cinematic preloader when enabled.
+  window.addEventListener('load',()=>{
+    playMegaIntro({
+      enabled:setting('APP_INTRO_ENABLED','ΝΑΙ'),
+      type:setting('APP_INTRO_TYPE','VIDEO'),
+      media:setting('APP_INTRO_MEDIA','mega_gym_intro.mp4'),
+      durationSeconds:setting('APP_INTRO_DURATION_SECONDS','0'),
+      muted:setting('APP_INTRO_MUTED','ΝΑΙ'),
+      fadeMs:setting('APP_INTRO_FADE_MS','350')
+    });
+  });
+})();
+</script>
+
+
+<style>
+/* =========================================================
+   MEGA GYM v073 — Responsive cinematic intro
+   Mobile: full-screen crop
+   Desktop/browser: full video visible, centered
+   ========================================================= */
+#megaIntroOverlay{
+  background:
+    radial-gradient(circle at 50% 35%,rgba(59,216,255,.10),transparent 42%),
+    linear-gradient(145deg,#010204,#05090d 55%,#000);
+}
+
+#megaIntroMedia,
+#megaIntroPhoto{
+  object-position:center center;
+}
+
+/* Desktop / wide browser */
+@media (min-aspect-ratio: 4/3){
+  #megaIntroMedia,
+  #megaIntroPhoto{
+    width:auto;
+    height:100%;
+    max-width:100vw;
+    object-fit:contain;
+  }
+
+  #megaIntroOverlay::before,
+  #megaIntroOverlay::after{
+    content:"";
+    position:absolute;
+    top:0;
+    bottom:0;
+    width:calc((100vw - min(56.25vh, 430px))/2);
+    min-width:0;
+    pointer-events:none;
+    z-index:0;
+  }
+
+  #megaIntroOverlay::before{
+    left:0;
+    background:linear-gradient(90deg,#000,rgba(0,0,0,.72),transparent);
+  }
+
+  #megaIntroOverlay::after{
+    right:0;
+    background:linear-gradient(270deg,#000,rgba(0,0,0,.72),transparent);
+  }
+
+  #megaIntroMedia,
+  #megaIntroPhoto,
+  #megaIntroBrand,
+  #megaIntroLoading{
+    position:relative;
+    z-index:1;
+  }
+}
+
+/* Portrait mobile */
+@media (max-aspect-ratio: 3/4){
+  #megaIntroMedia,
+  #megaIntroPhoto{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+  }
+}
+
+/* Tablet / near-square screens */
+@media (min-aspect-ratio: 3/4) and (max-aspect-ratio: 4/3){
+  #megaIntroMedia,
+  #megaIntroPhoto{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+  }
+}
+</style>
+
+
+<style>
+/* =========================================================
+   MEGA GYM v074 — Exact centering fix
+   ========================================================= */
+#megaIntroOverlay{
+  display:none;
+  align-items:center;
+  justify-content:center;
+}
+
+#megaIntroOverlay.show{
+  display:flex;
+}
+
+/* Keep the video/photo exactly centered */
+#megaIntroMedia,
+#megaIntroPhoto{
+  position:absolute !important;
+  left:50% !important;
+  top:50% !important;
+  transform:translate(-50%,-50%) !important;
+  margin:0 !important;
+  object-position:center center !important;
+}
+
+/* Keep MEGA GYM centered independently from the video */
+#megaIntroBrand{
+  position:absolute !important;
+  left:50% !important;
+  right:auto !important;
+  bottom:max(34px,env(safe-area-inset-bottom)) !important;
+  width:100% !important;
+  transform:translateX(-50%) !important;
+  text-align:center !important;
+  z-index:3 !important;
+}
+
+#megaIntroLoading{
+  position:absolute !important;
+  left:50% !important;
+  bottom:max(14px,env(safe-area-inset-bottom)) !important;
+  transform:translateX(-50%) !important;
+  z-index:3 !important;
+}
+
+/* Desktop / wide browser: show complete vertical video in the true center */
+@media (min-aspect-ratio: 4/3){
+  #megaIntroMedia,
+  #megaIntroPhoto{
+    width:auto !important;
+    height:100% !important;
+    max-width:100vw !important;
+    max-height:100vh !important;
+    object-fit:contain !important;
+  }
+}
+
+/* Portrait mobile: full screen crop */
+@media (max-aspect-ratio: 3/4){
+  #megaIntroMedia,
+  #megaIntroPhoto{
+    width:100% !important;
+    height:100% !important;
+    object-fit:cover !important;
+  }
+}
+
+/* Tablet / near-square */
+@media (min-aspect-ratio: 3/4) and (max-aspect-ratio: 4/3){
+  #megaIntroMedia,
+  #megaIntroPhoto{
+    width:100% !important;
+    height:100% !important;
+    object-fit:contain !important;
+  }
+}
+</style>
 
 </body>
 </html>
