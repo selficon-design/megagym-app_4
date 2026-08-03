@@ -3096,5 +3096,213 @@ window.addEventListener('load',()=>{
 }
 </style>
 
+
+<script>
+/* =========================================================
+   MEGA GYM v077 — ORIGINAL CARDIO UI, NORMAL TIME DEFAULT
+   Keeps the original graph, bars, movement, flashing rules,
+   messages and Demo Speed. Only the program data are dynamic.
+   ========================================================= */
+(function(){
+  const cardioNum=(v,d=0)=>{
+    const n=Number(String(v??'').replace(',','.'));
+    return Number.isFinite(n)?n:d;
+  };
+  const cardioNorm=v=>String(v??'').trim().toUpperCase();
+
+  function originalCardioHtmlFor(exerciseCode){
+    const exercise=(DB.exercises||{})[exerciseCode]||{};
+    const dataCode=exercise.exerciseDataCode||exercise.dataCode;
+    const cardio=(DB.cardioPrograms||{})[dataCode];
+
+    if(!cardio) return null;
+
+    const duration=Math.max(1,Math.round(cardioNum(cardio.durationMinutes,30)));
+    const warmUp=Math.max(1,Math.min(duration,Math.round(cardioNum(cardio.warmUpMinutes,3))));
+    const coolDown=Math.max(1,Math.min(duration-warmUp,Math.round(cardioNum(cardio.coolDownMinutes,3))));
+    const drillEvery=Math.max(0,Math.round(cardioNum(cardio.drillEveryMinutes,0)));
+    const drillDuration=Math.max(1,Math.round(cardioNum(cardio.drillDurationMinutes,1)));
+    const target=cardioNorm(cardio.drillTarget||cardio.drillMode||'SPEED');
+
+    const cfg={
+      programName:String(exercise.name||cardio.name||'CARDIO').toUpperCase(),
+      durationMinutes:duration,
+      warmUpMinutes:warmUp,
+      coolDownMinutes:coolDown,
+      drillEveryMinutes:drillEvery,
+      drillDurationMinutes:drillDuration,
+      highSpeed:cardioNum(cardio.highSpeed,8),
+      lowSpeed:cardioNum(cardio.lowSpeed,5),
+      minIncline:cardioNum(cardio.minIncline,0),
+      maxIncline:cardioNum(cardio.maxIncline,0),
+      drillType:target==='INCLINE'?'ΑΛΛΑΓΗ ΚΛΙΣΗΣ':target==='NONE'?'ΧΩΡΙΣ DRILL':'ΑΛΛΑΓΗ ΤΑΧΥΤΗΤΑΣ'
+    };
+
+    let decoded;
+    try{
+      decoded=decodeURIComponent(escape(atob(INTEGRATED_CARDIO_BASE64)));
+    }catch(error){
+      decoded=atob(INTEGRATED_CARDIO_BASE64);
+    }
+
+    // Default playback speed: normal / real time.
+    decoded=decoded
+      .replace('<option value="1">ΠΡΑΓΜΑΤΙΚΟΣ ΧΡΟΝΟΣ</option>',
+               '<option value="1" selected>ΠΡΑΓΜΑΤΙΚΟΣ ΧΡΟΝΟΣ</option>')
+      .replace('<option value="30" selected>30× DEMO</option>',
+               '<option value="30">30× DEMO</option>');
+
+    decoded=decoded.replace(
+      /const cfg=\{[\s\S]*?\};/,
+      `const cfg=${JSON.stringify(cfg)};`
+    );
+
+    decoded=decoded.replace(
+      'const WARMUP_BARS=3;',
+      'const WARMUP_BARS=Math.max(1,Math.round(cfg.warmUpMinutes||3));'
+    );
+    decoded=decoded.replace(
+      'const COOLDOWN_BARS=3;',
+      'const COOLDOWN_BARS=Math.max(1,Math.round(cfg.coolDownMinutes||3));'
+    );
+
+    const oldPlanBlock=`  // 3 warm-up bars: small, medium, large
+  ["phase-small","phase-medium","phase-large"].forEach((size,i)=>{
+    if(plan[i]){
+      plan[i].type=\`warmup-\${i+1} \${size}\`;
+      plan[i].speed=cfg.lowSpeed;
+    }
+  });
+
+  // Drills only if > 0, outside warm-up and cooldown
+  if(cfg.drillEveryMinutes>0){
+    for(let m=cfg.drillEveryMinutes;m<=cfg.durationMinutes-COOLDOWN_BARS;m+=cfg.drillEveryMinutes){
+      if(m<=WARMUP_BARS) continue;
+      plan[m-1].type="drill";
+      if(cfg.drillType==="ΑΛΛΑΓΗ ΚΛΙΣΗΣ"){
+        plan[m-1].incline=cfg.maxIncline;
+      }else{
+        plan[m-1].speed=cfg.highSpeed;
+      }
+      if(plan[m]){
+        plan[m].type="recovery";
+        plan[m].speed=cfg.lowSpeed;
+        plan[m].incline=cfg.minIncline;
+      }
+    }
+  }
+
+  // 3 cooldown bars: large, medium, small
+  const n=plan.length;
+  if(n>=3){
+    plan[n-3].type="cooldown-1 phase-large";
+    plan[n-2].type="cooldown-2 phase-medium";
+    plan[n-1].type="cooldown-3 phase-small";
+    [n-3,n-2,n-1].forEach(i=>{
+      plan[i].speed=cfg.lowSpeed;
+      plan[i].incline=cfg.minIncline;
+    });
+  }`;
+
+    const newPlanBlock=`  // Dynamic warm-up. With 3 minutes it is exactly:
+  // small, medium, large — as in the original app.
+  for(let i=0;i<WARMUP_BARS && i<plan.length;i++){
+    const size=i===0?"phase-small":i===WARMUP_BARS-1?"phase-large":"phase-medium";
+    plan[i].type=\`warmup-\${i+1} \${size}\`;
+    plan[i].speed=cfg.lowSpeed;
+    plan[i].incline=cfg.minIncline;
+  }
+
+  // Dynamic drills. One blue bar per drill minute.
+  if(cfg.drillEveryMinutes>0 && cfg.drillType!=="ΧΩΡΙΣ DRILL"){
+    const drillDuration=Math.max(1,Math.round(cfg.drillDurationMinutes||1));
+    const mainLastMinute=cfg.durationMinutes-COOLDOWN_BARS;
+
+    for(let start=cfg.drillEveryMinutes;start<=mainLastMinute;start+=cfg.drillEveryMinutes){
+      if(start<=WARMUP_BARS) continue;
+
+      for(let offset=0;offset<drillDuration;offset++){
+        const minute=start+offset;
+        if(minute>mainLastMinute) break;
+        const item=plan[minute-1];
+        if(!item) continue;
+
+        item.type="drill";
+        if(cfg.drillType==="ΑΛΛΑΓΗ ΚΛΙΣΗΣ"){
+          item.incline=cfg.maxIncline;
+        }else{
+          item.speed=cfg.highSpeed;
+        }
+      }
+
+      const recoveryMinute=start+drillDuration;
+      if(recoveryMinute<=mainLastMinute && plan[recoveryMinute-1]){
+        plan[recoveryMinute-1].type="recovery";
+        plan[recoveryMinute-1].speed=cfg.lowSpeed;
+        plan[recoveryMinute-1].incline=cfg.minIncline;
+      }
+    }
+  }
+
+  // Dynamic cooldown. With 3 minutes it is exactly:
+  // large, medium, small — as in the original app.
+  const n=plan.length;
+  for(let i=0;i<COOLDOWN_BARS && n-COOLDOWN_BARS+i>=0;i++){
+    const index=n-COOLDOWN_BARS+i;
+    const size=i===0?"phase-large":i===COOLDOWN_BARS-1?"phase-small":"phase-medium";
+    plan[index].type=\`cooldown-\${i+1} \${size}\`;
+    plan[index].speed=cfg.lowSpeed;
+    plan[index].incline=cfg.minIncline;
+  }`;
+
+    if(decoded.includes(oldPlanBlock)){
+      decoded=decoded.replace(oldPlanBlock,newPlanBlock);
+    }
+
+    decoded=decoded.replace(
+      'const m=type.match(new RegExp(`${prefix}-(\\\\d)`));',
+      'const m=type.match(new RegExp(`${prefix}-(\\\\d+)`));'
+    );
+
+    decoded=decoded.replace(
+      'const warmupAction = idx===2',
+      'const warmupAction = idx===WARMUP_BARS-1'
+    );
+
+    decoded=decoded.replace(
+      '<title>MEGA GYM CARDIO 30 MIN — INTEGRATED</title>',
+      `<title>${cfg.programName}</title>`
+    );
+
+    return decoded;
+  }
+
+  window.openCardioGraph=function(exerciseCode){
+    const source=originalCardioHtmlFor(exerciseCode);
+
+    if(!source){
+      document.getElementById('cardioGraph').innerHTML=`
+        <div class="topbar">${back('cardioExercise')}<div class="logo">MEGA GYM</div></div>
+        <div class="notice">Δεν βρέθηκαν δεδομένα Cardio για αυτή την άσκηση.</div>`;
+      show('cardioGraph');
+      return;
+    }
+
+    document.getElementById('cardioGraph').innerHTML=`
+      <div class="topbar">${back('cardioExercise')}<div class="logo">MEGA GYM<div style="font-family:Orbitron,Arial,sans-serif;font-size:9px;letter-spacing:2.4px;color:#78ddf7;margin-top:3px">TRAINING SYSTEM</div></div></div>
+      <iframe id="cardioOriginalDynamicFrame"
+              class="cardio-frame"
+              title="MEGA GYM Original Dynamic Cardio Graph"
+              allow="autoplay"
+              style="min-height:1250px"></iframe>`;
+
+    show('cardioGraph');
+
+    const frame=document.getElementById('cardioOriginalDynamicFrame');
+    frame.srcdoc=source;
+  };
+})();
+</script>
+
 </body>
 </html>
