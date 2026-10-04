@@ -3379,6 +3379,7 @@ function renderNav(){
   items.push({id:'tplpreview', label:'Βιβλιοθήκη Έτοιμων Προγραμμάτων TRANSFORMATION', icon:ICON.history});
   if(auth.role === 'owner'){
     items.push({id:'tplbuilder', label:'Έτοιμα Προγράμματα TRANSFORMATION', icon:ICON.key});
+    items.push({id:'aitrain', label:'Εκπαίδευση AI Διατροφής', icon:ICON.key});
   }
   if(auth.role === 'supervisor' || auth.role === 'owner'){
     items.push({id:'announcements', label:'Μηνύματα', icon:ICON.message});
@@ -5693,9 +5694,9 @@ async function deleteMealLog(id){
   if(error){ console.error('meal_logs delete error', error); return false; }
   return true;
 }
-async function analyzeMealPhoto(b64, note){
+async function analyzeMealPhoto(b64, note, raw){
   const { data, error } = await sb.functions.invoke('analyze-meal', {
-    body: { image: b64, media_type: 'image/jpeg', note: note || '' }
+    body: { image: b64, media_type: 'image/jpeg', note: note || '', raw: !!raw }
   });
   if(error){
     let msg = 'Η ανάλυση απέτυχε. Δοκίμασε ξανά.';
@@ -5797,6 +5798,7 @@ function renderFoodDay(){
         </label>
         <button class="btn btn-outline" id="food-manual">✍️ Χειροκίνητα</button>
       </div>
+      <div class="food-note" style="margin:-6px 0 16px;text-align:center;">📸 Φωτογράφισε <b>από πάνω</b>, με ένα <b>πιρούνι δίπλα</b> στο πιάτο, για καλύτερη εκτίμηση.</div>
 
       <div class="section-title"><span class="dot"></span>Γεύματα</div>
       ${mealsHtml}
@@ -5987,6 +5989,200 @@ function bindFoodEvents(){
     toast('Το γεύμα αποθηκεύτηκε! ' + Math.round(t.kcal) + ' kcal');
     renderClientNutrition();
   });
+}
+
+/* ===================================================================
+   ΕΚΠΑΙΔΕΥΣΗ AI ΔΙΑΤΡΟΦΗΣ — μόνο για τον owner.
+   Ο owner φωτογραφίζει ζυγισμένο φαγητό, βλέπει την "ωμή" εκτίμηση του AI
+   και γράφει το πραγματικό βάρος. Οι διαφορές αποθηκεύονται στον πίνακα
+   ai_food_calibration και η Edge Function τις εφαρμόζει σε όλους τους πελάτες.
+   =================================================================== */
+const aiTrain = { rows: [], loaded: false, draft: null, openKey: null };
+
+function aiNormName(t){
+  return (t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\(.*?\)/g,'').replace(/\s+/g,' ').trim();
+}
+async function loadCalibrationRows(){
+  const { data, error } = await sb.from('ai_food_calibration').select('*').order('created_at', { ascending:false }).limit(500);
+  if(error){ console.error('calibration load error', error); toast('Σφάλμα φόρτωσης εκπαίδευσης.'); return []; }
+  return data || [];
+}
+async function insertCalibrationRows(rows){
+  const { error } = await sb.from('ai_food_calibration').insert(rows);
+  if(error){ console.error('calibration insert error', error); return false; }
+  return true;
+}
+async function deleteCalibrationRow(id){
+  const { error } = await sb.from('ai_food_calibration').delete().eq('id', id);
+  if(error){ console.error('calibration delete error', error); return false; }
+  return true;
+}
+
+function renderAiTrainTab(){
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <h1 style="margin-bottom:2px;">Εκπαίδευση AI Διατροφής</h1>
+    <div class="sub" style="margin-bottom:18px;">Ζύγισε το φαγητό, φωτογράφισέ το και γράψε το πραγματικό βάρος. Το AI εφαρμόζει τις διορθώσεις σου στις φωτογραφίες όλων των πελατών.</div>
+    <div class="mobile-preview-frame"><div id="aitrain-content"></div></div>`;
+  renderAiTrainContent();
+}
+
+async function renderAiTrainContent(){
+  const box = document.getElementById('aitrain-content');
+  if(!box) return;
+  if(!aiTrain.loaded){
+    box.innerHTML = `<div style="color:var(--ink-soft);">Φόρτωση...</div>`;
+    aiTrain.rows = await loadCalibrationRows();
+    aiTrain.loaded = true;
+    if(state.tab !== 'aitrain') return;
+  }
+  box.innerHTML = aiTrain.draft ? renderAiTrainDraft() : renderAiTrainHome();
+  bindAiTrainEvents();
+}
+
+function aiTrainGroups(){
+  const map = new Map();
+  aiTrain.rows.forEach(r=>{
+    const k = aiNormName(r.food_name);
+    if(!map.has(k)) map.set(k, { key:k, name:r.food_name, rows:[] });
+    map.get(k).rows.push(r);
+  });
+  return [...map.values()].map(g=>{
+    const ai = g.rows.reduce((a,r)=>a+Number(r.ai_grams),0)/g.rows.length;
+    const real = g.rows.reduce((a,r)=>a+Number(r.true_grams),0)/g.rows.length;
+    return { ...g, ai, real, pct: Math.round((real/ai - 1)*100) };
+  }).sort((a,b)=>b.rows.length - a.rows.length);
+}
+
+function renderAiTrainHome(){
+  const groups = aiTrainGroups();
+  const total = aiTrain.rows.length;
+  const list = groups.length ? groups.map(g=>{
+    const open = aiTrain.openKey === g.key;
+    const verdict = g.pct === 0 ? 'ακριβές' : (g.pct < 0 ? `το AI υπερεκτιμά · διόρθωση ${g.pct}%` : `το AI υποεκτιμά · διόρθωση +${g.pct}%`);
+    return `<div class="food-meal">
+      <div class="head" style="cursor:pointer;" data-ait-open="${escAttr(g.key)}">
+        <span class="t">${escHtml(g.name)} <span style="color:var(--ink-soft);font-weight:600;font-size:12px;">· ${g.rows.length} ζύγ.</span></span>
+        <span class="kc" style="color:${g.pct<0?'#ffb36b':'var(--green)'};">${g.pct>0?'+':''}${g.pct}%</span>
+      </div>
+      <div class="list">AI ~${Math.round(g.ai)}γρ. → ζυγαριά ~${Math.round(g.real)}γρ. (${verdict})</div>
+      ${open ? g.rows.map(r=>`<div class="list" style="display:flex;justify-content:space-between;gap:8px;padding:4px 0 0 10px;">
+          <span>${new Date(r.created_at).toLocaleDateString('el-GR')} · AI ${Math.round(r.ai_grams)}γρ. → ${Math.round(r.true_grams)}γρ.</span>
+          <button class="del" data-ait-del="${escAttr(r.id)}">Διαγραφή</button>
+        </div>`).join('') : ''}
+    </div>`;
+  }).join('') : `<div class="empty" style="padding:18px 6px;"><div class="icon">⚖️</div><h3>Δεν υπάρχουν ζυγίσματα ακόμα</h3><p>Ξεκίνα με τις βασικές τροφές: κοτόπουλο, μπριζόλα, μπιφτέκι, ψάρι, ρύζι, ζυμαρικά, πατάτες.</p></div>`;
+
+  return `<div class="panel pad">
+    <div class="food-actions" style="margin-top:0;">
+      <label class="btn btn-primary full" style="cursor:pointer;">📷 Φωτογράφισε ζυγισμένο φαγητό
+        <input type="file" accept="image/*" capture="environment" id="ait-cam" style="display:none;">
+      </label>
+      <label class="btn btn-outline full" style="cursor:pointer;">🖼️ Από συλλογή
+        <input type="file" accept="image/*" id="ait-gallery" style="display:none;">
+      </label>
+    </div>
+    <div class="food-note" style="margin:-4px 0 16px;">⚖️ Ζύγισε το φαγητό <b>όπως σερβίρεται</b> (ψημένο, χωρίς κόκαλο). 📸 Φωτογράφισε <b>από πάνω, με πιρούνι δίπλα</b> — όπως θα κάνουν οι πελάτες.</div>
+    <div class="section-title"><span class="dot"></span>Τι έχει μάθει το AI${total?` · ${total} ζυγίσματα`:''}</div>
+    ${list}
+  </div>`;
+}
+
+function renderAiTrainDraft(){
+  const d = aiTrain.draft;
+  const back = `<div class="auth-back" id="ait-cancel">${ICON.back}Ακύρωση</div>`;
+  const img = d.imgDataUrl ? `<img class="food-preview" src="${d.imgDataUrl}" alt="Φωτογραφία">` : '';
+  if(d.stage === 'photo'){
+    return `${back}<div class="panel pad">${img}
+      <div class="food-note" style="margin:0 0 12px;">Μη γράψεις το βάρος εδώ — θέλουμε να δούμε τι εκτιμά το AI μόνο του.</div>
+      <button class="btn btn-primary" id="ait-analyze" style="width:100%;justify-content:center;">Ανάλυση</button>
+    </div>`;
+  }
+  if(d.stage === 'analyzing'){
+    return `${back}<div class="panel pad" style="text-align:center;">${img}<div class="food-spinner"></div>
+      <div style="color:var(--ink-soft);font-size:13px;">Το AI εκτιμά…</div></div>`;
+  }
+  return `${back}<div class="panel pad">${img}
+    <div class="section-title"><span class="dot"></span>Γράψε το βάρος της ζυγαριάς</div>
+    <div class="food-note" style="margin:-6px 0 12px;">Διόρθωσε και το όνομα αν χρειάζεται, ώστε να είναι πάντα ίδιο (π.χ. πάντα «Χοιρινή μπριζόλα»). Άφησε κενό το βάρος για ό,τι δεν ζύγισες (π.χ. λάδι).</div>
+    ${d.items.map((it,i)=>`<div class="food-item">
+      <div class="row1">
+        <input class="name" type="text" data-ait-i="${i}" data-ait-f="name" value="${escAttr(it.name)}">
+        <button class="x" data-ait-rm="${i}" aria-label="Αφαίρεση">×</button>
+      </div>
+      <div class="macros" style="grid-template-columns:1fr 1fr;">
+        <div><label>AI εκτίμηση</label><input type="text" value="${Math.round(it.ai_grams)} γρ." disabled style="opacity:.7;"></div>
+        <div><label>⚖️ Ζυγαριά (γρ.)</label><input type="number" inputmode="decimal" min="0" step="any" placeholder="π.χ. 115" data-ait-i="${i}" data-ait-f="true_grams" value="${it.true_grams||''}"></div>
+      </div>
+    </div>`).join('')}
+    <button class="btn btn-green" id="ait-save" style="width:100%;justify-content:center;margin-top:8px;">Αποθήκευση ζυγίσματος</button>
+  </div>`;
+}
+
+function bindAiTrainEvents(){
+  const $ = id=>document.getElementById(id);
+  const onPick = async (input)=>{
+    const file = input.files && input.files[0]; input.value = '';
+    if(!file) return;
+    try{
+      const { dataUrl, b64 } = await foodCompressImage(file);
+      aiTrain.draft = { stage:'photo', imgDataUrl:dataUrl, b64, items:[] };
+      renderAiTrainContent();
+    }catch(e){ toast(e.message || 'Σφάλμα φωτογραφίας.'); }
+  };
+  if($('ait-cam')) $('ait-cam').addEventListener('change', e=>onPick(e.target));
+  if($('ait-gallery')) $('ait-gallery').addEventListener('change', e=>onPick(e.target));
+  if($('ait-cancel')) $('ait-cancel').addEventListener('click', ()=>{ aiTrain.draft = null; renderAiTrainContent(); });
+
+  if($('ait-analyze')) $('ait-analyze').addEventListener('click', async ()=>{
+    const d = aiTrain.draft; if(!d) return;
+    d.stage = 'analyzing'; renderAiTrainContent();
+    try{
+      const res = await analyzeMealPhoto(d.b64, '', true);
+      if(aiTrain.draft !== d) return;
+      const items = (res && res.items) || [];
+      if(!items.length){ d.stage='photo'; renderAiTrainContent(); toast('Δεν αναγνωρίστηκε φαγητό.'); return; }
+      d.items = items.filter(it=>Number(it.grams)>0).map(it=>({ ai_name:it.name, name:it.name, ai_grams:Number(it.grams), true_grams:'' }));
+      d.stage = 'review'; renderAiTrainContent();
+    }catch(e){
+      if(aiTrain.draft !== d) return;
+      d.stage = 'photo'; renderAiTrainContent(); toast(e.message || 'Η ανάλυση απέτυχε.', 4500);
+    }
+  });
+
+  document.querySelectorAll('[data-ait-f]').forEach(inp=>inp.addEventListener('input', ()=>{
+    const it = aiTrain.draft && aiTrain.draft.items[Number(inp.getAttribute('data-ait-i'))];
+    if(it) it[inp.getAttribute('data-ait-f')] = inp.value;
+  }));
+  document.querySelectorAll('[data-ait-rm]').forEach(b=>b.addEventListener('click', ()=>{
+    aiTrain.draft.items.splice(Number(b.getAttribute('data-ait-rm')), 1); renderAiTrainContent();
+  }));
+
+  if($('ait-save')) $('ait-save').addEventListener('click', async ()=>{
+    const d = aiTrain.draft; if(!d) return;
+    const rows = d.items
+      .filter(it=>(it.name||'').trim() && Number(it.true_grams) > 0 && Number(it.ai_grams) > 0)
+      .map(it=>({ food_name:it.name.trim().slice(0,80), ai_name:(it.ai_name||'').slice(0,80), ai_grams:Math.round(Number(it.ai_grams)*10)/10, true_grams:Math.round(Number(it.true_grams)*10)/10 }));
+    if(!rows.length){ toast('Γράψε το βάρος της ζυγαριάς σε τουλάχιστον ένα τρόφιμο.'); return; }
+    const btn = $('ait-save'); btn.disabled = true; btn.textContent = 'Αποθήκευση…';
+    if(!(await insertCalibrationRows(rows))){ btn.disabled = false; btn.textContent = 'Αποθήκευση ζυγίσματος'; toast('Σφάλμα αποθήκευσης.'); return; }
+    aiTrain.draft = null; aiTrain.loaded = false;
+    toast(rows.length === 1 ? 'Αποθηκεύτηκε 1 ζύγισμα. Ευχαριστώ!' : `Αποθηκεύτηκαν ${rows.length} ζυγίσματα.`);
+    renderAiTrainContent();
+  });
+
+  document.querySelectorAll('[data-ait-open]').forEach(el=>el.addEventListener('click', ()=>{
+    const k = el.getAttribute('data-ait-open');
+    aiTrain.openKey = aiTrain.openKey === k ? null : k; renderAiTrainContent();
+  }));
+  document.querySelectorAll('[data-ait-del]').forEach(b=>b.addEventListener('click', async ()=>{
+    if(!confirm('Διαγραφή αυτού του ζυγίσματος;')) return;
+    const id = b.getAttribute('data-ait-del');
+    if(await deleteCalibrationRow(id)){
+      aiTrain.rows = aiTrain.rows.filter(r=>String(r.id)!==String(id));
+      toast('Διαγράφηκε.'); renderAiTrainContent();
+    } else toast('Σφάλμα διαγραφής.');
+  }));
 }
 
 async function renderAppClient(){
@@ -6845,6 +7041,8 @@ function render(skipNav){
     renderTplBuilderTab();
   } else if(state.tab==='tplpreview'){
     renderTplPreviewTab();
+  } else if(state.tab==='aitrain' && auth.role==='owner'){
+    renderAiTrainTab();
   } else {
     main.innerHTML = renderHistory();
     bindHistoryEvents();
