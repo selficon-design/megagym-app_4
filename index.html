@@ -569,6 +569,36 @@ input,select{font-family:inherit;}
 .food-target{font-size:12.5px;line-height:1.5;padding:10px 12px;border-radius:10px;background:var(--accent-soft);border:1px solid rgba(255,159,26,.35);margin-top:10px;}
 .food-spinner{width:34px;height:34px;border-radius:50%;border:3px solid rgba(61,216,255,.2);border-top-color:var(--cyan);animation:foodspin 0.9s linear infinite;margin:6px auto 10px;}
 @keyframes foodspin{to{transform:rotate(360deg);}}
+/* ============ ΒΑΣΗ ΤΡΟΦΙΜΩΝ (αναζήτηση & διαχείριση) ============ */
+.food-item{position:relative;}
+.food-item .row1{flex-wrap:wrap;}
+.fdb-sugg{flex:1 1 100%;order:1;background:#06141f;border:1px solid var(--cyan);border-radius:12px;max-height:260px;overflow-y:auto;margin:2px 0;}
+.food-item .row1 .name{order:0;}
+.food-item .row1 > :not(.name):not(.fdb-sugg){order:2;}
+.fdb-sugg .grp{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan-soft);padding:8px 12px 4px;}
+.fdb-sugg button{display:block;width:100%;text-align:left;background:none;border:none;border-top:1px solid rgba(61,216,255,.1);padding:9px 12px;color:var(--ink);cursor:pointer;font-family:inherit;}
+.fdb-sugg button:hover,.fdb-sugg button:focus{background:rgba(61,216,255,.12);outline:none;}
+.fdb-sugg .n{font-size:13.5px;font-weight:600;}
+.fdb-sugg .s{font-size:11.5px;color:var(--ink-soft);margin-top:1px;}
+.fdb-sugg .none{padding:10px 12px;font-size:12px;color:var(--ink-soft);}
+.fdb-per100{font-size:11px;color:var(--ink-soft);margin-top:6px;}
+#food-items .food-item .row1{flex-wrap:wrap;}
+#food-items .food-item .name{flex:1 1 100%;}
+#food-items .food-item .x{margin-left:auto;}
+.fdb-search{width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--line);font-size:14px;background:rgba(3,11,18,.78);color:var(--ink);font-family:inherit;margin-bottom:10px;}
+.fdb-cats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.fdb-cats button{font-size:11.5px;font-weight:700;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(3,11,18,.6);color:var(--ink-soft);cursor:pointer;font-family:inherit;}
+.fdb-cats button.active{background:rgba(61,216,255,.16);color:#fff;border-color:rgba(61,216,255,.5);}
+.fdb-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid rgba(61,216,255,.12);cursor:pointer;}
+.fdb-row:hover{background:rgba(61,216,255,.05);}
+.fdb-row .n{font-size:13.5px;font-weight:600;}
+.fdb-row .s{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+.fdb-row .k{font-family:'JetBrains Mono',monospace;color:var(--accent);font-weight:700;font-size:13px;white-space:nowrap;}
+.fdb-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.fdb-form .full{grid-column:1/-1;}
+.fdb-form label{display:block;font-size:11px;font-weight:700;color:var(--cyan-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
+.fdb-form input,.fdb-form select{width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);font-size:14px;font-family:inherit;}
+.fdb-warn{font-size:12px;line-height:1.45;padding:8px 10px;border-radius:9px;background:rgba(255,159,26,.12);border:1px solid rgba(255,159,26,.4);color:#ffd59a;margin-top:10px;}
 
 .auth-field{margin-bottom:14px;}
 .auth-field label{display:block;font-size:11.5px;font-weight:700;color:var(--cyan-soft);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;}
@@ -3380,6 +3410,7 @@ function renderNav(){
   if(auth.role === 'owner'){
     items.push({id:'tplbuilder', label:'Έτοιμα Προγράμματα TRANSFORMATION', icon:ICON.key});
     items.push({id:'aitrain', label:'Εκπαίδευση AI Διατροφής', icon:ICON.key});
+    items.push({id:'foodsdb', label:'Τρόφιμα (βάση θερμίδων)', icon:ICON.search});
   }
   if(auth.role === 'supervisor' || auth.role === 'owner'){
     items.push({id:'announcements', label:'Μηνύματα', icon:ICON.message});
@@ -5633,7 +5664,9 @@ const food = {
   meals: [],
   loadedFor: null,   // ποια ημερομηνία έχει φορτωθεί
   loading: false,
-  draft: null        // { stage:'photo'|'analyzing'|'review', imgDataUrl, b64, note, items, mealType, confidence, comment, source }
+  draft: null,       // { stage:'photo'|'analyzing'|'review', imgDataUrl, b64, note, items, mealType, confidence, comment, source }
+  recent: null,      // τρόφιμα που έχει φάει πρόσφατα ο πελάτης (για γρήγορη επιλογή)
+  recentLoading: false
 };
 
 function foodLocalISO(d){
@@ -5735,6 +5768,7 @@ function foodCompressImage(file, maxSide){
 async function renderClientNutrition(){
   const content = document.getElementById('client-content');
   if(!content || !auth.customer) return;
+  fdbLoad(); foodLoadRecent();   // βάση τροφίμων & πρόσφατα (στο παρασκήνιο)
   if(food.loadedFor !== food.date && !food.loading){
     food.loading = true;
     content.innerHTML = `<div style="color:var(--ink-soft);">Φόρτωση...</div>`;
@@ -5853,12 +5887,13 @@ function renderFoodItemRow(it, i){
   const num = (field, label)=>`<div><label>${label}</label><input type="number" inputmode="decimal" min="0" step="any" data-food-i="${i}" data-food-f="${field}" value="${it[field]||0}"></div>`;
   return `<div class="food-item">
     <div class="row1">
-      <input class="name" type="text" placeholder="Τρόφιμο" data-food-i="${i}" data-food-f="name" value="${escAttr(it.name)}">
+      <input class="name" type="text" placeholder="Γράψε τρόφιμο, π.χ. κοτόπουλο" data-food-i="${i}" data-food-f="name" value="${escAttr(it.name)}">
       <input class="grams" type="number" inputmode="decimal" min="0" step="any" data-food-i="${i}" data-food-f="grams" value="${it.grams||0}" aria-label="Γραμμάρια">
       <span style="font-size:12px;color:var(--ink-soft);">γρ.</span>
       <button class="x" data-food-rm="${i}" aria-label="Αφαίρεση">×</button>
     </div>
     <div class="macros">${num('kcal','kcal')}${num('protein_g','Πρωτ.')}${num('carbs_g','Υδατ.')}${num('fat_g','Λιπ.')}</div>
+    ${it._p100 ? `<div class="fdb-per100" data-food-p100="${i}">Από τη βάση τροφίμων · ανά 100γρ.: ${fdbMacroLine(it._p100)}</div>` : ''}
   </div>`;
 }
 
@@ -5894,6 +5929,8 @@ function bindFoodEvents(){
   if($('food-manual')) $('food-manual').addEventListener('click', ()=>{
     food.draft = { stage:'review', imgDataUrl:null, b64:null, note:'', items:[foodWithBase({ name:'', grams:100 })], mealType:foodDefaultMealType(), confidence:'medium', comment:'', source:'manual' };
     renderClientNutrition();
+    const first = document.querySelector('#food-items input[data-food-f="name"]');
+    if(first) first.focus();
   });
 
   if($('food-cancel')) $('food-cancel').addEventListener('click', ()=>{ food.draft = null; renderClientNutrition(); });
@@ -5911,7 +5948,15 @@ function bindFoodEvents(){
         toast('Δεν αναγνωρίστηκε φαγητό. Δοκίμασε άλλη φωτογραφία ή πρόσθεσε χειροκίνητα.', 4000);
         return;
       }
-      d.items = res.items.map(foodWithBase);
+      d.items = res.items.map(it=>{
+        const x = foodWithBase(it);
+        // Τρόφιμο που αναγνωρίστηκε από τη βάση: η αναλογία γίνεται με τις τιμές ανά 100γρ.
+        if(it.per100 && Number(it.per100.kcal) >= 0){
+          x._base = { grams:100, kcal:Number(it.per100.kcal)||0, protein_g:Number(it.per100.protein_g)||0, carbs_g:Number(it.per100.carbs_g)||0, fat_g:Number(it.per100.fat_g)||0 };
+          x._p100 = x._base;
+        }
+        return x;
+      });
       d.confidence = res.confidence || 'medium';
       d.comment = res.comment || '';
       d.stage = 'review';
@@ -5934,7 +5979,11 @@ function bindFoodEvents(){
     const i = Number(inp.getAttribute('data-food-i'));
     const f = inp.getAttribute('data-food-f');
     const it = d.items[i]; if(!it) return;
-    if(f === 'name'){ it.name = inp.value; return; }
+    if(f === 'name'){
+      it.name = inp.value;
+      if(it._p100){ delete it._p100; const l = document.querySelector(`[data-food-p100="${i}"]`); if(l) l.remove(); }
+      return;
+    }
     const v = Math.max(0, Number(inp.value) || 0);
     if(f === 'grams'){
       it.grams = v;
@@ -5950,6 +5999,7 @@ function bindFoodEvents(){
       }
     } else {
       it[f] = f==='kcal' ? Math.round(v) : foodR1(v);
+      if(it._p100){ delete it._p100; const l = document.querySelector(`[data-food-p100="${i}"]`); if(l) l.remove(); }
       // Νέα βάση αναλογίας: ό,τι έγραψε ο χρήστης για τα τρέχοντα γραμμάρια
       it._base = { grams:it.grams, kcal:it.kcal, protein_g:it.protein_g, carbs_g:it.carbs_g, fat_g:it.fat_g };
     }
@@ -5963,6 +6013,25 @@ function bindFoodEvents(){
   if($('food-add-item')) $('food-add-item').addEventListener('click', ()=>{
     food.draft.items.push(foodWithBase({ name:'', grams:100 }));
     renderClientNutrition();
+    const names = document.querySelectorAll('#food-items input[data-food-f="name"]');
+    if(names.length) names[names.length-1].focus();
+  });
+
+  // Προτάσεις από τα πρόσφατα του πελάτη και τη βάση τροφίμων
+  document.querySelectorAll('#food-items input[data-food-f="name"]').forEach(inp=>{
+    fdbAttachSuggest(inp, {
+      recent: ()=>food.recent,
+      onPick: (e, kind)=>{
+        const d = food.draft; if(!d) return;
+        const i = Number(inp.getAttribute('data-food-i'));
+        const it = d.items[i]; if(!it) return;
+        if(kind === 'r'){ Object.assign(it, foodWithBase(e)); delete it._p100; }
+        else foodApplyDb(it, e);
+        renderClientNutrition();
+        const g = document.querySelector(`#food-items [data-food-i="${i}"][data-food-f="grams"]`);
+        if(g){ g.focus(); g.select(); }
+      }
+    });
   });
 
   if($('food-save')) $('food-save').addEventListener('click', async ()=>{
@@ -5985,9 +6054,320 @@ function bindFoodEvents(){
       source: d.source
     });
     if(!ok){ btn.disabled = false; btn.textContent = 'Αποθήκευση γεύματος'; toast('Σφάλμα αποθήκευσης. Δοκίμασε ξανά.'); return; }
+    foodRememberItems(items);
     food.draft = null; food.loadedFor = null;
     toast('Το γεύμα αποθηκεύτηκε! ' + Math.round(t.kcal) + ' kcal');
     renderClientNutrition();
+  });
+}
+
+/* ===================================================================
+   ΒΑΣΗ ΤΡΟΦΙΜΩΝ — πίνακας foods (θερμίδες & μακρο ανά 100γρ.).
+   Τη διαβάζουν όλοι (αναζήτηση όταν γράφουν γεύμα), τη διορθώνει μόνο
+   ο owner. Η αναζήτηση δουλεύει χωρίς τόνους και με greeklish
+   (π.χ. "kotopoulo", "mprizola").
+   =================================================================== */
+const FDB_CATEGORIES = [
+  'Κοτόπουλο & πουλερικά','Κρέας','Αλλαντικά','Ψάρια & θαλασσινά','Αυγά','Γαλακτοκομικά & τυριά',
+  'Ψωμί & δημητριακά','Ρύζι, ζυμαρικά & πατάτες','Όσπρια','Λαχανικά','Φρούτα','Ξηροί καρποί & σπόροι',
+  'Λάδια & λίπη','Σάλτσες & αλείμματα','Μαγειρευτά & φαγητά','Πίτες, σνακ & fast food','Γλυκά',
+  'Ροφήματα','Συμπληρώματα','Άλλο'
+];
+const fdb = { list:null, promise:null, failedAt:0 };
+
+// Κλειδί αναζήτησης: πεζά, χωρίς τόνους, ελληνικά → λατινικά με "χαλαρή" ορθογραφία,
+// ώστε "κοτοπουλο", "Κοτόπουλο", "kotopoulo" και "kotopoylo" να ταιριάζουν.
+const FDB_GR = {α:'a',β:'v',γ:'g',δ:'d',ε:'e',ζ:'z',η:'i',θ:'th',ι:'i',κ:'k',λ:'l',μ:'m',ν:'n',ξ:'ks',ο:'o',π:'p',ρ:'r',σ:'s',ς:'s',τ:'t',υ:'i',φ:'f',χ:'x',ψ:'ps',ω:'o'};
+function fdbKey(s){
+  let t = (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  t = t.replace(/ου/g,'ou').replace(/ει|οι|υι/g,'i').replace(/αι/g,'e').replace(/αυ/g,'av').replace(/ευ/g,'ev')
+       .replace(/μπ/g,'b').replace(/ντ/g,'d').replace(/γκ|γγ/g,'g');
+  t = t.replace(/[α-ω]/g, c=>FDB_GR[c]||c);
+  t = t.replace(/8/g,'th').replace(/ch/g,'x').replace(/ph/g,'f')
+       .replace(/ou/g,'\u0001').replace(/u/g,'\u0001').replace(/\u0001/g,'ou')
+       .replace(/ei|oi|yi/g,'i').replace(/ai/g,'e').replace(/[hy]/g,'i').replace(/w/g,'o')
+       .replace(/mp/g,'b').replace(/nt/g,'d').replace(/gk|gg/g,'g').replace(/b/g,'v').replace(/c/g,'k');
+  return t.replace(/[^a-z0-9]+/g,' ').replace(/([a-z])\1+/g,'$1').trim();
+}
+function fdbLoad(force){
+  if(force){ fdb.list = null; fdb.promise = null; fdb.failedAt = 0; }
+  if(fdb.list) return Promise.resolve(fdb.list);
+  if(fdb.promise) return fdb.promise;
+  if(fdb.failedAt && Date.now() - fdb.failedAt < 30000) return Promise.resolve([]);
+  fdb.promise = (async ()=>{
+    const { data, error } = await sb.from('foods').select('*').order('name').range(0, 4999);
+    fdb.promise = null;
+    if(error){ console.warn('foods load error', error); fdb.failedAt = Date.now(); return []; }
+    fdb.list = (data||[]).map(r=>({
+      ...r, kcal:Number(r.kcal)||0, protein_g:Number(r.protein_g)||0, carbs_g:Number(r.carbs_g)||0, fat_g:Number(r.fat_g)||0,
+      portion_grams: r.portion_grams!=null ? Number(r.portion_grams) : null, _k:fdbKey(r.name)
+    }));
+    return fdb.list;
+  })();
+  return fdb.promise;
+}
+// Αναζήτηση: κάθε λέξη του χρήστη πρέπει να υπάρχει στο όνομα. Πρώτα όσα ξεκινούν με τη λέξη.
+function fdbSearch(items, q, max){
+  const toks = fdbKey(q).split(' ').filter(Boolean);
+  if(!toks.length) return [];
+  const scored = [];
+  for(const it of items){
+    const k = it._k || (it._k = fdbKey(it.name));
+    let ok = true, score = 0;
+    for(const t of toks){
+      const pos = k.indexOf(t);
+      if(pos < 0){ ok = false; break; }
+      score += pos === 0 ? 0 : (k[pos-1] === ' ' ? 1 : 3);
+    }
+    if(ok) scored.push([score + k.length/200 + (/\bom[oia]\b/.test(k) ? 0.5 : 0), it]); // τα «ωμά» πιο κάτω
+  }
+  scored.sort((a,b)=>a[0]-b[0]);
+  return scored.slice(0, max).map(x=>x[1]);
+}
+function fdbMacroLine(e){
+  return `${Math.round(e.kcal)} kcal · Π ${foodR1(e.protein_g)} · Υ ${foodR1(e.carbs_g)} · Λ ${foodR1(e.fat_g)}`;
+}
+
+// Λίστα προτάσεων κάτω από ένα πεδίο ονόματος τροφίμου.
+// opts.recent(): πρόσφατα τρόφιμα του χρήστη (ή null) · opts.onPick(entry, 'r'|'db')
+function fdbAttachSuggest(input, opts){
+  let box = null, hideT = null;
+  const close = ()=>{ if(box){ box.remove(); box = null; } };
+  const show = ()=>{
+    clearTimeout(hideT);
+    const q = input.value.trim();
+    const recent = (opts.recent && opts.recent()) || [];
+    let rec, db;
+    if(!q){ rec = recent.slice(0, 6); db = []; }
+    else {
+      rec = fdbSearch(recent, q, 3);
+      db = fdbSearch(fdb.list || [], q, 15).filter(d=>!rec.some(r=>r._k === d._k));
+    }
+    let html = '';
+    if(rec.length){
+      html += `<div class="grp">Έχεις φάει πρόσφατα</div>` + rec.map((e,i)=>`<button type="button" data-fdb-kind="r" data-fdb-idx="${i}">
+        <div class="n">${escHtml(e.name)}</div><div class="s">Τελευταία φορά: ${Math.round(e.grams)}γρ. · ${Math.round(e.kcal)} kcal</div></button>`).join('');
+    }
+    if(db.length){
+      html += `<div class="grp">Βάση τροφίμων · ανά 100γρ.</div>` + db.map((e,i)=>`<button type="button" data-fdb-kind="db" data-fdb-idx="${i}">
+        <div class="n">${escHtml(e.name)}</div><div class="s">${fdbMacroLine(e)}${e.portion_label&&e.portion_grams?` · ${escHtml(e.portion_label)} ≈ ${Math.round(e.portion_grams)}γρ.`:''}</div></button>`).join('');
+    }
+    if(!html){
+      if(q.length >= 2 && fdb.list) html = `<div class="none">Δεν βρέθηκε στη λίστα — γράψε τις τιμές χειροκίνητα.</div>`;
+      else { close(); return; }
+    }
+    if(!box){ box = document.createElement('div'); box.className = 'fdb-sugg'; input.insertAdjacentElement('afterend', box); }
+    box.innerHTML = html;
+    box.querySelectorAll('button[data-fdb-kind]').forEach(b=>{
+      b.addEventListener('mousedown', ev=>ev.preventDefault()); // να μη χάνει το focus το πεδίο
+      b.addEventListener('click', ()=>{
+        const kind = b.getAttribute('data-fdb-kind'), idx = Number(b.getAttribute('data-fdb-idx'));
+        const e = kind === 'r' ? rec[idx] : db[idx];
+        close();
+        if(e) opts.onPick(e, kind);
+      });
+    });
+  };
+  input.setAttribute('autocomplete', 'off');
+  input.addEventListener('input', show);
+  input.addEventListener('focus', show);
+  input.addEventListener('blur', ()=>{ hideT = setTimeout(close, 180); });
+  input.addEventListener('keydown', ev=>{ if(ev.key === 'Escape') close(); });
+  if(!fdb.list) fdbLoad().then(()=>{ if(document.activeElement === input) show(); });
+}
+
+// Εφαρμόζει τιμές της βάσης σε ένα τρόφιμο του γεύματος.
+// Νέα (κενή) γραμμή → παίρνει την τυπική μερίδα· αλλιώς κρατά τα γραμμάρια που υπάρχουν.
+function foodApplyDb(it, e){
+  const fresh = !(Number(it.kcal) > 0);
+  let g = Number(it.grams) || 0;
+  if(fresh && e.portion_grams) g = Number(e.portion_grams);
+  if(!(g > 0)) g = 100;
+  const k = g / 100;
+  it.name = e.name;
+  it.grams = foodR1(g);
+  it.kcal = Math.round(e.kcal * k);
+  it.protein_g = foodR1(e.protein_g * k); it.carbs_g = foodR1(e.carbs_g * k); it.fat_g = foodR1(e.fat_g * k);
+  it._base = { grams:100, kcal:e.kcal, protein_g:e.protein_g, carbs_g:e.carbs_g, fat_g:e.fat_g };
+  it._p100 = it._base;
+}
+
+/* ---------- Πρόσφατα τρόφιμα του πελάτη (από τα αποθηκευμένα γεύματά του) ---------- */
+function foodRecentEntries(items){
+  const out = [], seen = new Set();
+  (items||[]).forEach(i=>{
+    const name = (i && i.name || '').trim();
+    if(!name || !(Number(i.grams) > 0)) return;
+    const k = fdbKey(name);
+    if(seen.has(k)) return; seen.add(k);
+    out.push({ name, grams:foodR1(i.grams), kcal:Math.round(Number(i.kcal)||0), protein_g:foodR1(i.protein_g), carbs_g:foodR1(i.carbs_g), fat_g:foodR1(i.fat_g), _k:k });
+  });
+  return out;
+}
+function foodRememberItems(items){
+  if(!food.recent) return;
+  const add = foodRecentEntries(items);
+  const keys = new Set(add.map(a=>a._k));
+  food.recent = add.concat(food.recent.filter(r=>!keys.has(r._k))).slice(0, 300);
+}
+async function foodLoadRecent(){
+  if(food.recent || food.recentLoading || !auth.user) return;
+  food.recentLoading = true;
+  const uid = auth.user.id;
+  const { data, error } = await sb.from('meal_logs').select('items, created_at')
+    .eq('user_id', uid).order('created_at', { ascending:false }).limit(150);
+  food.recentLoading = false;
+  if(!auth.user || auth.user.id !== uid) return;
+  if(error){ console.warn('recent foods load error', error); food.recent = []; return; }
+  const all = [];
+  (data||[]).forEach(m=>{ if(Array.isArray(m.items)) all.push(...m.items); });
+  food.recent = foodRecentEntries(all).slice(0, 300);
+}
+
+/* ---------- Owner: διαχείριση βάσης τροφίμων ---------- */
+const fdbAdmin = { q:'', cat:'', edit:null };
+
+function renderFoodsDbTab(){
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <h1 style="margin-bottom:2px;">Τρόφιμα (βάση θερμίδων)</h1>
+    <div class="sub" style="margin-bottom:18px;">Τιμές <b>ανά 100γρ.</b> (τα υγρά ανά 100ml). Τις βλέπουν οι πελάτες όταν γράφουν γεύμα και τις χρησιμοποιεί το AI για τις θερμίδες των φωτογραφιών.</div>
+    <div class="mobile-preview-frame"><div id="fdb-admin"></div></div>`;
+  renderFoodsDbContent();
+}
+async function renderFoodsDbContent(){
+  const box = document.getElementById('fdb-admin');
+  if(!box) return;
+  if(!fdb.list){
+    box.innerHTML = `<div style="color:var(--ink-soft);">Φόρτωση...</div>`;
+    await fdbLoad(true);
+    if(state.tab !== 'foodsdb') return;
+    if(!fdb.list){
+      box.innerHTML = `<div class="panel pad"><div class="empty" style="padding:18px 6px;"><div class="icon">🥗</div><h3>Δεν βρέθηκε η βάση τροφίμων</h3><p>Τρέξε πρώτα το αρχείο <b>20261005_foods.sql</b> στο Supabase → SQL Editor και άνοιξε ξανά αυτή τη σελίδα.</p></div></div>`;
+      return;
+    }
+  }
+  box.innerHTML = fdbAdmin.edit ? renderFoodsDbForm() : renderFoodsDbHome();
+  bindFoodsDbEvents();
+}
+function fdbAdminFiltered(){
+  let list = fdb.list || [];
+  if(fdbAdmin.cat) list = list.filter(f=>f.category === fdbAdmin.cat);
+  if(fdbAdmin.q.trim()) return fdbSearch(list, fdbAdmin.q, 500);
+  const ci = c=>{ const i = FDB_CATEGORIES.indexOf(c); return i < 0 ? 999 : i; };
+  return [...list].sort((a,b)=>ci(a.category)-ci(b.category) || a.name.localeCompare(b.name,'el'));
+}
+function fdbAdminListHtml(){
+  const all = fdbAdminFiltered(), shown = all.slice(0, 150);
+  if(!all.length) return `<div class="food-note" style="text-align:center;padding:16px 0;">Δεν βρέθηκε τρόφιμο. Πάτα «+ Νέο τρόφιμο» για να το προσθέσεις.</div>`;
+  return shown.map(f=>`<div class="fdb-row" data-fdb-edit="${escAttr(f.id)}">
+      <div style="min-width:0;"><div class="n">${escHtml(f.name)}</div>
+        <div class="s">${escHtml(f.category)} · Π ${foodR1(f.protein_g)} · Υ ${foodR1(f.carbs_g)} · Λ ${foodR1(f.fat_g)}${f.portion_label&&f.portion_grams?` · ${escHtml(f.portion_label)} = ${Math.round(f.portion_grams)}γρ.`:''}</div></div>
+      <div class="k">${Math.round(f.kcal)} kcal</div>
+    </div>`).join('') + (all.length > shown.length ? `<div class="food-note" style="text-align:center;">Εμφανίζονται ${shown.length} από ${all.length} — γράψε στην αναζήτηση για να βρεις κάποιο συγκεκριμένο.</div>` : '');
+}
+function renderFoodsDbHome(){
+  const list = fdb.list || [];
+  const counts = {}; list.forEach(f=>{ counts[f.category] = (counts[f.category]||0) + 1; });
+  const cats = FDB_CATEGORIES.filter(c=>counts[c]);
+  return `<div class="panel pad">
+    <button class="btn btn-primary" id="fdb-new" style="width:100%;justify-content:center;margin-bottom:14px;">+ Νέο τρόφιμο</button>
+    <input class="fdb-search" id="fdb-q" type="search" placeholder="Αναζήτηση, π.χ. κοτόπουλο" value="${escAttr(fdbAdmin.q)}" autocomplete="off">
+    <div class="fdb-cats">
+      <button type="button" data-fdb-cat="" class="${!fdbAdmin.cat?'active':''}">Όλα (${list.length})</button>
+      ${cats.map(c=>`<button type="button" data-fdb-cat="${escAttr(c)}" class="${fdbAdmin.cat===c?'active':''}">${escHtml(c)} (${counts[c]})</button>`).join('')}
+    </div>
+    <div id="fdb-list">${fdbAdminListHtml()}</div>
+  </div>`;
+}
+function fdbKcalCheck(e){
+  const k = Number(e.kcal)||0, calc = 4*(Number(e.protein_g)||0) + 4*(Number(e.carbs_g)||0) + 9*(Number(e.fat_g)||0);
+  if(!(k > 0) || Math.abs(calc - k) <= Math.max(15, k*0.15)) return '';
+  return `<div class="fdb-warn">⚠️ Από τα μακροθρεπτικά βγαίνουν περίπου <b>${Math.round(calc)} kcal</b>, ενώ έγραψες <b>${Math.round(k)}</b>. Έλεγξε τους αριθμούς (μικρή διαφορά είναι φυσιολογική σε λαχανικά και ποτά με αλκοόλ).</div>`;
+}
+function renderFoodsDbForm(){
+  const e = fdbAdmin.edit;
+  const catOpts = FDB_CATEGORIES.concat(FDB_CATEGORIES.includes(e.category)?[]:[e.category])
+    .map(c=>`<option value="${escAttr(c)}" ${c===e.category?'selected':''}>${escHtml(c)}</option>`).join('');
+  const numIn = (f, label, ph)=>`<div><label>${label}</label><input type="number" inputmode="decimal" min="0" step="any" data-fdb-f="${f}" value="${e[f]===''||e[f]==null?'':e[f]}" placeholder="${ph||''}"></div>`;
+  return `<div class="auth-back" id="fdb-cancel">${ICON.back}Πίσω στη λίστα</div>
+  <div class="panel pad">
+    <div class="section-title"><span class="dot"></span>${e.id ? 'Διόρθωση τροφίμου' : 'Νέο τρόφιμο'}</div>
+    <div class="fdb-form">
+      <div class="full"><label>Όνομα</label><input type="text" maxlength="80" data-fdb-f="name" value="${escAttr(e.name)}" placeholder="π.χ. Κοτόπουλο στήθος ψητό"></div>
+      <div class="full"><label>Κατηγορία</label><select data-fdb-f="category">${catOpts}</select></div>
+      ${numIn('kcal','Θερμίδες / 100γρ.','π.χ. 165')}
+      ${numIn('protein_g','Πρωτεΐνη γρ. / 100γρ.')}
+      ${numIn('carbs_g','Υδατάνθρακες γρ. / 100γρ.')}
+      ${numIn('fat_g','Λιπαρά γρ. / 100γρ.')}
+      <div><label>Τυπική μερίδα (προαιρ.)</label><input type="text" maxlength="40" data-fdb-f="portion_label" value="${escAttr(e.portion_label||'')}" placeholder="π.χ. 1 αυγό"></div>
+      ${numIn('portion_grams','Γραμμάρια μερίδας','π.χ. 50')}
+    </div>
+    <div id="fdb-check">${fdbKcalCheck(e)}</div>
+    <div class="food-note">Για συσκευασμένα προϊόντα, γράψε τις τιμές «ανά 100γρ.» από τη διατροφική ετικέτα.</div>
+    <button class="btn btn-green" id="fdb-save" style="width:100%;justify-content:center;margin-top:14px;">Αποθήκευση</button>
+    ${e.id ? `<button class="btn btn-outline" id="fdb-del" style="width:100%;justify-content:center;margin-top:10px;color:#ff8b90;border-color:rgba(239,45,53,.6);">Διαγραφή τροφίμου</button>` : ''}
+  </div>`;
+}
+function bindFoodsDbEvents(){
+  const $ = id=>document.getElementById(id);
+  const bindRows = ()=>document.querySelectorAll('[data-fdb-edit]').forEach(r=>r.addEventListener('click', ()=>{
+    const f = (fdb.list||[]).find(x=>String(x.id) === r.getAttribute('data-fdb-edit'));
+    if(!f) return;
+    fdbAdmin.edit = { id:f.id, name:f.name, category:f.category, kcal:f.kcal, protein_g:f.protein_g, carbs_g:f.carbs_g, fat_g:f.fat_g, portion_label:f.portion_label||'', portion_grams:f.portion_grams==null?'':f.portion_grams };
+    renderFoodsDbContent(); window.scrollTo(0, 0);
+  }));
+  bindRows();
+  if($('fdb-q')) $('fdb-q').addEventListener('input', e=>{
+    fdbAdmin.q = e.target.value;
+    $('fdb-list').innerHTML = fdbAdminListHtml(); bindRows();
+  });
+  document.querySelectorAll('[data-fdb-cat]').forEach(b=>b.addEventListener('click', ()=>{
+    fdbAdmin.cat = b.getAttribute('data-fdb-cat'); renderFoodsDbContent();
+  }));
+  if($('fdb-new')) $('fdb-new').addEventListener('click', ()=>{
+    fdbAdmin.edit = { name:fdbAdmin.q.trim(), category:fdbAdmin.cat || FDB_CATEGORIES[0], kcal:'', protein_g:'', carbs_g:'', fat_g:'', portion_label:'', portion_grams:'' };
+    renderFoodsDbContent();
+  });
+  if($('fdb-cancel')) $('fdb-cancel').addEventListener('click', ()=>{ fdbAdmin.edit = null; renderFoodsDbContent(); });
+  document.querySelectorAll('[data-fdb-f]').forEach(inp=>{
+    const ev = inp.tagName === 'SELECT' ? 'change' : 'input';
+    inp.addEventListener(ev, ()=>{
+      fdbAdmin.edit[inp.getAttribute('data-fdb-f')] = inp.value;
+      const chk = $('fdb-check'); if(chk) chk.innerHTML = fdbKcalCheck(fdbAdmin.edit);
+    });
+  });
+  if($('fdb-save')) $('fdb-save').addEventListener('click', async ()=>{
+    const e = fdbAdmin.edit; if(!e) return;
+    const name = (e.name||'').trim().replace(/\s+/g,' ');
+    const n = v=>Math.round((Number(v)||0)*10)/10;
+    if(!name){ toast('Γράψε όνομα τροφίμου.'); return; }
+    if(e.kcal === '' || !(Number(e.kcal) >= 0)){ toast('Γράψε θερμίδες ανά 100γρ.'); return; }
+    const pg = Number(e.portion_grams);
+    const row = { name:name.slice(0,80), category:e.category || 'Άλλο', kcal:n(e.kcal), protein_g:n(e.protein_g), carbs_g:n(e.carbs_g), fat_g:n(e.fat_g),
+                  portion_label:(e.portion_label||'').trim().slice(0,40) || null, portion_grams: pg > 0 ? n(pg) : null };
+    if(!row.portion_label) row.portion_grams = null;
+    const btn = $('fdb-save'); btn.disabled = true; btn.textContent = 'Αποθήκευση…';
+    const res = e.id
+      ? await sb.from('foods').update({ ...row, updated_at:new Date().toISOString() }).eq('id', e.id)
+      : await sb.from('foods').insert(row);
+    if(res.error){
+      console.error('foods save error', res.error);
+      btn.disabled = false; btn.textContent = 'Αποθήκευση';
+      toast(res.error.code === '23505' ? 'Υπάρχει ήδη τρόφιμο με αυτό το όνομα.' : 'Σφάλμα αποθήκευσης.', 4000);
+      return;
+    }
+    fdbAdmin.edit = null;
+    toast(e.id ? 'Το τρόφιμο ενημερώθηκε.' : 'Το τρόφιμο προστέθηκε.');
+    fdb.list = null; renderFoodsDbContent();
+  });
+  if($('fdb-del')) $('fdb-del').addEventListener('click', async ()=>{
+    const e = fdbAdmin.edit; if(!e || !e.id) return;
+    if(!confirm(`Διαγραφή του «${e.name}» από τη βάση;\nΤα γεύματα που έχουν ήδη αποθηκευτεί δεν επηρεάζονται.`)) return;
+    const { error } = await sb.from('foods').delete().eq('id', e.id);
+    if(error){ console.error('foods delete error', error); toast('Σφάλμα διαγραφής.'); return; }
+    fdbAdmin.edit = null; toast('Διαγράφηκε.');
+    fdb.list = null; renderFoodsDbContent();
   });
 }
 
@@ -6107,7 +6487,7 @@ function renderAiTrainDraft(){
     <div class="food-note" style="margin:-6px 0 12px;">Διόρθωσε και το όνομα αν χρειάζεται, ώστε να είναι πάντα ίδιο (π.χ. πάντα «Χοιρινή μπριζόλα»). Άφησε κενό το βάρος για ό,τι δεν ζύγισες (π.χ. λάδι).</div>
     ${d.items.map((it,i)=>`<div class="food-item">
       <div class="row1">
-        <input class="name" type="text" data-ait-i="${i}" data-ait-f="name" value="${escAttr(it.name)}">
+        <input class="name" type="text" placeholder="Όνομα τροφίμου" data-ait-i="${i}" data-ait-f="name" value="${escAttr(it.name)}">
         <button class="x" data-ait-rm="${i}" aria-label="Αφαίρεση">×</button>
       </div>
       <div class="macros" style="grid-template-columns:1fr 1fr;">
@@ -6154,6 +6534,14 @@ function bindAiTrainEvents(){
     const it = aiTrain.draft && aiTrain.draft.items[Number(inp.getAttribute('data-ait-i'))];
     if(it) it[inp.getAttribute('data-ait-f')] = inp.value;
   }));
+  // Ίδια ονόματα με τη βάση τροφίμων → σωστές διορθώσεις ανά τρόφιμο
+  document.querySelectorAll('input[data-ait-f="name"]').forEach(inp=>{
+    fdbAttachSuggest(inp, { onPick: e=>{
+      const it = aiTrain.draft && aiTrain.draft.items[Number(inp.getAttribute('data-ait-i'))];
+      if(it) it.name = e.name;
+      inp.value = e.name;
+    }});
+  });
   document.querySelectorAll('[data-ait-rm]').forEach(b=>b.addEventListener('click', ()=>{
     aiTrain.draft.items.splice(Number(b.getAttribute('data-ait-rm')), 1); renderAiTrainContent();
   }));
@@ -6201,7 +6589,7 @@ async function renderAppClient(){
 
   state.clientNav = { view:'programs', programId:null, dayIndex:null, itemIndex:null };
   state.clientViewMode = 'mine';
-  food.date = foodLocalISO(new Date()); food.meals = []; food.loadedFor = null; food.draft = null;
+  food.date = foodLocalISO(new Date()); food.meals = []; food.loadedFor = null; food.draft = null; food.recent = null;
 
   const main = document.getElementById('main');
   main.innerHTML = `
@@ -7043,6 +7431,8 @@ function render(skipNav){
     renderTplPreviewTab();
   } else if(state.tab==='aitrain' && auth.role==='owner'){
     renderAiTrainTab();
+  } else if(state.tab==='foodsdb' && auth.role==='owner'){
+    renderFoodsDbTab();
   } else {
     main.innerHTML = renderHistory();
     bindHistoryEvents();
