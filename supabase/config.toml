@@ -1,0 +1,6 @@
+# ΦΟΡΜΑ — ρυθμίσεις Supabase για την αυτόματη ενημέρωση (GitHub Actions).
+project_id = "forma"
+
+[functions.analyze-meal]
+# Το project χρησιμοποιεί τα νέα κλειδιά (sb_publishable_…)· η συνάρτηση ελέγχει μόνη της τον χρήστη.
+verify_jwt = false
