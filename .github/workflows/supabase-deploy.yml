@@ -42,16 +42,27 @@ jobs:
         with:
           version: latest
 
+      # Κάθε εντολή: αν αποτύχει, το μήνυμα σφάλματος εμφανίζεται ως «annotation»
+      # στη σελίδα της εκτέλεσης (για εύκολη διάγνωση).
       - name: Σύνδεση με το project
-        run: supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+        run: |
+          run() { local t="$1"; shift; if ! "$@" >out.log 2>&1; then cat out.log; m=$(tail -n 12 out.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}'); echo "::error title=$t::$m"; exit 1; fi; cat out.log; }
+          declare -f run > "$RUNNER_TEMP/run.sh"
+          run "Σύνδεση με το project" supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
 
       # Τα τρία πρώτα SQL έχουν ήδη τρέξει χειροκίνητα στο SQL Editor·
       # τα σημειώνουμε ως «έτοιμα» ώστε να μην ξανατρέξουν.
       - name: Σήμανση SQL που έτρεξαν χειροκίνητα
-        run: supabase migration repair --status applied 20261004000000 20261004000001 20261005000000 --password "$SUPABASE_DB_PASSWORD"
+        run: |
+          source "$RUNNER_TEMP/run.sh"
+          run "Σήμανση SQL" supabase migration repair --status applied 20261004000000 20261004000001 20261005000000 --password "$SUPABASE_DB_PASSWORD"
 
       - name: Νέα SQL στη βάση
-        run: supabase db push --password "$SUPABASE_DB_PASSWORD" --yes
+        run: |
+          source "$RUNNER_TEMP/run.sh"
+          run "Νέα SQL στη βάση" supabase db push --password "$SUPABASE_DB_PASSWORD" --yes
 
       - name: Deploy Edge Function analyze-meal
-        run: supabase functions deploy analyze-meal --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+        run: |
+          source "$RUNNER_TEMP/run.sh"
+          run "Deploy analyze-meal" supabase functions deploy analyze-meal --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
