@@ -1644,14 +1644,22 @@ function freshTplBuilder(){
     addForm: null, // {dayIndex, type:'muscle'|'cardio', ...}
   };
 }
+function tplValidTopCategory(c){ return Object.prototype.hasOwnProperty.call(TPL_CATEGORIES, c||''); }
+function tplCategoryProblem(t){
+  if(!tplValidTopCategory(t.top_category)) return 'Η κατηγορία δεν υπάρχει στη λίστα — πάτα Επεξεργασία και διάλεξε κατηγορία';
+  const subs = TPL_CATEGORIES[t.top_category] || [];
+  if(subs.length && !subs.includes(t.sub_category)) return 'Η υποκατηγορία δεν υπάρχει στη λίστα — πάτα Επεξεργασία και διάλεξε υποκατηγορία';
+  return '';
+}
 function loadTemplateIntoBuilder(t){
   state.tplBuilder = {
     id: t.id,
     tab: 'meta',
     gender: t.gender,
-    topCategory: t.top_category || '',
+    // Κατηγορία εκτός της επίσημης λίστας (π.χ. από παλιά έκδοση) → κενή, ώστε να ζητηθεί ξανά
+    topCategory: tplValidTopCategory(t.top_category) ? t.top_category : '',
     topCategoryPhoto: t.top_category_photo_url || '',
-    subCategory: t.sub_category || '',
+    subCategory: tplValidTopCategory(t.top_category) && (TPL_CATEGORIES[t.top_category]||[]).includes(t.sub_category) ? t.sub_category : '',
     name: t.name || '',
     photo: t.photo_url || '',
     numDays: t.num_days || 4,
@@ -3148,6 +3156,7 @@ function renderTplListArea(){
           <div>
             <div style="font-size:11px;color:var(--cyan-soft);text-transform:uppercase;letter-spacing:0.05em;">${escHtml(t.gender)} · ${escHtml(t.top_category)}${t.sub_category?' · '+escHtml(t.sub_category):''}</div>
             <div style="font-weight:700;font-size:14px;color:#dffaff;margin-top:2px;">${escHtml(t.name)}</div>
+            ${tplCategoryProblem(t) ? `<div style="font-size:11.5px;color:#ffb36b;font-weight:700;margin-top:3px;">⚠️ ${escHtml(tplCategoryProblem(t))} (δεν εμφανίζεται στη βιβλιοθήκη)</div>` : ''}
             <div style="font-size:11.5px;color:var(--ink-soft);margin-top:2px;">${t.num_days} ημέρες · σειρά ${t.sort_order||0} · ${t.is_published ? `<span style="color:#7ef5a0;">ορατό στους πελάτες</span>` : `<span style="color:#ffcf9e;">μόνο στη βιβλιοθήκη</span>`}</div>
             <div style="font-size:10.5px;color:var(--ink-soft);margin-top:2px;">Δημιουργός: ${escHtml(t.created_by_email||'—')}${t.updated_by_email?` · Τελευταία επεξεργασία: ${escHtml(t.updated_by_email)}`:''}</div>
           </div>
@@ -6978,9 +6987,10 @@ function renderTplLibGenderView(){
 
 function renderTplLibTopCatView(){
   const gender = state.tplLibNav.gender;
-  const seen = new Map();
-  state.tplTemplates.filter(t=>t.gender===gender).forEach(t=>{ if(!seen.has(t.top_category)) seen.set(t.top_category, t); });
-  const cats = [...seen.values()];
+  // Μόνο οι επίσημες κατηγορίες, με σταθερή σειρά (μία κάρτα η καθεμία)
+  const cats = Object.keys(TPL_CATEGORIES)
+    .map(c=>state.tplTemplates.find(t=>t.gender===gender && t.top_category===c && !tplCategoryProblem(t)))
+    .filter(Boolean);
   return `
     <div class="auth-back" data-tpllib-back="gender">${ICON.back}Φύλο</div>
     <div class="topbar"><div><h1>Προγράμματα ${escHtml(gender)}</h1></div></div>
@@ -6999,9 +7009,10 @@ function renderTplLibTopCatView(){
 
 function renderTplLibSubCatView(){
   const { gender, topCategory } = state.tplLibNav;
-  const seen = new Map();
-  state.tplTemplates.filter(t=>t.gender===gender && t.top_category===topCategory).forEach(t=>{ if(!seen.has(t.sub_category)) seen.set(t.sub_category, t); });
-  const subs = [...seen.values()];
+  // Μόνο οι επίσημες υποκατηγορίες, με σταθερή σειρά
+  const subs = (TPL_CATEGORIES[topCategory]||[])
+    .map(sc=>state.tplTemplates.find(t=>t.gender===gender && t.top_category===topCategory && t.sub_category===sc))
+    .filter(Boolean);
   return `
     <div class="auth-back" data-tpllib-back="topcat">${ICON.back}Κατηγορίες</div>
     <div class="topbar"><div><h1>Προγράμματα ${escHtml(topCategory)} — ${escHtml(gender)}</h1></div></div>
