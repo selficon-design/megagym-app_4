@@ -1,0 +1,47 @@
+# ΦΟΡΜΑ — διαγνωστικό ερώτημα ΜΟΝΟ ΑΝΑΓΝΩΣΗΣ στη βάση.
+# ΠΡΟΣΟΧΗ: το repository είναι δημόσιο και τα αποτελέσματα φαίνονται δημόσια.
+# Χρησιμοποιείται ΜΟΝΟ για δεδομένα που δεν είναι προσωπικά (π.χ. έτοιμα προγράμματα,
+# τρόφιμα) — ΠΟΤΕ για στοιχεία πελατών.
+name: Διάγνωση βάσης (μόνο ανάγνωση)
+
+on:
+  workflow_dispatch:
+    inputs:
+      query:
+        description: "Αρχείο στο supabase/diagnostics/ (χωρίς .sql)"
+        required: true
+        default: template_categories
+
+jobs:
+  query:
+    runs-on: ubuntu-latest
+    env:
+      RAW_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: exxjwjfjwvkenncyaqvc
+      QUERY: ${{ inputs.query }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Ερώτημα
+        run: |
+          case "$QUERY" in *[!a-z0-9_]*|"") echo "::error::Μη έγκυρο όνομα"; exit 1;; esac
+          F="supabase/diagnostics/$QUERY.sql"
+          [ -f "$F" ] || { echo "::error::Δεν υπάρχει το $F"; exit 1; }
+          export SUPABASE_ACCESS_TOKEN=$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]')
+          echo "::add-mask::$SUPABASE_ACCESS_TOKEN"
+          # Μόνο ανάγνωση: επιτρέπεται μόνο μία εντολή SELECT/WITH
+          grep -v '^[[:space:]]*--' "$F" > /tmp/q.sql
+          first=$(tr '\n' ' ' < /tmp/q.sql | sed 's/^[[:space:]]*//' | cut -d' ' -f1 | tr 'A-Z' 'a-z')
+          semis=$(sed 's/;[[:space:]]*$//' /tmp/q.sql | tr -cd ';' | wc -c)
+          if [ "$first" != "select" ] && [ "$first" != "with" ] || [ "$semis" -gt 0 ] || grep -qiE '\b(insert|update|delete|drop|alter|truncate|create|grant)\b' /tmp/q.sql; then
+            echo "::error::Επιτρέπεται μόνο μία εντολή ανάγνωσης (SELECT)."; exit 1
+          fi
+          if ! supabase db query --linked --project-ref "$PROJECT_REF" -f /tmp/q.sql -o csv > out.txt 2>&1; then
+            m=$(tail -n 15 out.txt | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}'); echo "::error title=Σφάλμα::$m"; exit 1
+          fi
+          cat out.txt
+          # Αποτέλεσμα ως annotation, σε κομμάτια των 40 γραμμών
+          split -l 40 out.txt part_
+          for p in part_*; do m=$(sed 's/%/%25/g' "$p" | awk '{printf "%s%%0A", $0}'); echo "::notice title=$QUERY::$m"; done
