@@ -634,6 +634,20 @@ input,select{font-family:inherit;}
 .eqm-n{font-size:13.5px;font-weight:600;color:#dffaff;}
 .eqm-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
 .eqm-act .btn{padding:6px 10px;font-size:11px;}
+.eqm-g{font-size:17px;margin:22px 0 4px;color:var(--accent);}
+.eqm-card{border:1px solid rgba(61,216,255,.22);border-radius:14px;padding:12px;margin:8px 0;background:rgba(3,11,18,.45);}
+.eqm-slots{display:grid;grid-template-columns:repeat(3,minmax(0,220px));gap:12px;margin-top:10px;}
+@media (max-width:560px){ .eqm-slots{grid-template-columns:1fr 1fr;} }
+.eqm-slot-t{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--cyan-soft);margin-bottom:6px;}
+.eqm-tile{position:relative;width:100%;aspect-ratio:1/1;border-radius:12px;border:1px solid var(--line);overflow:hidden;background:#0a0a0a;padding:0;cursor:zoom-in;display:flex;align-items:center;justify-content:center;color:#fff;font-family:inherit;}
+.eqm-tile img{width:100%;height:100%;object-fit:contain;display:block;}
+.eqm-tile span{position:absolute;right:5px;bottom:5px;font-size:12px;background:rgba(3,11,18,.75);border-radius:6px;padding:1px 5px;}
+.eqm-tile.video{cursor:pointer;flex-direction:column;font-size:34px;background:linear-gradient(145deg,#0d2230,#05121b);}
+.eqm-tile.video small{font-size:11px;color:var(--ink-soft);margin-top:4px;}
+.eqm-tile.empty{cursor:default;font-size:12px;color:var(--ink-soft);text-align:center;background:rgba(3,11,18,.5);border-style:dashed;}
+.eqm-slot-a{display:flex;gap:6px;margin-top:6px;}
+.eqm-slot-a .btn{padding:6px 9px;font-size:11px;flex:1;justify-content:center;}
+.eqm-slot-a [data-eqm-rm]{flex:0 0 auto;}
 .eqm-thumb{position:relative;width:120px;height:120px;flex-shrink:0;border-radius:12px;border:1px solid var(--line);overflow:hidden;background:#0a0a0a;padding:0;cursor:zoom-in;display:flex;align-items:center;justify-content:center;}
 .eqm-thumb img{width:100%;height:100%;object-fit:contain;display:block;}
 .eqm-thumb span{position:absolute;right:4px;bottom:4px;font-size:12px;background:rgba(3,11,18,.75);border-radius:6px;padding:1px 4px;}
@@ -7318,10 +7332,10 @@ function eqResolve(eq, exercise){
   // 1) Φωτογραφία ΜΗΧΑΝΗΜΑΤΟΣ (ίδια σε όλες τις ασκήσεις)
   const catByName = eqCatalog().get(eq.name);
   const machine = (state.eqMedia||{})[eq.name];
-  out.photoUrl = (machine && machine.photo_url) || (catByName && catByName.photoUrl) || eq.photoUrl;
-  // 2) Βίντεο & φωτογραφία ΑΣΚΗΣΗΣ (για τον συγκεκριμένο συνδυασμό)
+  // 2) Βίντεο & φωτογραφίες για τον συγκεκριμένο συνδυασμό «τίτλος άσκησης + εξοπλισμός»
   const catPair = (exercise && (EQUIPMENT_BY_EXERCISE[exercise]||[]).find(e=>e.name===eq.name)) || null;
   const pair = (state.exMedia||{})[exMediaKey(exercise, eq.name)];
+  out.photoUrl = (pair && pair.equipment_photo_url) || (machine && machine.photo_url) || (catPair && catPair.photoUrl) || (catByName && catByName.photoUrl) || eq.photoUrl;
   out.exercisePhotoUrl = (pair && pair.exercise_photo_url) || (catPair && catPair.exercisePhotoUrl) || eq.exercisePhotoUrl;
   if(pair && pair.video_id) out.videoUrl = bunnyEmbedUrl(pair.video_id);
   else if(machine && machine.video_id) out.videoUrl = bunnyEmbedUrl(machine.video_id); // παλιά εγγραφή (ανά μηχάνημα)
@@ -7382,118 +7396,104 @@ async function bunnyUploadFile(file, title, onProgress){
   return t.video_id;
 }
 
-/* ---------- Owner: οθόνη «Φωτογραφίες & Βίντεο» ---------- */
-const eqm = { view:'exercises', q:'', onlyMissing:false, busy:{}, progress:{}, status:{}, migrating:null };
+/* ---------- Owner: οθόνη «Φωτογραφίες & Βίντεο Ασκήσεων» ----------
+   Μυϊκή ομάδα → Τίτλος άσκησης → Εξοπλισμός. Κάθε συνδυασμός «τίτλος + εξοπλισμός» είναι
+   ξεχωριστή άσκηση με 3 θέσεις: φωτογραφία εξοπλισμού, φωτογραφία άσκησης, βίντεο άσκησης.
+   Ό,τι ανεβαίνει εδώ υπερισχύει των links του Excel.                                   */
+const eqm = { q:'', onlyMissing:false, busy:{}, progress:{}, status:{}, migrating:null };
 const BUNNY_STATUS = { 0:'Δημιουργήθηκε', 1:'Ανέβηκε', 2:'Επεξεργασία', 3:'Μετατροπή', 4:'Έτοιμο', 5:'Σφάλμα', 6:'Αποτυχία ανεβάσματος' };
+const EQM_GROUP_OF = {};
+Object.keys(EXERCISES).forEach(g=>EXERCISES[g].forEach(x=>{ if(!EQM_GROUP_OF[x]) EQM_GROUP_OF[x] = g; }));
 
 function renderEqMediaTab(){
   const main = document.getElementById('main');
   main.innerHTML = `
-    <h1 style="margin-bottom:2px;">Φωτογραφίες & Βίντεο</h1>
-    <div class="sub" style="margin-bottom:18px;"><b>Ασκήσεις:</b> βίντεο και φωτογραφία εκτέλεσης για κάθε άσκηση σε κάθε μηχάνημα. <b>Μηχανήματα:</b> η φωτογραφία του μηχανήματος, μία φορά, για όλες τις ασκήσεις. Ισχύουν αμέσως και στα ήδη αποθηκευμένα προγράμματα.</div>
-    <div class="mobile-preview-frame" style="max-width:920px;"><div id="eqm-content"><div style="color:var(--ink-soft);">Φόρτωση...</div></div></div>`;
+    <h1 style="margin-bottom:2px;">Φωτογραφίες & Βίντεο Ασκήσεων</h1>
+    <div class="sub" style="margin-bottom:18px;">Για κάθε άσκηση (τίτλος + εξοπλισμός): <b>φωτογραφία εξοπλισμού</b>, <b>φωτογραφία άσκησης</b> και <b>βίντεο άσκησης</b>. Ό,τι ανεβάζεις εδώ υπερισχύει των links του Excel και ισχύει αμέσως παντού, και στα ήδη αποθηκευμένα προγράμματα.</div>
+    <div class="mobile-preview-frame" style="max-width:960px;"><div id="eqm-content"><div style="color:var(--ink-soft);">Φόρτωση...</div></div></div>`;
   eqMediaLoad(true).then(()=>{ if(state.tab==='eqmedia') renderEqMediaContent(); });
 }
 function eqmPairs(){
   const rows = [];
-  Object.keys(EQUIPMENT_BY_EXERCISE).forEach(ex=>EQUIPMENT_BY_EXERCISE[ex].forEach(e=>rows.push({ ex, e, key: exMediaKey(ex, e.name) })));
+  Object.keys(EQUIPMENT_BY_EXERCISE).forEach(ex=>EQUIPMENT_BY_EXERCISE[ex].forEach(e=>rows.push({ ex, e, key: exMediaKey(ex, e.name), group: EQM_GROUP_OF[ex] || '' })));
   return rows;
 }
-function eqmMachines(){
-  const map = new Map();
-  eqmPairs().forEach(r=>{ if(!map.has(r.e.name)) map.set(r.e.name, { name:r.e.name, e:r.e, exercises:[] }); map.get(r.e.name).exercises.push(r.ex); });
-  return [...map.values()];
+// Από πού έρχεται κάθε στοιχείο: 'app' (ανέβηκε εδώ), 'excel' (link του Excel), '' (τίποτα)
+function eqmSources(r){
+  const pair = (state.exMedia||{})[r.key] || {}, machine = (state.eqMedia||{})[r.e.name] || {};
+  return {
+    eqPhoto: pair.equipment_photo_url ? 'app' : machine.photo_url ? 'app' : r.e.photoUrl ? 'excel' : '',
+    exPhoto: pair.exercise_photo_url ? 'app' : r.e.exercisePhotoUrl ? 'excel' : '',
+    video:   pair.video_id ? 'app' : machine.video_id ? 'app' : r.e.videoUrl ? 'excel' : ''
+  };
 }
-function eqmThumb(url, label){
-  return url ? `<button type="button" class="eqm-thumb" data-eqm-zoom="${escAttr(url)}" title="Μεγέθυνση"><img src="${escAttr(url)}" alt="" loading="lazy"><span>🔍</span></button>`
-             : `<div class="eqm-thumb empty">${escHtml(label)}</div>`;
-}
-function eqmVideoChip(key){
-  const pair = (state.exMedia||{})[key];
-  if(eqm.busy[key]) return `<span>${escHtml(eqm.busy[key])}${eqm.progress[key]!=null?` ${eqm.progress[key]}%`:''}</span>`;
-  if(pair && pair.video_id){
+const EQM_SRC_LABEL = { app:'<span class="ok">Από την εφαρμογή</span>', excel:'<span class="bad">Link Excel</span>', '':'<span>Κενό</span>' };
+function eqmSlot(i, kind, title, url, src, isVideo){
+  const r = eqmPairs()[i], key = r.key, busy = eqm.busy[key+'|'+kind];
+  let media;
+  if(busy) media = `<div class="eqm-tile empty">${escHtml(busy)}${eqm.progress[key]!=null && kind==='video' ? `<br><b>${eqm.progress[key]}%</b>` : ''}</div>`;
+  else if(!url) media = `<div class="eqm-tile empty">Κενό</div>`;
+  else if(isVideo){
+    const pair = (state.exMedia||{})[key] || {};
     const st = eqm.status[key] ?? pair.video_status;
-    if(st===4) return '<span class="ok">🎬 Βίντεο Bunny · έτοιμο</span>';
-    if(st===5 || st===6) return '<span class="bad">⚠️ Σφάλμα στο Bunny — ανέβασέ το ξανά</span>';
-    return `<span>⏳ Bunny · ${escHtml(BUNNY_STATUS[st]||'σε επεξεργασία')}${eqm.progress[key]!=null?` ${eqm.progress[key]}%`:''}</span>`;
+    const note = src==='app' && st!=null && st!==4 ? (st===5||st===6 ? '⚠️ Σφάλμα Bunny' : `⏳ ${BUNNY_STATUS[st]||'Επεξεργασία'}${eqm.progress[key]!=null?' '+eqm.progress[key]+'%':''}`) : '';
+    media = `<button type="button" class="eqm-tile video" data-eqm-play="${i}">▶<small>${note ? escHtml(note) : 'Προβολή'}</small></button>`;
   }
-  const [ex, nm] = key.split('||');
-  const cat = (EQUIPMENT_BY_EXERCISE[ex]||[]).find(e=>e.name===nm);
-  return cat && cat.videoUrl ? '<span class="bad">Βίντεο από Wix</span>' : '<span>Χωρίς βίντεο</span>';
+  else media = `<button type="button" class="eqm-tile" data-eqm-zoom="${escAttr(url)}" title="Μεγέθυνση"><img src="${escAttr(url)}" alt="" loading="lazy"><span>🔍</span></button>`;
+  return `<div class="eqm-slot">
+    <div class="eqm-slot-t">${escHtml(title)}</div>
+    ${media}
+    <div class="air-chips" style="margin-top:4px;">${EQM_SRC_LABEL[src]}</div>
+    <div class="eqm-slot-a">
+      <label class="btn btn-outline" style="cursor:pointer;">${isVideo?'🎬':'📷'} ${url?'Αλλαγή':'Ανέβασμα'}<input type="file" accept="${isVideo?'video/*':'image/*'}" data-eqm-up="${i}" data-eqm-kind="${kind}" style="display:none;"></label>
+      ${src==='app' ? `<button type="button" class="btn btn-outline" data-eqm-rm="${i}" data-eqm-kind="${kind}" style="color:#ff8b90;">🗑</button>` : ''}
+    </div>
+  </div>`;
 }
 function renderEqMediaContent(){
   const box = document.getElementById('eqm-content'); if(!box) return;
   const toks = fdbKey(eqm.q).split(' ').filter(Boolean);
-  const match = txt=>!toks.length || toks.every(t=>fdbKey(txt).includes(t));
-  let html = '', shown = 0;
-  if(eqm.view==='exercises'){
-    let lastEx = null;
-    eqmPairs().forEach((r, i)=>{
-      if(!match(r.ex + ' ' + r.e.name)) return;
-      const res = eqResolve(r.e, r.ex);
-      const pair = (state.exMedia||{})[r.key];
-      const hasBunny = pair && pair.video_id;
-      if(eqm.onlyMissing && hasBunny && res.exercisePhotoUrl) return;
-      if(r.ex !== lastEx){ html += `<div class="section-title" style="margin-top:16px;"><span class="dot"></span>${escHtml(r.ex)}</div>`; lastEx = r.ex; }
-      shown++;
-      html += `<div class="eqm-row">
-        ${eqmThumb(res.exercisePhotoUrl, 'Χωρίς φωτογραφία άσκησης')}
-        <div style="flex:1;min-width:0;">
-          <div class="eqm-n">${escHtml(r.e.name)}</div>
-          <div class="air-chips">${eqmVideoChip(r.key)}${res.exercisePhotoUrl?'':'<span class="bad">Χωρίς φωτογραφία άσκησης</span>'}</div>
-          <div class="eqm-act">
-            <label class="btn btn-outline" style="cursor:pointer;">🎬 Βίντεο άσκησης<input type="file" accept="video/*" data-eqm-video="${i}" style="display:none;"></label>
-            <label class="btn btn-outline" style="cursor:pointer;">📷 Φωτογραφία άσκησης<input type="file" accept="image/*" data-eqm-exphoto="${i}" style="display:none;"></label>
-            ${res.videoUrl ? `<button type="button" class="btn btn-outline" data-eqm-play="${i}">▶ Βίντεο</button>` : ''}
-            ${res.photoUrl ? `<button type="button" class="btn btn-outline" data-eqm-zoom="${escAttr(res.photoUrl)}">🔍 Μηχάνημα</button>` : ''}
-          </div>
-        </div></div>`;
-    });
-  } else {
-    eqmMachines().forEach((m, i)=>{
-      if(!match(m.name + ' ' + m.exercises.join(' '))) return;
-      const res = eqResolve(m.e);
-      if(eqm.onlyMissing && res.photoUrl) return;
-      shown++;
-      html += `<div class="eqm-row">
-        ${eqmThumb(res.photoUrl, 'Χωρίς φωτογραφία')}
-        <div style="flex:1;min-width:0;">
-          <div class="eqm-n">${escHtml(m.name)}</div>
-          <div class="food-note" style="margin-top:3px;">Χρησιμοποιείται σε ${m.exercises.length} ${m.exercises.length===1?'άσκηση':'ασκήσεις'}: ${escHtml(m.exercises.slice(0,3).join(' · '))}${m.exercises.length>3?' …':''}</div>
-          <div class="eqm-act">
-            <label class="btn btn-outline" style="cursor:pointer;">📷 Φωτογραφία μηχανήματος<input type="file" accept="image/*" data-eqm-photo="${i}" style="display:none;"></label>
-          </div>
-        </div></div>`;
-    });
-  }
-  const wix = eqmPairs().filter(r=>r.e.videoUrl && !(((state.exMedia||{})[r.key])||{}).video_id);
+  let html = '', lastG = null, lastEx = null, shown = 0;
+  eqmPairs().forEach((r, i)=>{
+    if(toks.length && !toks.every(t=>fdbKey(r.group+' '+r.ex+' '+r.e.name).includes(t))) return;
+    const res = eqResolve(r.e, r.ex), src = eqmSources(r);
+    if(eqm.onlyMissing && src.eqPhoto==='app' && src.exPhoto==='app' && src.video==='app') return;
+    if(r.group !== lastG){ html += `<h2 class="eqm-g">${escHtml(GROUP_DISPLAY[r.group] || r.group || 'Άλλο')}</h2>`; lastG = r.group; lastEx = null; }
+    if(r.ex !== lastEx){ html += `<div class="section-title" style="margin-top:12px;"><span class="dot"></span>${escHtml(r.ex)}</div>`; lastEx = r.ex; }
+    shown++;
+    html += `<div class="eqm-card">
+      <div class="eqm-n">🏋️ ${escHtml(r.e.name)}</div>
+      <div class="eqm-slots">
+        ${eqmSlot(i, 'eqPhoto', 'Φωτογραφία εξοπλισμού', res.photoUrl, src.eqPhoto, false)}
+        ${eqmSlot(i, 'exPhoto', 'Φωτογραφία άσκησης', res.exercisePhotoUrl, src.exPhoto, false)}
+        ${eqmSlot(i, 'video', 'Βίντεο άσκησης', res.videoUrl, src.video, true)}
+      </div>
+    </div>`;
+  });
+  const wix = eqmPairs().filter(r=>r.e.videoUrl && eqmSources(r).video==='excel');
   box.innerHTML = `
-    <div class="fdb-cats" style="margin-bottom:12px;">
-      <button type="button" data-eqm-view="exercises" class="${eqm.view==='exercises'?'active':''}">🎬 Ασκήσεις (βίντεο & φωτογραφία άσκησης)</button>
-      <button type="button" data-eqm-view="machines" class="${eqm.view==='machines'?'active':''}">🏋️ Μηχανήματα (φωτογραφία μηχανήματος)</button>
-    </div>
-    ${eqm.view==='exercises' && wix.length ? `<div class="panel pad" style="margin-bottom:14px;">
-      <div style="font-weight:700;margin-bottom:4px;">Βίντεο που παίζουν ακόμα από το Wix: ${wix.length} ασκήσεις</div>
-      <div class="food-note" style="margin:0 0 10px;">Με ένα κουμπί μεταφέρονται στο Bunny και συνδέονται αυτόματα με τις ίδιες ασκήσεις.</div>
+    ${wix.length ? `<div class="panel pad" style="margin-bottom:14px;">
+      <div style="font-weight:700;margin-bottom:4px;">Βίντεο που παίζουν ακόμα από link του Excel (Wix): ${wix.length} ασκήσεις</div>
+      <div class="food-note" style="margin:0 0 10px;">Με ένα κουμπί μεταφέρονται στο Bunny και συνδέονται με τις ίδιες ασκήσεις. (Αν είναι δοκιμαστικά, μπορείς να τα αφήσεις και να ανεβάσεις τα σωστά όταν τα έχεις.)</div>
       <button class="btn btn-primary" id="eqm-migrate" style="width:100%;justify-content:center;" ${eqm.migrating?'disabled':''}>${eqm.migrating?escHtml(eqm.migrating):'🚚 Μεταφορά βίντεο από Wix στο Bunny'}</button>
     </div>` : ''}
-    <input class="fdb-search" id="eqm-q" type="search" placeholder="${eqm.view==='exercises'?'Αναζήτηση άσκησης ή μηχανήματος':'Αναζήτηση μηχανήματος'}" value="${escAttr(eqm.q)}" autocomplete="off">
-    <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:-2px 0 6px;"><input type="checkbox" id="eqm-missing" ${eqm.onlyMissing?'checked':''}> ${eqm.view==='exercises'?'Μόνο όσες δεν έχουν βίντεο Bunny ή φωτογραφία άσκησης':'Μόνο όσα δεν έχουν φωτογραφία'}</label>
-    <div class="food-note" style="margin:0 0 6px;">Εμφανίζονται ${shown}. Πάτα πάνω σε μια φωτογραφία για μεγέθυνση. Τα βίντεο επεξεργάζονται από το Bunny για 1–3 λεπτά μετά το ανέβασμα.</div>
-    ${html || '<div class="food-note" style="text-align:center;padding:16px;">Δεν βρέθηκε.</div>'}`;
+    <input class="fdb-search" id="eqm-q" type="search" placeholder="Αναζήτηση μυϊκής ομάδας, άσκησης ή εξοπλισμού" value="${escAttr(eqm.q)}" autocomplete="off">
+    <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:-2px 0 6px;"><input type="checkbox" id="eqm-missing" ${eqm.onlyMissing?'checked':''}> Μόνο όσες δεν έχουν και τα 3 ανεβασμένα από την εφαρμογή</label>
+    <div class="food-note" style="margin:0 0 6px;">Εμφανίζονται ${shown} ασκήσεις. Πάτα μια φωτογραφία για μεγέθυνση. Το 🗑 αφαιρεί ό,τι ανέβηκε από την εφαρμογή (τότε ξαναφαίνεται το link του Excel, αν υπάρχει). Τα βίντεο επεξεργάζονται από το Bunny για 1–3 λεπτά.</div>
+    ${html || '<div class="food-note" style="text-align:center;padding:16px;">Δεν βρέθηκε άσκηση.</div>'}`;
   bindEqMediaEvents();
-}
-async function eqmSaveMachine(name, patch){
-  const row = { name, ...patch, updated_by: auth.user.id, updated_at: new Date().toISOString() };
-  const { error } = await sb.from('equipment_media').upsert(row, { onConflict:'name' });
-  if(error){ console.error(error); throw new Error('Δεν αποθηκεύτηκε στη βάση.'); }
-  state.eqMedia = state.eqMedia || {}; state.eqMedia[name] = { ...(state.eqMedia[name]||{}), ...row };
 }
 async function eqmSavePair(exercise, equipment, patch){
   const row = { exercise, equipment, ...patch, updated_by: auth.user.id, updated_at: new Date().toISOString() };
   const { error } = await sb.from('exercise_media').upsert(row, { onConflict:'exercise,equipment' });
   if(error){ console.error(error); throw new Error('Δεν αποθηκεύτηκε στη βάση.'); }
   state.exMedia = state.exMedia || {}; const k = exMediaKey(exercise, equipment); state.exMedia[k] = { ...(state.exMedia[k]||{}), ...row };
+}
+async function eqmClearMachine(name, field){
+  const m = (state.eqMedia||{})[name]; if(!m || !m[field]) return;
+  const { error } = await sb.from('equipment_media').update({ [field]: null, updated_at: new Date().toISOString() }).eq('name', name);
+  if(error){ console.error(error); throw new Error('Δεν αφαιρέθηκε.'); }
+  m[field] = null;
 }
 async function eqmWatch(videoId, pairs){
   for(let i=0; i<60; i++){
@@ -7509,49 +7509,51 @@ async function eqmWatch(videoId, pairs){
   }
 }
 function bindEqMediaEvents(){
-  const pairs = eqmPairs(), machines = eqmMachines();
+  const pairs = eqmPairs();
   const $ = id=>document.getElementById(id);
-  document.querySelectorAll('[data-eqm-view]').forEach(b=>b.addEventListener('click', ()=>{ eqm.view = b.getAttribute('data-eqm-view'); renderEqMediaContent(); }));
   if($('eqm-q')) $('eqm-q').addEventListener('input', e=>{ eqm.q = e.target.value; clearTimeout(eqm.t); eqm.t = setTimeout(()=>{ renderEqMediaContent(); const q=$('eqm-q'); if(q){ q.focus(); q.setSelectionRange(q.value.length,q.value.length); } }, 250); });
   if($('eqm-missing')) $('eqm-missing').addEventListener('change', e=>{ eqm.onlyMissing = e.target.checked; renderEqMediaContent(); });
   document.querySelectorAll('[data-eqm-zoom]').forEach(b=>b.addEventListener('click', ()=>openLightbox('photo', b.getAttribute('data-eqm-zoom'))));
   document.querySelectorAll('[data-eqm-play]').forEach(b=>b.addEventListener('click', ()=>{ const r = pairs[Number(b.getAttribute('data-eqm-play'))]; openLightbox('video', eqResolve(r.e, r.ex).videoUrl); }));
-  document.querySelectorAll('[data-eqm-photo]').forEach(inp=>inp.addEventListener('change', async ()=>{
+  document.querySelectorAll('[data-eqm-up]').forEach(inp=>inp.addEventListener('change', async ()=>{
     const file = inp.files && inp.files[0]; inp.value = ''; if(!file) return;
-    const m = machines[Number(inp.getAttribute('data-eqm-photo'))];
-    toast('Ανεβαίνει η φωτογραφία…');
-    try{ const url = await libUploadImage(file, 'equipment'); await eqmSaveMachine(m.name, { photo_url:url }); toast(`Η φωτογραφία ισχύει πλέον σε ${m.exercises.length} ${m.exercises.length===1?'άσκηση':'ασκήσεις'}.`, 3500); }
-    catch(err){ toast(err.message, 4000); }
+    const r = pairs[Number(inp.getAttribute('data-eqm-up'))], kind = inp.getAttribute('data-eqm-kind'), key = r.key, bk = key+'|'+kind;
+    try{
+      if(kind === 'video'){
+        if(file.size > 4*1024*1024*1024){ toast('Το βίντεο είναι πάνω από 4GB.'); return; }
+        eqm.busy[bk] = '⬆️ Ανέβασμα'; eqm.progress[key] = 0; renderEqMediaContent();
+        const vid = await bunnyUploadFile(file, `${r.ex} — ${r.e.name}`, p=>{ eqm.progress[key] = p; const now = Date.now(); if(!eqm.lastR || now-eqm.lastR>700){ eqm.lastR = now; renderEqMediaContent(); } });
+        await eqmSavePair(r.ex, r.e.name, { video_id: vid, video_status: 1 });
+        eqm.status[key] = 1; eqm.progress[key] = null;
+        toast('Το βίντεο ανέβηκε! Το Bunny το επεξεργάζεται (1–3 λεπτά).', 4000);
+        eqmWatch(vid, [{ ex:r.ex, name:r.e.name }]);
+      } else {
+        eqm.busy[bk] = '⏳ Ανεβαίνει…'; renderEqMediaContent();
+        const url = await libUploadImage(file, kind==='eqPhoto' ? 'equipment' : 'exercises');
+        await eqmSavePair(r.ex, r.e.name, kind==='eqPhoto' ? { equipment_photo_url:url } : { exercise_photo_url:url });
+        toast('Η φωτογραφία ανέβηκε!');
+      }
+    }catch(err){ toast(err.message, 5000); eqm.progress[key] = null; }
+    delete eqm.busy[bk]; renderEqMediaContent();
+  }));
+  document.querySelectorAll('[data-eqm-rm]').forEach(b=>b.addEventListener('click', async ()=>{
+    const r = pairs[Number(b.getAttribute('data-eqm-rm'))], kind = b.getAttribute('data-eqm-kind');
+    const what = { eqPhoto:'τη φωτογραφία εξοπλισμού', exPhoto:'τη φωτογραφία άσκησης', video:'το βίντεο' }[kind];
+    if(!confirm(`Αφαίρεση ${what} από «${r.e.name}»;\n(Αν υπάρχει link στο Excel, θα ξαναφαίνεται εκείνο.)`)) return;
+    try{
+      if(kind==='eqPhoto'){ await eqmSavePair(r.ex, r.e.name, { equipment_photo_url:null }); await eqmClearMachine(r.e.name, 'photo_url'); }
+      else if(kind==='exPhoto'){ await eqmSavePair(r.ex, r.e.name, { exercise_photo_url:null }); }
+      else { await eqmSavePair(r.ex, r.e.name, { video_id:null, video_status:null }); await eqmClearMachine(r.e.name, 'video_id'); delete eqm.status[r.key]; }
+      toast('Αφαιρέθηκε.');
+    }catch(err){ toast(err.message, 4000); }
     renderEqMediaContent();
   }));
-  document.querySelectorAll('[data-eqm-exphoto]').forEach(inp=>inp.addEventListener('change', async ()=>{
-    const file = inp.files && inp.files[0]; inp.value = ''; if(!file) return;
-    const r = pairs[Number(inp.getAttribute('data-eqm-exphoto'))];
-    eqm.busy[r.key] = '⏳ Ανεβαίνει φωτογραφία'; renderEqMediaContent();
-    try{ const url = await libUploadImage(file, 'exercises'); await eqmSavePair(r.ex, r.e.name, { exercise_photo_url:url }); toast('Η φωτογραφία άσκησης ανέβηκε!'); }
-    catch(err){ toast(err.message, 4000); }
-    delete eqm.busy[r.key]; renderEqMediaContent();
-  }));
-  document.querySelectorAll('[data-eqm-video]').forEach(inp=>inp.addEventListener('change', async ()=>{
-    const file = inp.files && inp.files[0]; inp.value = ''; if(!file) return;
-    const r = pairs[Number(inp.getAttribute('data-eqm-video'))], key = r.key;
-    if(file.size > 4*1024*1024*1024){ toast('Το βίντεο είναι πάνω από 4GB.'); return; }
-    eqm.busy[key] = '⬆️ Ανέβασμα'; eqm.progress[key] = 0; renderEqMediaContent();
-    try{
-      const title = `${r.ex} — ${r.e.name}`;
-      const vid = await bunnyUploadFile(file, title, p=>{ eqm.progress[key] = p; const now = Date.now(); if(!eqm.lastR || now-eqm.lastR>700){ eqm.lastR = now; renderEqMediaContent(); } });
-      await eqmSavePair(r.ex, r.e.name, { video_id: vid, video_status: 1 });
-      delete eqm.busy[key]; eqm.progress[key] = null; eqm.status[key] = 1;
-      toast('Το βίντεο ανέβηκε! Το Bunny το επεξεργάζεται (1–3 λεπτά).', 4000);
-      renderEqMediaContent(); eqmWatch(vid, [{ ex:r.ex, name:r.e.name }]);
-    }catch(err){ delete eqm.busy[key]; eqm.progress[key] = null; toast(err.message, 5000); renderEqMediaContent(); }
-  }));
   if($('eqm-migrate')) $('eqm-migrate').addEventListener('click', async ()=>{
-    const todo = new Map(); // ίδιο link → ένα βίντεο στο Bunny για όλους τους συνδυασμούς που το χρησιμοποιούν
-    pairs.forEach(r=>{ if(r.e.videoUrl && !(((state.exMedia||{})[r.key])||{}).video_id){ if(!todo.has(r.e.videoUrl)) todo.set(r.e.videoUrl, []); todo.get(r.e.videoUrl).push({ ex:r.ex, name:r.e.name }); } });
+    const todo = new Map();
+    pairs.forEach(r=>{ if(r.e.videoUrl && eqmSources(r).video==='excel'){ if(!todo.has(r.e.videoUrl)) todo.set(r.e.videoUrl, []); todo.get(r.e.videoUrl).push({ ex:r.ex, name:r.e.name }); } });
     if(!todo.size) return;
     const total = [...todo.values()].reduce((a,l)=>a+l.length,0);
-    if(!confirm(`Μεταφορά ${todo.size} ${todo.size===1?'βίντεο':'βίντεο'} από το Wix στο Bunny (για ${total} ασκήσεις);`)) return;
+    if(!confirm(`Μεταφορά ${todo.size} βίντεο από το Wix στο Bunny (για ${total} ασκήσεις);`)) return;
     let n = 0, okc = 0;
     for(const [url, list] of todo){
       n++; eqm.migrating = `Μεταφορά ${n} από ${todo.size}…`; renderEqMediaContent();
