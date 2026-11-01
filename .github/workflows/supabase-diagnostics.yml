@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.122.0
       - name: Ερώτημα
         run: |
           case "$QUERY" in *[!a-z0-9_]*|"") echo "::error::Μη έγκυρο όνομα"; exit 1;; esac
