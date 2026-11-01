@@ -622,6 +622,14 @@ input,select{font-family:inherit;}
 .air-cl-st{font-size:13px;line-height:1.5;padding:10px 12px;border-radius:10px;margin-bottom:10px;background:rgba(255,159,26,.1);border:1px solid rgba(255,159,26,.35);}
 .air-cl-st.ok{background:rgba(55,229,111,.1);border-color:rgba(55,229,111,.4);}
 .air-cl-st.bad{background:rgba(239,45,53,.1);border-color:rgba(239,45,53,.4);}
+.lib-cat{margin-bottom:12px;}
+.lib-cat.sub{margin-left:18px;border-style:dashed;}
+.lib-cat-grid{display:grid;grid-template-columns:150px 1fr;gap:14px;align-items:start;}
+@media (max-width:560px){ .lib-cat-grid{grid-template-columns:1fr;} .lib-cat.sub{margin-left:0;} }
+.lib-thumb{width:100%;aspect-ratio:1/1;border-radius:10px;border:1px solid var(--line);overflow:hidden;background:rgba(3,11,18,.5);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--ink-soft);text-align:center;}
+.lib-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.lib-cat-t{font-size:13px;color:#dffaff;}
+.fdb-form input[type=text]{width:100%;}
 .fdb-warn{font-size:12px;line-height:1.45;padding:8px 10px;border-radius:9px;background:rgba(255,159,26,.12);border:1px solid rgba(255,159,26,.4);color:#ffd59a;margin-top:10px;}
 
 .auth-field{margin-bottom:14px;}
@@ -1974,7 +1982,9 @@ async function deleteAnnouncement(id){
    ΕΤΟΙΜΑ ΠΡΟΓΡΑΜΜΑΤΑ — Supabase CRUD
    =================================================================== */
 async function loadTemplatePrograms(){
+  const catsP = loadLibraryCategories(); // φωτογραφίες/περιγραφές κατηγοριών (παράλληλα)
   const { data, error } = await sb.from('template_programs').select('*').order('sort_order', { ascending:true }).order('created_at', { ascending:false });
+  await catsP;
   if(error){ console.error(error); return []; }
   return data||[];
 }
@@ -2945,9 +2955,14 @@ function renderTplMetaForm(b){
           ${subOptions.map(s=>`<option value="${escAttr(s)}" ${b.subCategory===s?'selected':''}>${escHtml(s)}</option>`).join('')}
         </select>
       </div>`:''}
-      <div class="field"><label>Φωτογραφία Κατηγορίας (URL)</label><input type="text" id="tpl-topcatphoto" value="${escAttr(b.topCategoryPhoto)}" placeholder="https://..."></div>
+      <div class="field"><label>Φωτογραφία Κατηγορίας</label><div class="food-note" style="margin:0;">Οι φωτογραφίες των κατηγοριών μπαίνουν πλέον μία φορά, στην καρτέλα <b>«Κατηγορίες Βιβλιοθήκης»</b> του μενού.</div></div>
       <div class="field"><label>Ονομασία Προγράμματος</label><input type="text" id="tpl-name" value="${escAttr(b.name)}" placeholder="π.χ. ΑΝΔΡΙΚΟ ΠΡΟΓΡΑΜΜΑ 4 ΗΜΕΡΩΝ"></div>
-      <div class="field"><label>Φωτογραφία Προγράμματος (URL)</label><input type="text" id="tpl-photo" value="${escAttr(b.photo)}" placeholder="https://..."></div>
+      <div class="field"><label>Φωτογραφία Προγράμματος</label>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+          <div class="lib-thumb" id="tpl-photo-prev" style="width:84px;">${b.photo ? `<img src="${escAttr(b.photo)}" alt="">` : '<span>—</span>'}</div>
+          ${libUploadButton('tpl-photo', 'programs')}
+        </div>
+        <input type="text" id="tpl-photo" value="${escAttr(b.photo)}" placeholder="ή επικόλλησε link https://..."></div>
       <div class="field">
         <label>Αριθμός Ημερών</label>
         <div class="chip-row">${[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>`<button class="plate-btn ${b.numDays===n?'active':''}" data-tpl-days="${n}" style="--size:36px;font-size:12px;">${n}</button>`).join('')}</div>
@@ -2993,6 +3008,7 @@ function bindTplBuilderEvents(){
   if(subcatSel) subcatSel.addEventListener('change', ()=>{ b.subCategory = subcatSel.value; });
   bindText('tpl-topcatphoto','topCategoryPhoto');
   bindText('tpl-name','name'); bindText('tpl-photo','photo');
+  bindLibUploadButtons((inputId, url)=>{ if(inputId==='tpl-photo'){ const pv = document.getElementById('tpl-photo-prev'); if(pv) pv.innerHTML = `<img src="${escAttr(url)}" alt="">`; } });
   bindText('tpl-description','description'); bindText('tpl-results','results'); bindText('tpl-nutrition','nutrition'); bindText('tpl-notes','notes');
   const sortEl = document.getElementById('tpl-sortorder');
   if(sortEl) sortEl.addEventListener('input', ()=>{ b.sortOrder = parseInt(sortEl.value)||0; });
@@ -3444,6 +3460,7 @@ function renderNav(){
   items.push({id:'tplpreview', label:'Βιβλιοθήκη Έτοιμων Προγραμμάτων TRANSFORMATION', icon:ICON.history});
   if(auth.role === 'owner'){
     items.push({id:'tplbuilder', label:'Έτοιμα Προγράμματα TRANSFORMATION', icon:ICON.key});
+    items.push({id:'libcats', label:'Κατηγορίες Βιβλιοθήκης', icon:ICON.plan});
     items.push({id:'aitrain', label:'Εκπαίδευση AI Διατροφής', icon:ICON.key});
     items.push({id:'foodsdb', label:'Τρόφιμα (βάση θερμίδων)', icon:ICON.search});
     items.push({id:'airules', label:'Κέντρο Κανόνων AI', icon:ICON.key});
@@ -7119,6 +7136,148 @@ function bindAiClientEvents(){
   });
 }
 
+/* ===================================================================
+   ΚΑΤΗΓΟΡΙΕΣ ΒΙΒΛΙΟΘΗΚΗΣ — owner
+   Μία κάρτα για κάθε κατηγορία/υποκατηγορία ανά φύλο, με φωτογραφία,
+   περιγραφή και αποτελέσματα. Οι φωτογραφίες ανεβαίνουν στο Supabase
+   Storage (bucket "library-images") — όχι πια links από το Wix.
+   =================================================================== */
+const LIB_BUCKET = 'library-images';
+const libCats = { busy:null };
+
+function libCatKey(g, top, sub){ return [g, top, sub||''].join('|'); }
+async function loadLibraryCategories(){
+  const { data, error } = await sb.from('library_categories').select('*');
+  if(error){ console.warn('library_categories', error); state.libCats = state.libCats || {}; return; }
+  const m = {};
+  (data||[]).forEach(r=>{ m[libCatKey(r.gender, r.top_category, r.sub_category)] = r; });
+  state.libCats = m;
+}
+function libCat(g, top, sub){ return (state.libCats||{})[libCatKey(g, top, sub)] || null; }
+
+// Συμπίεση σε καλή ποιότητα (έως 1600px, JPEG 88%) και ανέβασμα — επιστρέφει το δημόσιο link
+function libCompressImage(file){
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{
+      const max = 1600, scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth*scale); c.height = Math.round(img.naturalHeight*scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b=> b ? resolve(b) : reject(new Error('Η φωτογραφία δεν μπόρεσε να επεξεργαστεί.')), 'image/jpeg', 0.88);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('Δεν μπόρεσα να διαβάσω τη φωτογραφία.')); };
+    img.src = url;
+  });
+}
+async function libUploadImage(file, folder){
+  const blob = await libCompressImage(file);
+  const id = (crypto.randomUUID ? crypto.randomUUID() : Date.now()+'-'+Math.random().toString(36).slice(2));
+  const path = `${folder}/${id}.jpg`;
+  const { error } = await sb.storage.from(LIB_BUCKET).upload(path, blob, { contentType:'image/jpeg', upsert:false, cacheControl:'31536000' });
+  if(error){ console.error('upload', error); throw new Error('Το ανέβασμα απέτυχε. Δοκίμασε ξανά.'); }
+  return sb.storage.from(LIB_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+// Κουμπί «Ανέβασε φωτογραφία» για ένα πεδίο link (id του input)
+function libUploadButton(inputId, folder){
+  return `<label class="btn btn-outline lib-up" style="cursor:pointer;justify-content:center;" data-lib-up="${escAttr(inputId)}" data-lib-folder="${escAttr(folder)}">📷 Ανέβασε φωτογραφία
+    <input type="file" accept="image/*" style="display:none;"></label>`;
+}
+function bindLibUploadButtons(onDone){
+  document.querySelectorAll('[data-lib-up]').forEach(lbl=>{
+    const inp = lbl.querySelector('input[type=file]');
+    inp.addEventListener('change', async ()=>{
+      const file = inp.files && inp.files[0]; inp.value = '';
+      if(!file) return;
+      const target = document.getElementById(lbl.getAttribute('data-lib-up'));
+      const old = lbl.firstChild.textContent;
+      lbl.style.pointerEvents = 'none'; lbl.firstChild.textContent = '⏳ Ανεβαίνει… ';
+      try{
+        const url = await libUploadImage(file, lbl.getAttribute('data-lib-folder'));
+        if(target){ target.value = url; target.dispatchEvent(new Event('input', { bubbles:true })); }
+        if(onDone) onDone(lbl.getAttribute('data-lib-up'), url);
+        toast('Η φωτογραφία ανέβηκε!');
+      }catch(err){ toast(err.message, 4000); }
+      lbl.style.pointerEvents = ''; lbl.firstChild.textContent = old;
+    });
+  });
+}
+
+function renderLibCatsTab(){
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <h1 style="margin-bottom:2px;">Κατηγορίες Βιβλιοθήκης</h1>
+    <div class="sub" style="margin-bottom:18px;">Φωτογραφία, περιγραφή και αποτελέσματα για κάθε κάρτα κατηγορίας που βλέπουν οι πελάτες στη βιβλιοθήκη.</div>
+    <div class="mobile-preview-frame" style="max-width:860px;"><div id="lib-content"><div style="color:var(--ink-soft);">Φόρτωση...</div></div></div>`;
+  loadLibraryCategories().then(()=>{ if(state.tab==='libcats') renderLibCatsContent(); });
+}
+function libCatEntries(){
+  const out = [];
+  TPL_GENDERS.forEach(g=>{
+    Object.keys(TPL_CATEGORIES).forEach(top=>{
+      out.push({ g, top, sub:'' });
+      (TPL_CATEGORIES[top]||[]).forEach(sub=>out.push({ g, top, sub }));
+    });
+  });
+  return out;
+}
+function renderLibCatsContent(){
+  const box = document.getElementById('lib-content'); if(!box) return;
+  let html = '', lastG = null;
+  libCatEntries().forEach((e, i)=>{
+    if(e.g !== lastG){ html += `<div class="section-title" style="margin-top:${lastG?'18':'0'}px;"><span class="dot"></span>${escHtml(e.g)}</div>`; lastG = e.g; }
+    const c = libCat(e.g, e.top, e.sub) || {};
+    const id = 'lib'+i;
+    html += `<div class="panel pad lib-cat ${e.sub?'sub':''}">
+      <div class="lib-cat-grid">
+        <div class="lib-thumb" id="${id}-prev">${c.photo_url ? `<img src="${escAttr(c.photo_url)}" alt="">` : '<span>Χωρίς φωτογραφία</span>'}</div>
+        <div>
+          <div class="lib-cat-t">${e.sub ? `${escHtml(e.top)} › <b>${escHtml(e.sub)}</b>` : `<b>${escHtml(e.top)}</b>`}</div>
+          <div class="fdb-form" style="margin-top:8px;">
+            <div class="full"><label>Φωτογραφία</label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">${libUploadButton(id+'-url', 'categories')}
+                ${c.photo_url ? `<button type="button" class="btn btn-outline" data-lib-clear="${id}" style="color:#ff8b90;">Αφαίρεση</button>` : ''}</div>
+              <input type="text" id="${id}-url" value="${escAttr(c.photo_url||'')}" placeholder="ή επικόλλησε link https://..." style="margin-top:8px;"></div>
+            <div class="full"><label>Περιγραφή</label><textarea id="${id}-desc" rows="2">${escHtml(c.description||'')}</textarea></div>
+            <div class="full"><label>Αποτελέσματα</label><textarea id="${id}-res" rows="2">${escHtml(c.results||'')}</textarea></div>
+          </div>
+          <button class="btn btn-green" data-lib-save="${i}" style="width:100%;justify-content:center;margin-top:10px;">Αποθήκευση</button>
+        </div>
+      </div></div>`;
+  });
+  box.innerHTML = `<div class="food-note" style="margin:0 0 14px;">Οι υποκατηγορίες (› …) εμφανίζονται όταν ο πελάτης ανοίξει την Καύση Λίπους. Οι φωτογραφίες μικραίνουν αυτόματα σε άριστη ποιότητα (έως 1600px).</div>` + html;
+  bindLibUploadButtons((inputId, url)=>{
+    const prev = document.getElementById(inputId.replace(/-url$/, '-prev'));
+    if(prev) prev.innerHTML = `<img src="${escAttr(url)}" alt="">`;
+  });
+  document.querySelectorAll('[id$="-url"]').forEach(inp=>inp.addEventListener('change', ()=>{
+    const prev = document.getElementById(inp.id.replace(/-url$/, '-prev'));
+    if(prev) prev.innerHTML = inp.value.trim() ? `<img src="${escAttr(inp.value.trim())}" alt="">` : '<span>Χωρίς φωτογραφία</span>';
+  }));
+  document.querySelectorAll('[data-lib-clear]').forEach(b=>b.addEventListener('click', ()=>{
+    const id = b.getAttribute('data-lib-clear');
+    document.getElementById(id+'-url').value = '';
+    document.getElementById(id+'-prev').innerHTML = '<span>Χωρίς φωτογραφία</span>';
+    toast('Πάτα Αποθήκευση για να αφαιρεθεί.');
+  }));
+  document.querySelectorAll('[data-lib-save]').forEach(b=>b.addEventListener('click', async ()=>{
+    const i = Number(b.getAttribute('data-lib-save')), e = libCatEntries()[i], id = 'lib'+i;
+    const row = { gender:e.g, top_category:e.top, sub_category:e.sub,
+      photo_url: document.getElementById(id+'-url').value.trim() || null,
+      description: document.getElementById(id+'-desc').value.trim() || null,
+      results: document.getElementById(id+'-res').value.trim() || null,
+      updated_by: auth.user.id, updated_at: new Date().toISOString() };
+    b.disabled = true;
+    const { error } = await sb.from('library_categories').upsert(row, { onConflict:'gender,top_category,sub_category' });
+    b.disabled = false;
+    if(error){ console.error(error); toast('Σφάλμα αποθήκευσης.'); return; }
+    state.libCats = state.libCats || {}; state.libCats[libCatKey(e.g, e.top, e.sub)] = row;
+    toast('Αποθηκεύτηκε! Οι πελάτες το βλέπουν ήδη στη βιβλιοθήκη.');
+  }));
+}
+
 async function renderAppClient(){
   document.getElementById('navlist').innerHTML = '';
   document.getElementById('mobile-tabs').innerHTML = '';
@@ -7544,10 +7703,11 @@ function renderTplLibTopCatView(){
     ${cats.length===0 ? tplLibEmptyState('Δεν υπάρχουν ακόμα έτοιμα προγράμματα για αυτή την επιλογή.') :
       cats.map(t=>`
       <div class="panel" style="margin-bottom:16px;overflow:hidden;">
-        ${tplPhotoBlock(t.top_category_photo_url, 'ΦΩΤΟΓΡΑΦΙΑ ΚΑΤΗΓΟΡΙΑΣ')}
+        ${(()=>{ const lc = libCat(gender, t.top_category, ''); return tplPhotoBlock((lc&&lc.photo_url) || t.top_category_photo_url, 'ΦΩΤΟΓΡΑΦΙΑ ΚΑΤΗΓΟΡΙΑΣ'); })()}
         <div class="pad">
           <div class="set-box" style="margin-bottom:8px;">${escHtml(t.top_category)}</div>
           <h3 style="font-size:16px;margin-bottom:12px;">ΠΡΟΓΡΑΜΜΑΤΑ ${escHtml(t.top_category)}</h3>
+          ${(()=>{ const lc = libCat(gender, t.top_category, ''); return lc ? `${lc.description ? `<div class="info-card"><div class="lbl">Περιγραφή</div><div class="txt">${escNL(lc.description)}</div></div>`:''}${lc.results ? `<div class="info-card"><div class="lbl">Αποτελέσματα</div><div class="txt">${escNL(lc.results)}</div></div>`:''}` : ''; })()}
           <button class="btn btn-primary" style="width:100%;justify-content:center;" data-tpllib-topcat="${escAttr(t.top_category)}">ΕΠΙΛΟΓΗ ΚΑΤΗΓΟΡΙΑΣ</button>
         </div>
       </div>`).join('')
@@ -7563,17 +7723,19 @@ function renderTplLibSubCatView(){
   return `
     <div class="auth-back" data-tpllib-back="topcat">${ICON.back}Κατηγορίες</div>
     <div class="topbar"><div><h1>Προγράμματα ${escHtml(topCategory)} — ${escHtml(gender)}</h1></div></div>
-    ${subs.map(t=>`
+    ${subs.map(t=>{ const lc = libCat(gender, topCategory, t.sub_category) || {};
+      const desc = lc.description || t.sub_category_description, res = lc.results || t.sub_category_results;
+      return `
       <div class="panel" style="margin-bottom:16px;overflow:hidden;">
-        ${tplPhotoBlock(t.sub_category_photo_url, 'ΦΩΤΟΓΡΑΦΙΑ ΚΑΤΗΓΟΡΙΑΣ')}
+        ${tplPhotoBlock(lc.photo_url || t.sub_category_photo_url, 'ΦΩΤΟΓΡΑΦΙΑ ΚΑΤΗΓΟΡΙΑΣ')}
         <div class="pad">
           <div class="set-box" style="margin-bottom:8px;">ΚΑΤΗΓΟΡΙΑ</div>
           <h3 style="font-size:16px;margin-bottom:10px;">${escHtml(t.sub_category)}</h3>
-          ${t.sub_category_description ? `<div class="info-card"><div class="lbl">Περιγραφή</div><div class="txt">${escNL(t.sub_category_description)}</div></div>`:''}
-          ${t.sub_category_results ? `<div class="info-card"><div class="lbl">Αποτελέσματα</div><div class="txt">${escNL(t.sub_category_results)}</div></div>`:''}
+          ${desc ? `<div class="info-card"><div class="lbl">Περιγραφή</div><div class="txt">${escNL(desc)}</div></div>`:''}
+          ${res ? `<div class="info-card"><div class="lbl">Αποτελέσματα</div><div class="txt">${escNL(res)}</div></div>`:''}
           <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px;" data-tpllib-subcat="${escAttr(t.sub_category)}">ΠΡΟΒΟΛΗ ΠΡΟΓΡΑΜΜΑΤΩΝ</button>
         </div>
-      </div>`).join('')}`;
+      </div>`; }).join('')}`;
 }
 
 function renderTplLibProgramsView(){
@@ -7991,6 +8153,8 @@ function render(skipNav){
     renderAiTrainTab();
   } else if(state.tab==='foodsdb' && auth.role==='owner'){
     renderFoodsDbTab();
+  } else if(state.tab==='libcats' && auth.role==='owner'){
+    renderLibCatsTab();
   } else if(state.tab==='airules' && auth.role==='owner'){
     aiRules.loaded = false;
     renderAiRulesTab();
