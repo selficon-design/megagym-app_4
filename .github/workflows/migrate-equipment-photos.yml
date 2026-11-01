@@ -13,21 +13,24 @@ jobs:
     runs-on: ubuntu-latest
     env:
       RAW_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      RAW_PASS: ${{ secrets.SUPABASE_DB_PASSWORD }}
       PROJECT_REF: exxjwjfjwvkenncyaqvc
       BUCKET: library-images
     steps:
       - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: 2.122.0
       - name: Μεταφορά
         run: |
           set -u
           export SUPABASE_ACCESS_TOKEN=$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]')
-          PASS=$(printf '%s' "$RAW_PASS" | tr -d '\r\n')
-          echo "::add-mask::$SUPABASE_ACCESS_TOKEN"; echo "::add-mask::$PASS"
-          supabase link --project-ref "$PROJECT_REF" --password "$PASS" > link.log 2>&1 || { tail -5 link.log; echo "::error title=Σύνδεση::$(tail -3 link.log | tr '\n' ' ')"; exit 1; }
+          echo "::add-mask::$SUPABASE_ACCESS_TOKEN"
+          # Κλειδί διακομιστή από το Management API (κρύβεται στα logs)
+          curl -fsS -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" "https://api.supabase.com/v1/projects/$PROJECT_REF/api-keys?reveal=true" > keys.json \
+            || { echo "::error title=Κλειδιά::Δεν μπόρεσα να πάρω τα κλειδιά του project"; exit 1; }
+          KEY=$(jq -r '([.[] | select(.name=="service_role" and (.api_key|startswith("eyJ")))] + [.[] | select(.type=="secret")])[0].api_key // empty' keys.json)
+          rm -f keys.json
+          [ -n "$KEY" ] || { echo "::error title=Κλειδιά::Δεν βρέθηκε κλειδί διακομιστή"; exit 1; }
+          echo "::add-mask::$KEY"
+          AUTH=(-H "apikey: $KEY"); case "$KEY" in eyJ*) AUTH+=(-H "Authorization: Bearer $KEY");; esac
+          API="https://$PROJECT_REF.supabase.co/storage/v1/object"
 
           PUBLIC="https://$PROJECT_REF.supabase.co/storage/v1/object/public/$BUCKET/equipment"
           mkdir -p equipment
@@ -41,12 +44,13 @@ jobs:
             case "$type" in image/*) ;; *) failed="$failed $name($type)"; continue;; esac
             remote=$(curl -sI "$PUBLIC/$name" | tr -d '\r' | awk 'tolower($1)=="content-length:"{print $2}' | tail -1)
             if [ "$remote" = "$size" ]; then skipped=$((skipped+1)); continue; fi
-            if supabase storage cp "equipment/$name" "ss:///$BUCKET/equipment/$name" --linked --experimental \
-                 --content-type "$type" --cache-control "max-age=31536000" > cp.log 2>&1; then
+            code=$(curl -s -o up.json -w '%{http_code}' -X POST "$API/$BUCKET/equipment/$name" "${AUTH[@]}" \
+                    -H "Content-Type: $type" -H "x-upsert: true" -H "cache-control: max-age=31536000" --data-binary "@equipment/$name")
+            if [ "$code" = "200" ]; then
               remote=$(curl -sI "$PUBLIC/$name" | tr -d '\r' | awk 'tolower($1)=="content-length:"{print $2}' | tail -1)
               if [ "$remote" = "$size" ]; then ok=$((ok+1)); else failed="$failed $name(έλεγχος:$remote/$size)"; fi
             else
-              failed="$failed $name(ανέβασμα:$(tail -1 cp.log | tr -d '\n' | cut -c1-80))"
+              failed="$failed $name(ανέβασμα $code: $(head -c 120 up.json))"
             fi
           done < urls.txt
           echo "Σύνολο $total · ανέβηκαν $ok · υπήρχαν ήδη $skipped"
