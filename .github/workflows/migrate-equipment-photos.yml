@@ -1,7 +1,7 @@
 # ΦΟΡΜΑ — μεταφορά των φωτογραφιών εξοπλισμού από το Wix στο Supabase Storage.
 # Κατεβάζει κάθε φωτογραφία (όπως είναι, χωρίς αλλοίωση ποιότητας) από τα links του
 # EQUIPMENT_BY_EXERCISE στο index.html και την ανεβάζει στο bucket library-images/equipment/
-# με το ίδιο όνομα αρχείου. Ό,τι έχει ήδη ανέβει παραλείπεται, άρα μπορεί να ξανατρέξει.
+# με το ίδιο όνομα αρχείου (το «~» γίνεται «-»). Ό,τι έχει ήδη ανέβει παραλείπεται, άρα μπορεί να ξανατρέξει.
 # Τα βίντεο ΔΕΝ μεταφέρονται.
 name: Μεταφορά φωτογραφιών εξοπλισμού
 
@@ -37,17 +37,17 @@ jobs:
           grep -o 'https://static\.wixstatic\.com/media/[^"]*' index.html | sort -u > urls.txt
           total=$(wc -l < urls.txt); ok=0; skipped=0; failed=""
           while read -r url; do
-            name="${url##*/}"
+            name="${url##*/}"; dest="${name//\~/-}"   # το «~» δεν επιτρέπεται στο Storage → «-»
             if ! curl -fsSL --retry 3 --max-time 60 -o "equipment/$name" "$url"; then failed="$failed $name(λήψη)"; continue; fi
             size=$(stat -c %s "equipment/$name")
             type=$(file -b --mime-type "equipment/$name")
             case "$type" in image/*) ;; *) failed="$failed $name($type)"; continue;; esac
-            remote=$(curl -sI "$PUBLIC/$name" | tr -d '\r' | awk 'tolower($1)=="content-length:"{print $2}' | tail -1)
+            remote=$(curl -sI "$PUBLIC/$dest" | tr -d '\r' | awk 'tolower($1)=="content-length:"{print $2}' | tail -1)
             if [ "$remote" = "$size" ]; then skipped=$((skipped+1)); continue; fi
-            code=$(curl -s -o up.json -w '%{http_code}' -X POST "$API/$BUCKET/equipment/$name" "${AUTH[@]}" \
+            code=$(curl -s -o up.json -w '%{http_code}' -X POST "$API/$BUCKET/equipment/$dest" "${AUTH[@]}" \
                     -H "Content-Type: $type" -H "x-upsert: true" -H "cache-control: max-age=31536000" --data-binary "@equipment/$name")
             if [ "$code" = "200" ]; then
-              remote=$(curl -sI "$PUBLIC/$name" | tr -d '\r' | awk 'tolower($1)=="content-length:"{print $2}' | tail -1)
+              remote=$(curl -sI "$PUBLIC/$dest" | tr -d '\r' | awk 'tolower($1)=="content-length:"{print $2}' | tail -1)
               if [ "$remote" = "$size" ]; then ok=$((ok+1)); else failed="$failed $name(έλεγχος:$remote/$size)"; fi
             else
               failed="$failed $name(ανέβασμα $code: $(head -c 120 up.json))"
