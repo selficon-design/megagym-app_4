@@ -569,6 +569,60 @@ input,select{font-family:inherit;}
 .food-target{font-size:12.5px;line-height:1.5;padding:10px 12px;border-radius:10px;background:var(--accent-soft);border:1px solid rgba(255,159,26,.35);margin-top:10px;}
 .food-spinner{width:34px;height:34px;border-radius:50%;border:3px solid rgba(61,216,255,.2);border-top-color:var(--cyan);animation:foodspin 0.9s linear infinite;margin:6px auto 10px;}
 @keyframes foodspin{to{transform:rotate(360deg);}}
+/* ============ ΒΑΣΗ ΤΡΟΦΙΜΩΝ (αναζήτηση & διαχείριση) ============ */
+.food-item{position:relative;}
+.food-item .row1{flex-wrap:wrap;}
+.fdb-sugg{flex:1 1 100%;order:1;background:#06141f;border:1px solid var(--cyan);border-radius:12px;max-height:260px;overflow-y:auto;margin:2px 0;}
+.food-item .row1 .name{order:0;}
+.food-item .row1 > :not(.name):not(.fdb-sugg){order:2;}
+.fdb-sugg .grp{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan-soft);padding:8px 12px 4px;}
+.fdb-sugg button{display:block;width:100%;text-align:left;background:none;border:none;border-top:1px solid rgba(61,216,255,.1);padding:9px 12px;color:var(--ink);cursor:pointer;font-family:inherit;}
+.fdb-sugg button:hover,.fdb-sugg button:focus{background:rgba(61,216,255,.12);outline:none;}
+.fdb-sugg .n{font-size:13.5px;font-weight:600;}
+.fdb-sugg .s{font-size:11.5px;color:var(--ink-soft);margin-top:1px;}
+.fdb-sugg .none{padding:10px 12px;font-size:12px;color:var(--ink-soft);}
+.fdb-per100{font-size:11px;color:var(--ink-soft);margin-top:6px;}
+#food-items .food-item .row1{flex-wrap:wrap;}
+#food-items .food-item .name{flex:1 1 100%;}
+#food-items .food-item .x{margin-left:auto;}
+.fdb-search{width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--line);font-size:14px;background:rgba(3,11,18,.78);color:var(--ink);font-family:inherit;margin-bottom:10px;}
+.fdb-cats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.fdb-cats button{font-size:11.5px;font-weight:700;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(3,11,18,.6);color:var(--ink-soft);cursor:pointer;font-family:inherit;}
+.fdb-cats button.active{background:rgba(61,216,255,.16);color:#fff;border-color:rgba(61,216,255,.5);}
+.fdb-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid rgba(61,216,255,.12);cursor:pointer;}
+.fdb-row:hover{background:rgba(61,216,255,.05);}
+.fdb-row .n{font-size:13.5px;font-weight:600;}
+.fdb-row .s{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+.fdb-row .k{font-family:'JetBrains Mono',monospace;color:var(--accent);font-weight:700;font-size:13px;white-space:nowrap;}
+.fdb-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.fdb-form .full{grid-column:1/-1;}
+.fdb-form label{display:block;font-size:11px;font-weight:700;color:var(--cyan-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
+.fdb-form input,.fdb-form select{width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);font-size:14px;font-family:inherit;}
+.air-card{border:1px solid rgba(61,216,255,.25);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:rgba(3,11,18,.45);}
+.air-card.off{opacity:.55;}
+.air-card-head{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.air-card-head .t{font-weight:700;font-size:14px;color:#dffaff;}
+.air-body{font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin-top:6px;white-space:pre-wrap;max-height:7.5em;overflow:hidden;}
+.air-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+.air-chips span{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--ink-soft);}
+.air-chips span.ok{border-color:rgba(55,229,111,.5);color:#7ef5a0;}
+.air-chips span.bad{border-color:rgba(255,159,26,.5);color:#ffcf9e;}
+.fdb-form textarea{width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);font-size:14px;font-family:inherit;line-height:1.5;resize:vertical;}
+.air-cmp{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:14px;}
+.air-res{border:1px solid rgba(61,216,255,.3);border-radius:12px;padding:12px 14px;background:rgba(3,11,18,.5);}
+.air-res-h{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:.04em;margin-bottom:8px;color:#dffaff;}
+.air-prog{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px;font-size:12.5px;line-height:1.5;}
+.air-prog .h{font-weight:700;color:var(--accent);margin-bottom:4px;}
+.air-prog .n{color:var(--ink-soft);margin-bottom:6px;}
+.air-prog .d{margin-top:6px;}
+.air-toggle{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid rgba(61,216,255,.12);cursor:pointer;}
+.air-toggle input{width:20px;height:20px;margin-top:2px;flex-shrink:0;}
+.air-cust{display:block;padding:7px 0;font-size:13px;border-bottom:1px solid rgba(61,216,255,.08);cursor:pointer;}
+.air-cust input{margin-right:8px;}
+.air-cl-st{font-size:13px;line-height:1.5;padding:10px 12px;border-radius:10px;margin-bottom:10px;background:rgba(255,159,26,.1);border:1px solid rgba(255,159,26,.35);}
+.air-cl-st.ok{background:rgba(55,229,111,.1);border-color:rgba(55,229,111,.4);}
+.air-cl-st.bad{background:rgba(239,45,53,.1);border-color:rgba(239,45,53,.4);}
+.fdb-warn{font-size:12px;line-height:1.45;padding:8px 10px;border-radius:9px;background:rgba(255,159,26,.12);border:1px solid rgba(255,159,26,.4);color:#ffd59a;margin-top:10px;}
 
 .auth-field{margin-bottom:14px;}
 .auth-field label{display:block;font-size:11.5px;font-weight:700;color:var(--cyan-soft);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;}
@@ -1614,14 +1668,22 @@ function freshTplBuilder(){
     addForm: null, // {dayIndex, type:'muscle'|'cardio', ...}
   };
 }
+function tplValidTopCategory(c){ return Object.prototype.hasOwnProperty.call(TPL_CATEGORIES, c||''); }
+function tplCategoryProblem(t){
+  if(!tplValidTopCategory(t.top_category)) return 'Η κατηγορία δεν υπάρχει στη λίστα — πάτα Επεξεργασία και διάλεξε κατηγορία';
+  const subs = TPL_CATEGORIES[t.top_category] || [];
+  if(subs.length && !subs.includes(t.sub_category)) return 'Η υποκατηγορία δεν υπάρχει στη λίστα — πάτα Επεξεργασία και διάλεξε υποκατηγορία';
+  return '';
+}
 function loadTemplateIntoBuilder(t){
   state.tplBuilder = {
     id: t.id,
     tab: 'meta',
     gender: t.gender,
-    topCategory: t.top_category || '',
+    // Κατηγορία εκτός της επίσημης λίστας (π.χ. από παλιά έκδοση) → κενή, ώστε να ζητηθεί ξανά
+    topCategory: tplValidTopCategory(t.top_category) ? t.top_category : '',
     topCategoryPhoto: t.top_category_photo_url || '',
-    subCategory: t.sub_category || '',
+    subCategory: tplValidTopCategory(t.top_category) && (TPL_CATEGORIES[t.top_category]||[]).includes(t.sub_category) ? t.sub_category : '',
     name: t.name || '',
     photo: t.photo_url || '',
     numDays: t.num_days || 4,
@@ -1864,7 +1926,9 @@ function normalizeStoredProgram(stored){
     createdByEmail: stored.createdByEmail || '',
     copiedFromId: stored.copiedFromId || null,
     modifiedByEmail: stored.modifiedByEmail || '',
-    modifiedAt: stored.modifiedAt || null
+    modifiedAt: stored.modifiedAt || null,
+    fromAI: !!stored.fromAI,
+    aiVersion: stored.aiVersion || null
   };
 }
 async function loadProgramsFor(code){
@@ -3118,6 +3182,7 @@ function renderTplListArea(){
           <div>
             <div style="font-size:11px;color:var(--cyan-soft);text-transform:uppercase;letter-spacing:0.05em;">${escHtml(t.gender)} · ${escHtml(t.top_category)}${t.sub_category?' · '+escHtml(t.sub_category):''}</div>
             <div style="font-weight:700;font-size:14px;color:#dffaff;margin-top:2px;">${escHtml(t.name)}</div>
+            ${tplCategoryProblem(t) ? `<div style="font-size:11.5px;color:#ffb36b;font-weight:700;margin-top:3px;">⚠️ ${escHtml(tplCategoryProblem(t))} (δεν εμφανίζεται στη βιβλιοθήκη)</div>` : ''}
             <div style="font-size:11.5px;color:var(--ink-soft);margin-top:2px;">${t.num_days} ημέρες · σειρά ${t.sort_order||0} · ${t.is_published ? `<span style="color:#7ef5a0;">ορατό στους πελάτες</span>` : `<span style="color:#ffcf9e;">μόνο στη βιβλιοθήκη</span>`}</div>
             <div style="font-size:10.5px;color:var(--ink-soft);margin-top:2px;">Δημιουργός: ${escHtml(t.created_by_email||'—')}${t.updated_by_email?` · Τελευταία επεξεργασία: ${escHtml(t.updated_by_email)}`:''}</div>
           </div>
@@ -3380,6 +3445,8 @@ function renderNav(){
   if(auth.role === 'owner'){
     items.push({id:'tplbuilder', label:'Έτοιμα Προγράμματα TRANSFORMATION', icon:ICON.key});
     items.push({id:'aitrain', label:'Εκπαίδευση AI Διατροφής', icon:ICON.key});
+    items.push({id:'foodsdb', label:'Τρόφιμα (βάση θερμίδων)', icon:ICON.search});
+    items.push({id:'airules', label:'Κέντρο Κανόνων AI', icon:ICON.key});
   }
   if(auth.role === 'supervisor' || auth.role === 'owner'){
     items.push({id:'announcements', label:'Μηνύματα', icon:ICON.message});
@@ -5633,7 +5700,9 @@ const food = {
   meals: [],
   loadedFor: null,   // ποια ημερομηνία έχει φορτωθεί
   loading: false,
-  draft: null        // { stage:'photo'|'analyzing'|'review', imgDataUrl, b64, note, items, mealType, confidence, comment, source }
+  draft: null,       // { stage:'photo'|'analyzing'|'review', imgDataUrl, b64, note, items, mealType, confidence, comment, source }
+  recent: null,      // τρόφιμα που έχει φάει πρόσφατα ο πελάτης (για γρήγορη επιλογή)
+  recentLoading: false
 };
 
 function foodLocalISO(d){
@@ -5735,6 +5804,7 @@ function foodCompressImage(file, maxSide){
 async function renderClientNutrition(){
   const content = document.getElementById('client-content');
   if(!content || !auth.customer) return;
+  fdbLoad(); foodLoadRecent();   // βάση τροφίμων & πρόσφατα (στο παρασκήνιο)
   if(food.loadedFor !== food.date && !food.loading){
     food.loading = true;
     content.innerHTML = `<div style="color:var(--ink-soft);">Φόρτωση...</div>`;
@@ -5853,12 +5923,13 @@ function renderFoodItemRow(it, i){
   const num = (field, label)=>`<div><label>${label}</label><input type="number" inputmode="decimal" min="0" step="any" data-food-i="${i}" data-food-f="${field}" value="${it[field]||0}"></div>`;
   return `<div class="food-item">
     <div class="row1">
-      <input class="name" type="text" placeholder="Τρόφιμο" data-food-i="${i}" data-food-f="name" value="${escAttr(it.name)}">
+      <input class="name" type="text" placeholder="Γράψε τρόφιμο, π.χ. κοτόπουλο" data-food-i="${i}" data-food-f="name" value="${escAttr(it.name)}">
       <input class="grams" type="number" inputmode="decimal" min="0" step="any" data-food-i="${i}" data-food-f="grams" value="${it.grams||0}" aria-label="Γραμμάρια">
       <span style="font-size:12px;color:var(--ink-soft);">γρ.</span>
       <button class="x" data-food-rm="${i}" aria-label="Αφαίρεση">×</button>
     </div>
     <div class="macros">${num('kcal','kcal')}${num('protein_g','Πρωτ.')}${num('carbs_g','Υδατ.')}${num('fat_g','Λιπ.')}</div>
+    ${it._p100 ? `<div class="fdb-per100" data-food-p100="${i}">Από τη βάση τροφίμων · ανά 100γρ.: ${fdbMacroLine(it._p100)}</div>` : ''}
   </div>`;
 }
 
@@ -5894,6 +5965,8 @@ function bindFoodEvents(){
   if($('food-manual')) $('food-manual').addEventListener('click', ()=>{
     food.draft = { stage:'review', imgDataUrl:null, b64:null, note:'', items:[foodWithBase({ name:'', grams:100 })], mealType:foodDefaultMealType(), confidence:'medium', comment:'', source:'manual' };
     renderClientNutrition();
+    const first = document.querySelector('#food-items input[data-food-f="name"]');
+    if(first) first.focus();
   });
 
   if($('food-cancel')) $('food-cancel').addEventListener('click', ()=>{ food.draft = null; renderClientNutrition(); });
@@ -5911,7 +5984,15 @@ function bindFoodEvents(){
         toast('Δεν αναγνωρίστηκε φαγητό. Δοκίμασε άλλη φωτογραφία ή πρόσθεσε χειροκίνητα.', 4000);
         return;
       }
-      d.items = res.items.map(foodWithBase);
+      d.items = res.items.map(it=>{
+        const x = foodWithBase(it);
+        // Τρόφιμο που αναγνωρίστηκε από τη βάση: η αναλογία γίνεται με τις τιμές ανά 100γρ.
+        if(it.per100 && Number(it.per100.kcal) >= 0){
+          x._base = { grams:100, kcal:Number(it.per100.kcal)||0, protein_g:Number(it.per100.protein_g)||0, carbs_g:Number(it.per100.carbs_g)||0, fat_g:Number(it.per100.fat_g)||0 };
+          x._p100 = x._base;
+        }
+        return x;
+      });
       d.confidence = res.confidence || 'medium';
       d.comment = res.comment || '';
       d.stage = 'review';
@@ -5934,7 +6015,11 @@ function bindFoodEvents(){
     const i = Number(inp.getAttribute('data-food-i'));
     const f = inp.getAttribute('data-food-f');
     const it = d.items[i]; if(!it) return;
-    if(f === 'name'){ it.name = inp.value; return; }
+    if(f === 'name'){
+      it.name = inp.value;
+      if(it._p100){ delete it._p100; const l = document.querySelector(`[data-food-p100="${i}"]`); if(l) l.remove(); }
+      return;
+    }
     const v = Math.max(0, Number(inp.value) || 0);
     if(f === 'grams'){
       it.grams = v;
@@ -5950,6 +6035,7 @@ function bindFoodEvents(){
       }
     } else {
       it[f] = f==='kcal' ? Math.round(v) : foodR1(v);
+      if(it._p100){ delete it._p100; const l = document.querySelector(`[data-food-p100="${i}"]`); if(l) l.remove(); }
       // Νέα βάση αναλογίας: ό,τι έγραψε ο χρήστης για τα τρέχοντα γραμμάρια
       it._base = { grams:it.grams, kcal:it.kcal, protein_g:it.protein_g, carbs_g:it.carbs_g, fat_g:it.fat_g };
     }
@@ -5963,6 +6049,25 @@ function bindFoodEvents(){
   if($('food-add-item')) $('food-add-item').addEventListener('click', ()=>{
     food.draft.items.push(foodWithBase({ name:'', grams:100 }));
     renderClientNutrition();
+    const names = document.querySelectorAll('#food-items input[data-food-f="name"]');
+    if(names.length) names[names.length-1].focus();
+  });
+
+  // Προτάσεις από τα πρόσφατα του πελάτη και τη βάση τροφίμων
+  document.querySelectorAll('#food-items input[data-food-f="name"]').forEach(inp=>{
+    fdbAttachSuggest(inp, {
+      recent: ()=>food.recent,
+      onPick: (e, kind)=>{
+        const d = food.draft; if(!d) return;
+        const i = Number(inp.getAttribute('data-food-i'));
+        const it = d.items[i]; if(!it) return;
+        if(kind === 'r'){ Object.assign(it, foodWithBase(e)); delete it._p100; }
+        else foodApplyDb(it, e);
+        renderClientNutrition();
+        const g = document.querySelector(`#food-items [data-food-i="${i}"][data-food-f="grams"]`);
+        if(g){ g.focus(); g.select(); }
+      }
+    });
   });
 
   if($('food-save')) $('food-save').addEventListener('click', async ()=>{
@@ -5985,9 +6090,320 @@ function bindFoodEvents(){
       source: d.source
     });
     if(!ok){ btn.disabled = false; btn.textContent = 'Αποθήκευση γεύματος'; toast('Σφάλμα αποθήκευσης. Δοκίμασε ξανά.'); return; }
+    foodRememberItems(items);
     food.draft = null; food.loadedFor = null;
     toast('Το γεύμα αποθηκεύτηκε! ' + Math.round(t.kcal) + ' kcal');
     renderClientNutrition();
+  });
+}
+
+/* ===================================================================
+   ΒΑΣΗ ΤΡΟΦΙΜΩΝ — πίνακας foods (θερμίδες & μακρο ανά 100γρ.).
+   Τη διαβάζουν όλοι (αναζήτηση όταν γράφουν γεύμα), τη διορθώνει μόνο
+   ο owner. Η αναζήτηση δουλεύει χωρίς τόνους και με greeklish
+   (π.χ. "kotopoulo", "mprizola").
+   =================================================================== */
+const FDB_CATEGORIES = [
+  'Κοτόπουλο & πουλερικά','Κρέας','Αλλαντικά','Ψάρια & θαλασσινά','Αυγά','Γαλακτοκομικά & τυριά',
+  'Ψωμί & δημητριακά','Ρύζι, ζυμαρικά & πατάτες','Όσπρια','Λαχανικά','Φρούτα','Ξηροί καρποί & σπόροι',
+  'Λάδια & λίπη','Σάλτσες & αλείμματα','Μαγειρευτά & φαγητά','Πίτες, σνακ & fast food','Γλυκά',
+  'Ροφήματα','Συμπληρώματα','Άλλο'
+];
+const fdb = { list:null, promise:null, failedAt:0 };
+
+// Κλειδί αναζήτησης: πεζά, χωρίς τόνους, ελληνικά → λατινικά με "χαλαρή" ορθογραφία,
+// ώστε "κοτοπουλο", "Κοτόπουλο", "kotopoulo" και "kotopoylo" να ταιριάζουν.
+const FDB_GR = {α:'a',β:'v',γ:'g',δ:'d',ε:'e',ζ:'z',η:'i',θ:'th',ι:'i',κ:'k',λ:'l',μ:'m',ν:'n',ξ:'ks',ο:'o',π:'p',ρ:'r',σ:'s',ς:'s',τ:'t',υ:'i',φ:'f',χ:'x',ψ:'ps',ω:'o'};
+function fdbKey(s){
+  let t = (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  t = t.replace(/ου/g,'ou').replace(/ει|οι|υι/g,'i').replace(/αι/g,'e').replace(/αυ/g,'av').replace(/ευ/g,'ev')
+       .replace(/μπ/g,'b').replace(/ντ/g,'d').replace(/γκ|γγ/g,'g');
+  t = t.replace(/[α-ω]/g, c=>FDB_GR[c]||c);
+  t = t.replace(/8/g,'th').replace(/ch/g,'x').replace(/ph/g,'f')
+       .replace(/ou/g,'\u0001').replace(/u/g,'\u0001').replace(/\u0001/g,'ou')
+       .replace(/ei|oi|yi/g,'i').replace(/ai/g,'e').replace(/[hy]/g,'i').replace(/w/g,'o')
+       .replace(/mp/g,'b').replace(/nt/g,'d').replace(/gk|gg/g,'g').replace(/b/g,'v').replace(/c/g,'k');
+  return t.replace(/[^a-z0-9]+/g,' ').replace(/([a-z])\1+/g,'$1').trim();
+}
+function fdbLoad(force){
+  if(force){ fdb.list = null; fdb.promise = null; fdb.failedAt = 0; }
+  if(fdb.list) return Promise.resolve(fdb.list);
+  if(fdb.promise) return fdb.promise;
+  if(fdb.failedAt && Date.now() - fdb.failedAt < 30000) return Promise.resolve([]);
+  fdb.promise = (async ()=>{
+    const { data, error } = await sb.from('foods').select('*').order('name').range(0, 4999);
+    fdb.promise = null;
+    if(error){ console.warn('foods load error', error); fdb.failedAt = Date.now(); return []; }
+    fdb.list = (data||[]).map(r=>({
+      ...r, kcal:Number(r.kcal)||0, protein_g:Number(r.protein_g)||0, carbs_g:Number(r.carbs_g)||0, fat_g:Number(r.fat_g)||0,
+      portion_grams: r.portion_grams!=null ? Number(r.portion_grams) : null, _k:fdbKey(r.name)
+    }));
+    return fdb.list;
+  })();
+  return fdb.promise;
+}
+// Αναζήτηση: κάθε λέξη του χρήστη πρέπει να υπάρχει στο όνομα. Πρώτα όσα ξεκινούν με τη λέξη.
+function fdbSearch(items, q, max){
+  const toks = fdbKey(q).split(' ').filter(Boolean);
+  if(!toks.length) return [];
+  const scored = [];
+  for(const it of items){
+    const k = it._k || (it._k = fdbKey(it.name));
+    let ok = true, score = 0;
+    for(const t of toks){
+      const pos = k.indexOf(t);
+      if(pos < 0){ ok = false; break; }
+      score += pos === 0 ? 0 : (k[pos-1] === ' ' ? 1 : 3);
+    }
+    if(ok) scored.push([score + k.length/200 + (/\bom[oia]\b/.test(k) ? 0.5 : 0), it]); // τα «ωμά» πιο κάτω
+  }
+  scored.sort((a,b)=>a[0]-b[0]);
+  return scored.slice(0, max).map(x=>x[1]);
+}
+function fdbMacroLine(e){
+  return `${Math.round(e.kcal)} kcal · Π ${foodR1(e.protein_g)} · Υ ${foodR1(e.carbs_g)} · Λ ${foodR1(e.fat_g)}`;
+}
+
+// Λίστα προτάσεων κάτω από ένα πεδίο ονόματος τροφίμου.
+// opts.recent(): πρόσφατα τρόφιμα του χρήστη (ή null) · opts.onPick(entry, 'r'|'db')
+function fdbAttachSuggest(input, opts){
+  let box = null, hideT = null;
+  const close = ()=>{ if(box){ box.remove(); box = null; } };
+  const show = ()=>{
+    clearTimeout(hideT);
+    const q = input.value.trim();
+    const recent = (opts.recent && opts.recent()) || [];
+    let rec, db;
+    if(!q){ rec = recent.slice(0, 6); db = []; }
+    else {
+      rec = fdbSearch(recent, q, 3);
+      db = fdbSearch(fdb.list || [], q, 15).filter(d=>!rec.some(r=>r._k === d._k));
+    }
+    let html = '';
+    if(rec.length){
+      html += `<div class="grp">Έχεις φάει πρόσφατα</div>` + rec.map((e,i)=>`<button type="button" data-fdb-kind="r" data-fdb-idx="${i}">
+        <div class="n">${escHtml(e.name)}</div><div class="s">Τελευταία φορά: ${Math.round(e.grams)}γρ. · ${Math.round(e.kcal)} kcal</div></button>`).join('');
+    }
+    if(db.length){
+      html += `<div class="grp">Βάση τροφίμων · ανά 100γρ.</div>` + db.map((e,i)=>`<button type="button" data-fdb-kind="db" data-fdb-idx="${i}">
+        <div class="n">${escHtml(e.name)}</div><div class="s">${fdbMacroLine(e)}${e.portion_label&&e.portion_grams?` · ${escHtml(e.portion_label)} ≈ ${Math.round(e.portion_grams)}γρ.`:''}</div></button>`).join('');
+    }
+    if(!html){
+      if(q.length >= 2 && fdb.list) html = `<div class="none">Δεν βρέθηκε στη λίστα — γράψε τις τιμές χειροκίνητα.</div>`;
+      else { close(); return; }
+    }
+    if(!box){ box = document.createElement('div'); box.className = 'fdb-sugg'; input.insertAdjacentElement('afterend', box); }
+    box.innerHTML = html;
+    box.querySelectorAll('button[data-fdb-kind]').forEach(b=>{
+      b.addEventListener('mousedown', ev=>ev.preventDefault()); // να μη χάνει το focus το πεδίο
+      b.addEventListener('click', ()=>{
+        const kind = b.getAttribute('data-fdb-kind'), idx = Number(b.getAttribute('data-fdb-idx'));
+        const e = kind === 'r' ? rec[idx] : db[idx];
+        close();
+        if(e) opts.onPick(e, kind);
+      });
+    });
+  };
+  input.setAttribute('autocomplete', 'off');
+  input.addEventListener('input', show);
+  input.addEventListener('focus', show);
+  input.addEventListener('blur', ()=>{ hideT = setTimeout(close, 180); });
+  input.addEventListener('keydown', ev=>{ if(ev.key === 'Escape') close(); });
+  if(!fdb.list) fdbLoad().then(()=>{ if(document.activeElement === input) show(); });
+}
+
+// Εφαρμόζει τιμές της βάσης σε ένα τρόφιμο του γεύματος.
+// Νέα (κενή) γραμμή → παίρνει την τυπική μερίδα· αλλιώς κρατά τα γραμμάρια που υπάρχουν.
+function foodApplyDb(it, e){
+  const fresh = !(Number(it.kcal) > 0);
+  let g = Number(it.grams) || 0;
+  if(fresh && e.portion_grams) g = Number(e.portion_grams);
+  if(!(g > 0)) g = 100;
+  const k = g / 100;
+  it.name = e.name;
+  it.grams = foodR1(g);
+  it.kcal = Math.round(e.kcal * k);
+  it.protein_g = foodR1(e.protein_g * k); it.carbs_g = foodR1(e.carbs_g * k); it.fat_g = foodR1(e.fat_g * k);
+  it._base = { grams:100, kcal:e.kcal, protein_g:e.protein_g, carbs_g:e.carbs_g, fat_g:e.fat_g };
+  it._p100 = it._base;
+}
+
+/* ---------- Πρόσφατα τρόφιμα του πελάτη (από τα αποθηκευμένα γεύματά του) ---------- */
+function foodRecentEntries(items){
+  const out = [], seen = new Set();
+  (items||[]).forEach(i=>{
+    const name = (i && i.name || '').trim();
+    if(!name || !(Number(i.grams) > 0)) return;
+    const k = fdbKey(name);
+    if(seen.has(k)) return; seen.add(k);
+    out.push({ name, grams:foodR1(i.grams), kcal:Math.round(Number(i.kcal)||0), protein_g:foodR1(i.protein_g), carbs_g:foodR1(i.carbs_g), fat_g:foodR1(i.fat_g), _k:k });
+  });
+  return out;
+}
+function foodRememberItems(items){
+  if(!food.recent) return;
+  const add = foodRecentEntries(items);
+  const keys = new Set(add.map(a=>a._k));
+  food.recent = add.concat(food.recent.filter(r=>!keys.has(r._k))).slice(0, 300);
+}
+async function foodLoadRecent(){
+  if(food.recent || food.recentLoading || !auth.user) return;
+  food.recentLoading = true;
+  const uid = auth.user.id;
+  const { data, error } = await sb.from('meal_logs').select('items, created_at')
+    .eq('user_id', uid).order('created_at', { ascending:false }).limit(150);
+  food.recentLoading = false;
+  if(!auth.user || auth.user.id !== uid) return;
+  if(error){ console.warn('recent foods load error', error); food.recent = []; return; }
+  const all = [];
+  (data||[]).forEach(m=>{ if(Array.isArray(m.items)) all.push(...m.items); });
+  food.recent = foodRecentEntries(all).slice(0, 300);
+}
+
+/* ---------- Owner: διαχείριση βάσης τροφίμων ---------- */
+const fdbAdmin = { q:'', cat:'', edit:null };
+
+function renderFoodsDbTab(){
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <h1 style="margin-bottom:2px;">Τρόφιμα (βάση θερμίδων)</h1>
+    <div class="sub" style="margin-bottom:18px;">Τιμές <b>ανά 100γρ.</b> (τα υγρά ανά 100ml). Τις βλέπουν οι πελάτες όταν γράφουν γεύμα και τις χρησιμοποιεί το AI για τις θερμίδες των φωτογραφιών.</div>
+    <div class="mobile-preview-frame"><div id="fdb-admin"></div></div>`;
+  renderFoodsDbContent();
+}
+async function renderFoodsDbContent(){
+  const box = document.getElementById('fdb-admin');
+  if(!box) return;
+  if(!fdb.list){
+    box.innerHTML = `<div style="color:var(--ink-soft);">Φόρτωση...</div>`;
+    await fdbLoad(true);
+    if(state.tab !== 'foodsdb') return;
+    if(!fdb.list){
+      box.innerHTML = `<div class="panel pad"><div class="empty" style="padding:18px 6px;"><div class="icon">🥗</div><h3>Δεν βρέθηκε η βάση τροφίμων</h3><p>Τρέξε πρώτα το αρχείο <b>20261005_foods.sql</b> στο Supabase → SQL Editor και άνοιξε ξανά αυτή τη σελίδα.</p></div></div>`;
+      return;
+    }
+  }
+  box.innerHTML = fdbAdmin.edit ? renderFoodsDbForm() : renderFoodsDbHome();
+  bindFoodsDbEvents();
+}
+function fdbAdminFiltered(){
+  let list = fdb.list || [];
+  if(fdbAdmin.cat) list = list.filter(f=>f.category === fdbAdmin.cat);
+  if(fdbAdmin.q.trim()) return fdbSearch(list, fdbAdmin.q, 500);
+  const ci = c=>{ const i = FDB_CATEGORIES.indexOf(c); return i < 0 ? 999 : i; };
+  return [...list].sort((a,b)=>ci(a.category)-ci(b.category) || a.name.localeCompare(b.name,'el'));
+}
+function fdbAdminListHtml(){
+  const all = fdbAdminFiltered(), shown = all.slice(0, 150);
+  if(!all.length) return `<div class="food-note" style="text-align:center;padding:16px 0;">Δεν βρέθηκε τρόφιμο. Πάτα «+ Νέο τρόφιμο» για να το προσθέσεις.</div>`;
+  return shown.map(f=>`<div class="fdb-row" data-fdb-edit="${escAttr(f.id)}">
+      <div style="min-width:0;"><div class="n">${escHtml(f.name)}</div>
+        <div class="s">${escHtml(f.category)} · Π ${foodR1(f.protein_g)} · Υ ${foodR1(f.carbs_g)} · Λ ${foodR1(f.fat_g)}${f.portion_label&&f.portion_grams?` · ${escHtml(f.portion_label)} = ${Math.round(f.portion_grams)}γρ.`:''}</div></div>
+      <div class="k">${Math.round(f.kcal)} kcal</div>
+    </div>`).join('') + (all.length > shown.length ? `<div class="food-note" style="text-align:center;">Εμφανίζονται ${shown.length} από ${all.length} — γράψε στην αναζήτηση για να βρεις κάποιο συγκεκριμένο.</div>` : '');
+}
+function renderFoodsDbHome(){
+  const list = fdb.list || [];
+  const counts = {}; list.forEach(f=>{ counts[f.category] = (counts[f.category]||0) + 1; });
+  const cats = FDB_CATEGORIES.filter(c=>counts[c]);
+  return `<div class="panel pad">
+    <button class="btn btn-primary" id="fdb-new" style="width:100%;justify-content:center;margin-bottom:14px;">+ Νέο τρόφιμο</button>
+    <input class="fdb-search" id="fdb-q" type="search" placeholder="Αναζήτηση, π.χ. κοτόπουλο" value="${escAttr(fdbAdmin.q)}" autocomplete="off">
+    <div class="fdb-cats">
+      <button type="button" data-fdb-cat="" class="${!fdbAdmin.cat?'active':''}">Όλα (${list.length})</button>
+      ${cats.map(c=>`<button type="button" data-fdb-cat="${escAttr(c)}" class="${fdbAdmin.cat===c?'active':''}">${escHtml(c)} (${counts[c]})</button>`).join('')}
+    </div>
+    <div id="fdb-list">${fdbAdminListHtml()}</div>
+  </div>`;
+}
+function fdbKcalCheck(e){
+  const k = Number(e.kcal)||0, calc = 4*(Number(e.protein_g)||0) + 4*(Number(e.carbs_g)||0) + 9*(Number(e.fat_g)||0);
+  if(!(k > 0) || Math.abs(calc - k) <= Math.max(15, k*0.15)) return '';
+  return `<div class="fdb-warn">⚠️ Από τα μακροθρεπτικά βγαίνουν περίπου <b>${Math.round(calc)} kcal</b>, ενώ έγραψες <b>${Math.round(k)}</b>. Έλεγξε τους αριθμούς (μικρή διαφορά είναι φυσιολογική σε λαχανικά και ποτά με αλκοόλ).</div>`;
+}
+function renderFoodsDbForm(){
+  const e = fdbAdmin.edit;
+  const catOpts = FDB_CATEGORIES.concat(FDB_CATEGORIES.includes(e.category)?[]:[e.category])
+    .map(c=>`<option value="${escAttr(c)}" ${c===e.category?'selected':''}>${escHtml(c)}</option>`).join('');
+  const numIn = (f, label, ph)=>`<div><label>${label}</label><input type="number" inputmode="decimal" min="0" step="any" data-fdb-f="${f}" value="${e[f]===''||e[f]==null?'':e[f]}" placeholder="${ph||''}"></div>`;
+  return `<div class="auth-back" id="fdb-cancel">${ICON.back}Πίσω στη λίστα</div>
+  <div class="panel pad">
+    <div class="section-title"><span class="dot"></span>${e.id ? 'Διόρθωση τροφίμου' : 'Νέο τρόφιμο'}</div>
+    <div class="fdb-form">
+      <div class="full"><label>Όνομα</label><input type="text" maxlength="80" data-fdb-f="name" value="${escAttr(e.name)}" placeholder="π.χ. Κοτόπουλο στήθος ψητό"></div>
+      <div class="full"><label>Κατηγορία</label><select data-fdb-f="category">${catOpts}</select></div>
+      ${numIn('kcal','Θερμίδες / 100γρ.','π.χ. 165')}
+      ${numIn('protein_g','Πρωτεΐνη γρ. / 100γρ.')}
+      ${numIn('carbs_g','Υδατάνθρακες γρ. / 100γρ.')}
+      ${numIn('fat_g','Λιπαρά γρ. / 100γρ.')}
+      <div><label>Τυπική μερίδα (προαιρ.)</label><input type="text" maxlength="40" data-fdb-f="portion_label" value="${escAttr(e.portion_label||'')}" placeholder="π.χ. 1 αυγό"></div>
+      ${numIn('portion_grams','Γραμμάρια μερίδας','π.χ. 50')}
+    </div>
+    <div id="fdb-check">${fdbKcalCheck(e)}</div>
+    <div class="food-note">Για συσκευασμένα προϊόντα, γράψε τις τιμές «ανά 100γρ.» από τη διατροφική ετικέτα.</div>
+    <button class="btn btn-green" id="fdb-save" style="width:100%;justify-content:center;margin-top:14px;">Αποθήκευση</button>
+    ${e.id ? `<button class="btn btn-outline" id="fdb-del" style="width:100%;justify-content:center;margin-top:10px;color:#ff8b90;border-color:rgba(239,45,53,.6);">Διαγραφή τροφίμου</button>` : ''}
+  </div>`;
+}
+function bindFoodsDbEvents(){
+  const $ = id=>document.getElementById(id);
+  const bindRows = ()=>document.querySelectorAll('[data-fdb-edit]').forEach(r=>r.addEventListener('click', ()=>{
+    const f = (fdb.list||[]).find(x=>String(x.id) === r.getAttribute('data-fdb-edit'));
+    if(!f) return;
+    fdbAdmin.edit = { id:f.id, name:f.name, category:f.category, kcal:f.kcal, protein_g:f.protein_g, carbs_g:f.carbs_g, fat_g:f.fat_g, portion_label:f.portion_label||'', portion_grams:f.portion_grams==null?'':f.portion_grams };
+    renderFoodsDbContent(); window.scrollTo(0, 0);
+  }));
+  bindRows();
+  if($('fdb-q')) $('fdb-q').addEventListener('input', e=>{
+    fdbAdmin.q = e.target.value;
+    $('fdb-list').innerHTML = fdbAdminListHtml(); bindRows();
+  });
+  document.querySelectorAll('[data-fdb-cat]').forEach(b=>b.addEventListener('click', ()=>{
+    fdbAdmin.cat = b.getAttribute('data-fdb-cat'); renderFoodsDbContent();
+  }));
+  if($('fdb-new')) $('fdb-new').addEventListener('click', ()=>{
+    fdbAdmin.edit = { name:fdbAdmin.q.trim(), category:fdbAdmin.cat || FDB_CATEGORIES[0], kcal:'', protein_g:'', carbs_g:'', fat_g:'', portion_label:'', portion_grams:'' };
+    renderFoodsDbContent();
+  });
+  if($('fdb-cancel')) $('fdb-cancel').addEventListener('click', ()=>{ fdbAdmin.edit = null; renderFoodsDbContent(); });
+  document.querySelectorAll('[data-fdb-f]').forEach(inp=>{
+    const ev = inp.tagName === 'SELECT' ? 'change' : 'input';
+    inp.addEventListener(ev, ()=>{
+      fdbAdmin.edit[inp.getAttribute('data-fdb-f')] = inp.value;
+      const chk = $('fdb-check'); if(chk) chk.innerHTML = fdbKcalCheck(fdbAdmin.edit);
+    });
+  });
+  if($('fdb-save')) $('fdb-save').addEventListener('click', async ()=>{
+    const e = fdbAdmin.edit; if(!e) return;
+    const name = (e.name||'').trim().replace(/\s+/g,' ');
+    const n = v=>Math.round((Number(v)||0)*10)/10;
+    if(!name){ toast('Γράψε όνομα τροφίμου.'); return; }
+    if(e.kcal === '' || !(Number(e.kcal) >= 0)){ toast('Γράψε θερμίδες ανά 100γρ.'); return; }
+    const pg = Number(e.portion_grams);
+    const row = { name:name.slice(0,80), category:e.category || 'Άλλο', kcal:n(e.kcal), protein_g:n(e.protein_g), carbs_g:n(e.carbs_g), fat_g:n(e.fat_g),
+                  portion_label:(e.portion_label||'').trim().slice(0,40) || null, portion_grams: pg > 0 ? n(pg) : null };
+    if(!row.portion_label) row.portion_grams = null;
+    const btn = $('fdb-save'); btn.disabled = true; btn.textContent = 'Αποθήκευση…';
+    const res = e.id
+      ? await sb.from('foods').update({ ...row, updated_at:new Date().toISOString() }).eq('id', e.id)
+      : await sb.from('foods').insert(row);
+    if(res.error){
+      console.error('foods save error', res.error);
+      btn.disabled = false; btn.textContent = 'Αποθήκευση';
+      toast(res.error.code === '23505' ? 'Υπάρχει ήδη τρόφιμο με αυτό το όνομα.' : 'Σφάλμα αποθήκευσης.', 4000);
+      return;
+    }
+    fdbAdmin.edit = null;
+    toast(e.id ? 'Το τρόφιμο ενημερώθηκε.' : 'Το τρόφιμο προστέθηκε.');
+    fdb.list = null; renderFoodsDbContent();
+  });
+  if($('fdb-del')) $('fdb-del').addEventListener('click', async ()=>{
+    const e = fdbAdmin.edit; if(!e || !e.id) return;
+    if(!confirm(`Διαγραφή του «${e.name}» από τη βάση;\nΤα γεύματα που έχουν ήδη αποθηκευτεί δεν επηρεάζονται.`)) return;
+    const { error } = await sb.from('foods').delete().eq('id', e.id);
+    if(error){ console.error('foods delete error', error); toast('Σφάλμα διαγραφής.'); return; }
+    fdbAdmin.edit = null; toast('Διαγράφηκε.');
+    fdb.list = null; renderFoodsDbContent();
   });
 }
 
@@ -6107,7 +6523,7 @@ function renderAiTrainDraft(){
     <div class="food-note" style="margin:-6px 0 12px;">Διόρθωσε και το όνομα αν χρειάζεται, ώστε να είναι πάντα ίδιο (π.χ. πάντα «Χοιρινή μπριζόλα»). Άφησε κενό το βάρος για ό,τι δεν ζύγισες (π.χ. λάδι).</div>
     ${d.items.map((it,i)=>`<div class="food-item">
       <div class="row1">
-        <input class="name" type="text" data-ait-i="${i}" data-ait-f="name" value="${escAttr(it.name)}">
+        <input class="name" type="text" placeholder="Όνομα τροφίμου" data-ait-i="${i}" data-ait-f="name" value="${escAttr(it.name)}">
         <button class="x" data-ait-rm="${i}" aria-label="Αφαίρεση">×</button>
       </div>
       <div class="macros" style="grid-template-columns:1fr 1fr;">
@@ -6154,6 +6570,14 @@ function bindAiTrainEvents(){
     const it = aiTrain.draft && aiTrain.draft.items[Number(inp.getAttribute('data-ait-i'))];
     if(it) it[inp.getAttribute('data-ait-f')] = inp.value;
   }));
+  // Ίδια ονόματα με τη βάση τροφίμων → σωστές διορθώσεις ανά τρόφιμο
+  document.querySelectorAll('input[data-ait-f="name"]').forEach(inp=>{
+    fdbAttachSuggest(inp, { onPick: e=>{
+      const it = aiTrain.draft && aiTrain.draft.items[Number(inp.getAttribute('data-ait-i'))];
+      if(it) it.name = e.name;
+      inp.value = e.name;
+    }});
+  });
   document.querySelectorAll('[data-ait-rm]').forEach(b=>b.addEventListener('click', ()=>{
     aiTrain.draft.items.splice(Number(b.getAttribute('data-ait-rm')), 1); renderAiTrainContent();
   }));
@@ -6185,6 +6609,516 @@ function bindAiTrainEvents(){
   }));
 }
 
+/* ===================================================================
+   ΚΕΝΤΡΟ ΚΑΝΟΝΩΝ AI — owner
+   Κάρτες κανόνων με εκδόσεις: Πρόχειρο → Δημοσίευση → Αρχείο (επαναφορά).
+   Η Edge Function "ai-assistant" διαβάζει τη ΔΗΜΟΣΙΕΥΜΕΝΗ έκδοση
+   (ή το ΠΡΟΧΕΙΡΟ για τους δοκιμαστικούς πελάτες).
+   =================================================================== */
+const AI_APP = 'forma';
+const AI_BUTTONS = { program_renewal: 'Θέλω ανανέωση προγράμματος' };
+const AI_KINDS = [
+  { key:'general',   label:'Γενικός κανόνας', icon:'📘', hint:'Ισχύει πάντα: ποιος είναι ο βοηθός, πώς μιλάει, τι πιστεύει η TRANSFORMATION.' },
+  { key:'button',    label:'Κουμπί',          icon:'🔘', hint:'Τι κάνει το AI όταν ο πελάτης πατήσει ένα συγκεκριμένο κουμπί.' },
+  { key:'knowledge', label:'Γνώση',           icon:'📚', hint:'Πληροφορίες που χρησιμοποιεί όταν χρειάζεται (π.χ. UNTIL FAILURE).' },
+  { key:'forbidden', label:'Απαγόρευση',      icon:'⛔', hint:'Πράγματα που δεν κάνει ποτέ, ό,τι κι αν ζητηθεί.' },
+  { key:'sensitive', label:'Χρειάζεται άνθρωπο', icon:'🧑‍⚕️', hint:'Πότε η πρόταση ΔΕΝ εφαρμόζεται αυτόματα, αλλά πηγαίνει για έγκριση.' }
+];
+const AI_SCOPES = { all:'Όλα', program:'Προγράμματα', nutrition:'Διατροφή', chat:'Συνομιλία' };
+const AI_STATUS = {
+  pending:      { label:'Περιμένει έγκριση', color:'#ffcf9e' },
+  approved:     { label:'Εγκρίθηκε',         color:'#7ef5a0' },
+  auto_applied: { label:'Εφαρμόστηκε αυτόματα', color:'#7ef5a0' },
+  rejected:     { label:'Απορρίφθηκε',       color:'#ff8b90' }
+};
+const aiRules = { sub:'cards', loaded:false, versions:[], cards:[], viewVersionId:null, settings:null,
+                  proposals:[], propFilter:'pending', edit:null, test:{ note:'', customer:'', busy:false, results:null } };
+
+// Η λίστα ασκήσεων/κανόνων της εφαρμογής, για να χρησιμοποιεί και να ελέγχει το AI τα ίδια
+function aiCatalog(){
+  const groups = {};
+  Object.keys(EXERCISES).forEach(k=>{
+    groups[k] = { label: GROUP_DISPLAY[k] || k, exercises: EXERCISES[k].filter(x=>x !== 'ΆΛΛΟ') };
+  });
+  const nutrition_muscle = {};
+  Object.keys(NUTRITION_INFO).forEach(k=>{ nutrition_muscle[k] = { kcal:NUTRITION_INFO[k].kcal, text:NUTRITION_INFO[k].text }; });
+  return {
+    groups, setrep: SETREP, fatburn_fixed: FATBURN_WEIGHTS_FIXED, day_labels: DAY_LABELS_EXTENDED,
+    nutrition_muscle, fatburn_kcal_options: FATBURN_KCAL_OPTIONS, fatburn_text: FATBURN_NUTRITION_TEXT_WEIGHTS,
+    failure_options: FAILURE_OPTIONS
+  };
+}
+async function callAiAssistant(body){
+  const { data, error } = await sb.functions.invoke('ai-assistant', { body: { ...body, catalog: aiCatalog() } });
+  if(error){
+    let msg = 'Το AI δεν απάντησε. Δοκίμασε ξανά.';
+    try{ if(error.context && typeof error.context.json === 'function'){ const j = await error.context.json(); if(j && j.message) msg = j.message; } }catch(_){}
+    throw new Error(msg);
+  }
+  return data;
+}
+
+/* ---------- Supabase ---------- */
+async function aiLoadAll(){
+  const [v, s, p] = await Promise.all([
+    sb.from('ai_rule_versions').select('*').eq('app', AI_APP).order('version_no', { ascending:false }),
+    sb.from('ai_settings').select('*').eq('app', AI_APP).maybeSingle(),
+    sb.from('ai_proposals').select('*').eq('app', AI_APP).order('created_at', { ascending:false }).limit(100)
+  ]);
+  if(v.error){ console.error('ai versions', v.error); return false; }
+  aiRules.versions = v.data || [];
+  aiRules.settings = s.data || { app:AI_APP, approval_program:true, approval_nutrition:true, test_customer_codes:[], daily_limit:3 };
+  aiRules.proposals = p.data || [];
+  const draft = aiRules.versions.find(x=>x.status==='draft'), pub = aiRules.versions.find(x=>x.status==='published');
+  if(!aiRules.viewVersionId || !aiRules.versions.some(x=>x.id===aiRules.viewVersionId)) aiRules.viewVersionId = (draft||pub||aiRules.versions[0]||{}).id || null;
+  await aiLoadCards();
+  if(!state.customersLoaded){ await loadCustomers(); }
+  return true;
+}
+async function aiLoadCards(){
+  if(!aiRules.viewVersionId){ aiRules.cards = []; return; }
+  const { data, error } = await sb.from('ai_rule_cards').select('*').eq('version_id', aiRules.viewVersionId).order('sort').order('created_at');
+  if(error){ console.error('ai cards', error); toast('Σφάλμα φόρτωσης καρτών.'); }
+  aiRules.cards = data || [];
+}
+function aiVersion(id){ return aiRules.versions.find(v=>v.id===id) || null; }
+function aiDraft(){ return aiRules.versions.find(v=>v.status==='draft') || null; }
+function aiPublished(){ return aiRules.versions.find(v=>v.status==='published') || null; }
+function aiCustomerName(code){
+  const c = (state.customers||[]).find(x=>x.code===code);
+  return c ? `${c.name||''} ${c.surname||''}`.trim() + ` · ${code}` : code;
+}
+
+/* ---------- Render ---------- */
+function renderAiRulesTab(){
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <h1 style="margin-bottom:2px;">Κέντρο Κανόνων AI</h1>
+    <div class="sub" style="margin-bottom:18px;">Εδώ γράφεις τι κάνει το AI. Οι αλλαγές γίνονται σε <b>πρόχειρο</b> και φτάνουν στους πελάτες μόνο όταν πατήσεις <b>Δημοσίευση</b>.</div>
+    <div class="mobile-preview-frame" style="max-width:860px;"><div id="air-content"></div></div>`;
+  renderAiRulesContent();
+}
+async function renderAiRulesContent(){
+  const box = document.getElementById('air-content');
+  if(!box) return;
+  if(!aiRules.loaded){
+    box.innerHTML = `<div style="color:var(--ink-soft);">Φόρτωση...</div>`;
+    const ok = await aiLoadAll();
+    if(state.tab !== 'airules') return;
+    if(!ok){
+      box.innerHTML = `<div class="panel pad"><div class="empty" style="padding:18px 6px;"><div class="icon">🤖</div><h3>Δεν βρέθηκαν οι πίνακες του Κέντρου Κανόνων</h3><p>Η ενημέρωση της βάσης ίσως δεν έχει ολοκληρωθεί ακόμα. Δοκίμασε ξανά σε λίγα λεπτά.</p></div></div>`;
+      return;
+    }
+    aiRules.loaded = true;
+  }
+  const pend = aiRules.proposals.filter(p=>p.status==='pending').length;
+  const tabs = [['cards','🗂️ Κάρτες'],['test','🧪 Δοκιμή'],['proposals',`📥 Προτάσεις${pend?` (${pend})`:''}`],['settings','⚙️ Ρυθμίσεις'],['versions','🕘 Εκδόσεις']];
+  let body = '';
+  if(aiRules.sub==='cards') body = aiRules.edit ? renderAirCardEditor() : renderAirCards();
+  else if(aiRules.sub==='test') body = renderAirTest();
+  else if(aiRules.sub==='proposals') body = renderAirProposals();
+  else if(aiRules.sub==='settings') body = renderAirSettings();
+  else body = renderAirVersions();
+  box.innerHTML = `<div class="fdb-cats" style="margin-bottom:16px;">${tabs.map(([k,l])=>`<button type="button" data-air-sub="${k}" class="${aiRules.sub===k?'active':''}">${l}</button>`).join('')}</div>${body}`;
+  bindAiRulesEvents();
+}
+
+function airVersionLabel(v){
+  if(!v) return '';
+  return v.status==='draft' ? `Πρόχειρο · Έκδοση ${v.version_no}` : v.status==='published' ? `Δημοσιευμένη · Έκδοση ${v.version_no}` : `Αρχείο · Έκδοση ${v.version_no}`;
+}
+function renderAirCards(){
+  const v = aiVersion(aiRules.viewVersionId);
+  const draft = aiDraft(), pub = aiPublished();
+  const isDraft = v && v.status==='draft';
+  const switcher = [draft, pub].filter(Boolean).map(x=>`<button type="button" data-air-view="${escAttr(x.id)}" class="${x.id===aiRules.viewVersionId?'active':''}">${x.status==='draft'?'✏️':'🚀'} ${escHtml(airVersionLabel(x))}</button>`).join('');
+  const head = !v ? `<div class="panel pad"><div class="empty" style="padding:14px 6px;"><div class="icon">🤖</div><h3>Δεν υπάρχουν ακόμα κανόνες</h3><p>Ξεκίνα ένα πρόχειρο και πρόσθεσε κάρτες.</p></div>
+      <button class="btn btn-primary" data-air-newdraft style="width:100%;justify-content:center;">✏️ Νέο πρόχειρο</button></div>` :
+    `<div class="panel pad" style="margin-bottom:14px;">
+      <div class="fdb-cats" style="margin-bottom:10px;">${switcher}</div>
+      ${isDraft ? `<div class="food-note" style="margin:0 0 12px;">Βλέπεις το <b>πρόχειρο</b>. Οι πελάτες ΔΕΝ το βλέπουν (εκτός από τους δοκιμαστικούς). Άλλαξε ό,τι θέλεις, δοκίμασέ το στην καρτέλα «Δοκιμή» και μετά πάτα Δημοσίευση.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <button class="btn btn-green" data-air-publish="${escAttr(v.id)}" style="justify-content:center;">🚀 Δημοσίευση</button>
+            <button class="btn btn-outline" data-air-discard style="justify-content:center;">🗑️ Απόρριψη προχείρου</button>
+          </div>`
+        : `<div class="food-note" style="margin:0 0 12px;">${v.status==='published'?'Αυτή την έκδοση χρησιμοποιούν τώρα οι πελάτες.':'Παλιά έκδοση (αρχείο).'} Δεν αλλάζει απευθείας — για αλλαγές φτιάξε πρόχειρο.</div>
+          ${draft ? '' : `<button class="btn btn-primary" data-air-newdraft style="width:100%;justify-content:center;">✏️ Νέο πρόχειρο για αλλαγές (αντίγραφο της δημοσιευμένης)</button>`}`}
+    </div>`;
+  if(!v) return head;
+  const groups = AI_KINDS.map(k=>{
+    const list = aiRules.cards.filter(c=>c.kind===k.key);
+    if(!list.length) return '';
+    return `<div class="section-title" style="margin-top:6px;"><span class="dot"></span>${k.icon} ${escHtml(k.label)} (${list.length})</div>` + list.map(c=>`
+      <div class="air-card ${c.active?'':'off'}">
+        <div class="air-card-head">
+          <div class="t">${escHtml(c.title)}</div>
+          ${isDraft ? `<button class="btn btn-info" style="padding:5px 10px;font-size:11px;" data-air-edit="${escAttr(c.id)}">Επεξεργασία</button>` : ''}
+        </div>
+        <div class="air-chips">
+          <span>${escHtml(AI_SCOPES[c.scope]||c.scope)}</span>
+          ${c.kind==='button' ? `<span class="${c.button_key&&AI_BUTTONS[c.button_key]?'ok':'bad'}">🔘 ${c.button_key&&AI_BUTTONS[c.button_key]?escHtml(AI_BUTTONS[c.button_key]):'Χωρίς συνδεδεμένο κουμπί'}</span>` : ''}
+          ${c.active ? '' : '<span class="bad">Ανενεργή</span>'}
+        </div>
+        <div class="air-body">${escHtml(c.body)}</div>
+      </div>`).join('');
+  }).join('');
+  return head + (groups || `<div class="food-note" style="text-align:center;">Δεν υπάρχουν κάρτες σε αυτή την έκδοση.</div>`) +
+    (isDraft ? `<button class="btn btn-primary" data-air-new style="width:100%;justify-content:center;margin-top:12px;">+ Νέα κάρτα</button>` : '');
+}
+
+function renderAirCardEditor(){
+  const e = aiRules.edit;
+  const kind = AI_KINDS.find(k=>k.key===e.kind) || AI_KINDS[0];
+  const speech = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  return `<div class="auth-back" data-air-cancel>${ICON.back}Πίσω στις κάρτες</div>
+  <div class="panel pad">
+    <div class="section-title"><span class="dot"></span>${e.id ? 'Επεξεργασία κάρτας' : 'Νέα κάρτα'}</div>
+    <div class="fdb-form">
+      <div class="full"><label>Τύπος</label><select data-air-f="kind">${AI_KINDS.map(k=>`<option value="${k.key}" ${k.key===e.kind?'selected':''}>${k.icon} ${escHtml(k.label)}</option>`).join('')}</select>
+        <div class="food-note" style="margin-top:6px;">${escHtml(kind.hint)}</div></div>
+      <div class="full"><label>Τίτλος</label><input type="text" maxlength="120" data-air-f="title" value="${escAttr(e.title)}" placeholder="π.χ. Ανανέωση προγράμματος"></div>
+      ${e.kind==='button' ? `<div class="full"><label>Συνδεδεμένο κουμπί</label><select data-air-f="button_key">
+          <option value="">— Επίλεξε κουμπί —</option>
+          ${Object.entries(AI_BUTTONS).map(([k,l])=>`<option value="${k}" ${e.button_key===k?'selected':''}>${escHtml(l)}</option>`).join('')}
+        </select><div class="food-note" style="margin-top:6px;">Όταν ο πελάτης πατήσει αυτό το κουμπί, το AI εκτελεί τις οδηγίες της κάρτας.</div></div>` : ''}
+      <div class="full"><label style="display:flex;justify-content:space-between;align-items:center;">Οδηγίες προς το AI
+          ${speech ? `<button type="button" class="btn btn-outline" id="air-mic" style="padding:4px 10px;font-size:11px;text-transform:none;">🎤 Υπαγόρευση</button>` : ''}</label>
+        <textarea data-air-f="body" id="air-body" rows="12" placeholder="Γράψε με απλά λόγια τι πρέπει να κάνει το AI, σαν να το εξηγείς σε νέο προπονητή.">${escHtml(e.body)}</textarea>
+        ${speech ? '' : `<div class="food-note">Για υπαγόρευση χρησιμοποίησε το μικρόφωνο του πληκτρολογίου του κινητού.</div>`}</div>
+      <div><label>Ισχύει για</label><select data-air-f="scope">${Object.entries(AI_SCOPES).map(([k,l])=>`<option value="${k}" ${e.scope===k?'selected':''}>${escHtml(l)}</option>`).join('')}</select></div>
+      <div><label>Σειρά</label><input type="number" step="1" data-air-f="sort" value="${Number(e.sort)||0}"></div>
+      <div class="full"><label style="display:flex;gap:8px;align-items:center;text-transform:none;font-size:13px;color:var(--ink);"><input type="checkbox" data-air-f="active" ${e.active?'checked':''} style="width:auto;"> Ενεργή κάρτα</label></div>
+    </div>
+    <button class="btn btn-green" id="air-save" style="width:100%;justify-content:center;margin-top:14px;">Αποθήκευση κάρτας</button>
+    ${e.id ? `<button class="btn btn-outline" id="air-del" style="width:100%;justify-content:center;margin-top:10px;color:#ff8b90;border-color:rgba(239,45,53,.6);">Διαγραφή κάρτας</button>` : ''}
+  </div>`;
+}
+
+function airProgramPreview(rec){
+  if(!rec) return '';
+  const cat = rec.category==='muscle' ? 'Αύξηση Μυϊκού Ιστού' : 'Καύση Λίπους με βάρη';
+  return `<div class="air-prog">
+    <div class="h">${escHtml(cat)}${rec.nutrition&&rec.nutrition.kcal?` · Διατροφή ${escHtml(rec.nutrition.kcal)}`:''}</div>
+    ${rec.instructions ? `<div class="n">${escHtml(rec.instructions)}</div>` : ''}
+    ${(rec.days||[]).map(d=>`<div class="d"><b>${escHtml(d.label)}</b>${(d.groups||[]).map(g=>`<div>• ${escHtml(g.groupLabel)}: ${escHtml(g.exercise)} — ${g.set}×${escHtml(g.rep)}, ${escHtml(g.rest)}, failure ${g.failure}</div>`).join('')}</div>`).join('')}
+  </div>`;
+}
+function renderAirResult(title, r){
+  if(!r) return '';
+  if(r.error) return `<div class="air-res"><div class="air-res-h">${escHtml(title)}</div><div class="fdb-warn">${escHtml(r.error)}</div></div>`;
+  return `<div class="air-res">
+    <div class="air-res-h">${escHtml(title)} · Έκδοση ${r.version_no}</div>
+    <div class="air-chips" style="margin-bottom:8px;">
+      ${r.sensitive ? `<span class="bad">🧑‍⚕️ Ευαίσθητο: ${escHtml(r.sensitive_reason||'')}</span>` : '<span class="ok">Όχι ευαίσθητο</span>'}
+      <span>${r.would_status==='auto_applied'?'Θα εφαρμοζόταν αυτόματα':'Θα πήγαινε για έγκριση'}</span>
+    </div>
+    <div class="info-card"><div class="lbl">Μήνυμα προς πελάτη</div><div class="txt">${escNL(r.message_to_client||'')}</div></div>
+    <div class="info-card"><div class="lbl">Εξήγηση για τον προπονητή</div><div class="txt">${escNL(r.reasoning||'')}</div></div>
+    ${(r.warnings||[]).length ? `<div class="fdb-warn">Έλεγχος εφαρμογής: ${escHtml(r.warnings.join('; '))}</div>` : ''}
+    ${airProgramPreview(r.program)}
+  </div>`;
+}
+function renderAirTest(){
+  const t = aiRules.test, draft = aiDraft(), pub = aiPublished();
+  return `<div class="panel pad">
+    <div class="food-note" style="margin:0 0 12px;">Τρέχει το ίδιο αίτημα με τη <b>δημοσιευμένη</b> έκδοση και με το <b>πρόχειρο</b>, για να δεις τη διαφορά δίπλα-δίπλα. <b>Δεν</b> αποθηκεύεται τίποτα και δεν το βλέπει κανένας πελάτης.</div>
+    <div class="fdb-form">
+      <div class="full"><label>Κουμπί</label><select id="air-t-btn">${Object.entries(AI_BUTTONS).map(([k,l])=>`<option value="${k}">${escHtml(l)}</option>`).join('')}</select></div>
+      <div class="full"><label>Πελάτης (για να δει το ιστορικό του)</label><select id="air-t-cust">
+        <option value="">— Χωρίς ιστορικό (νέος πελάτης) —</option>
+        ${(state.customers||[]).map(c=>`<option value="${escAttr(c.code)}" ${t.customer===c.code?'selected':''}>${escHtml((c.name||'')+' '+(c.surname||''))} · ${escHtml(c.code)}</option>`).join('')}
+      </select></div>
+      <div class="full"><label>Τι γράφει ο πελάτης (προαιρετικό)</label><textarea id="air-t-note" rows="3" placeholder="π.χ. Θέλω να δουλέψω περισσότερο τα πόδια. / Πονάει λίγο ο ώμος μου.">${escHtml(t.note)}</textarea></div>
+    </div>
+    <button class="btn btn-primary" id="air-t-run" style="width:100%;justify-content:center;margin-top:12px;" ${t.busy||(!draft&&!pub)?'disabled':''}>${t.busy?'Το AI σκέφτεται… (έως 1 λεπτό)':'▶ Δοκιμή'}</button>
+    ${!draft&&!pub ? '<div class="food-note">Φτιάξε πρώτα ένα πρόχειρο με κάρτες.</div>' : ''}
+  </div>
+  ${t.results ? `<div class="air-cmp">${pub?renderAirResult('🚀 Δημοσιευμένη', t.results.published):''}${draft?renderAirResult('✏️ Πρόχειρο', t.results.draft):''}</div>` : ''}`;
+}
+
+function renderAirProposals(){
+  const f = aiRules.propFilter;
+  const list = aiRules.proposals.filter(p=> f==='pending' ? p.status==='pending' : true);
+  const items = list.length ? list.map(p=>{
+    const st = AI_STATUS[p.status] || { label:p.status, color:'var(--ink-soft)' };
+    return `<div class="panel pad" style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <div><div style="font-weight:700;">${escHtml(aiCustomerName(p.customer_code))}</div>
+          <div class="food-note" style="margin-top:2px;">${new Date(p.created_at).toLocaleString('el-GR')} · ${escHtml(AI_BUTTONS[p.button_key]||p.button_key)} · Έκδοση ${p.version_no||'—'}${p.used_draft?' (πρόχειρο)':''}</div></div>
+        <div style="font-weight:700;font-size:12px;color:${st.color};">${escHtml(st.label)}</div>
+      </div>
+      ${p.sensitive ? `<div class="fdb-warn">🧑‍⚕️ Ευαίσθητο: ${escHtml(p.sensitive_reason||'')}</div>` : ''}
+      ${p.request_note ? `<div class="info-card"><div class="lbl">Ο πελάτης έγραψε</div><div class="txt">${escNL(p.request_note)}</div></div>` : ''}
+      <div class="info-card"><div class="lbl">Μήνυμα προς πελάτη</div><div class="txt">${escNL(p.message_to_client||'')}</div></div>
+      <details style="margin:6px 0;"><summary style="cursor:pointer;font-size:12.5px;color:var(--cyan-soft);">Γιατί το πρότεινε το AI</summary><div class="food-note" style="white-space:pre-wrap;">${escHtml(p.reasoning||'')}</div></details>
+      ${airProgramPreview(p.proposal)}
+      ${p.decision_note ? `<div class="food-note">Σημείωση απόφασης: ${escHtml(p.decision_note)}</div>` : ''}
+      ${p.status==='pending' ? `
+        <textarea data-air-dnote="${escAttr(p.id)}" rows="2" placeholder="Σημείωση (προαιρετική — σε απόρριψη τη βλέπει ο πελάτης)" style="width:100%;margin-top:10px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);font-family:inherit;"></textarea>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+          <button class="btn btn-green" data-air-approve="${escAttr(p.id)}" style="justify-content:center;">✅ Έγκριση</button>
+          <button class="btn btn-outline" data-air-reject="${escAttr(p.id)}" style="justify-content:center;color:#ff8b90;">✖ Απόρριψη</button>
+        </div>` : ''}
+    </div>`;
+  }).join('') : `<div class="panel pad"><div class="empty" style="padding:14px 6px;"><div class="icon">📭</div><h3>${f==='pending'?'Καμία πρόταση σε αναμονή':'Δεν υπάρχουν προτάσεις ακόμα'}</h3></div></div>`;
+  return `<div class="fdb-cats" style="margin-bottom:12px;">
+      <button type="button" data-air-pf="pending" class="${f==='pending'?'active':''}">Σε αναμονή</button>
+      <button type="button" data-air-pf="all" class="${f==='all'?'active':''}">Όλες (τελευταίες 100)</button>
+      <button type="button" data-air-reload>↻ Ανανέωση</button>
+    </div>${items}`;
+}
+
+function renderAirSettings(){
+  const s = aiRules.settings, tests = new Set(s.test_customer_codes||[]);
+  return `<div class="panel pad">
+    <div class="section-title"><span class="dot"></span>Έγκριση</div>
+    <label class="air-toggle"><input type="checkbox" id="air-s-ap" ${s.approval_program!==false?'checked':''}>
+      <div><b>Έγκριση νέων προγραμμάτων από τον owner</b><div class="food-note" style="margin-top:2px;">ΝΑΙ: κάθε πρόγραμμα του AI περιμένει στις «Προτάσεις». ΟΧΙ: εφαρμόζεται αμέσως στον πελάτη. Οι <b>ευαίσθητες</b> περιπτώσεις πάνε ΠΑΝΤΑ για έγκριση.</div></div></label>
+    <label class="air-toggle" style="opacity:.55;"><input type="checkbox" id="air-s-an" ${s.approval_nutrition!==false?'checked':''} disabled>
+      <div><b>Έγκριση αλλαγών διατροφής</b><div class="food-note" style="margin-top:2px;">Για τη λειτουργία διατροφής του AI που θα έρθει.</div></div></label>
+    <div class="section-title" style="margin-top:14px;"><span class="dot"></span>Όριο χρήσης</div>
+    <div class="fdb-form"><div><label>Αιτήματα ανά πελάτη / 24ωρο</label><input type="number" min="0" max="100" id="air-s-lim" value="${Number(s.daily_limit)||0}"></div></div>
+    <div class="section-title" style="margin-top:14px;"><span class="dot"></span>Δοκιμαστικοί πελάτες</div>
+    <div class="food-note" style="margin:-6px 0 8px;">Αυτοί οι πελάτες χρησιμοποιούν το <b>πρόχειρο</b> στην πραγματική εφαρμογή. Όλοι οι άλλοι χρησιμοποιούν τη δημοσιευμένη έκδοση.</div>
+    <input class="fdb-search" id="air-s-q" type="search" placeholder="Αναζήτηση πελάτη" autocomplete="off">
+    <div id="air-s-list" style="max-height:260px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:4px 10px;">
+      ${(state.customers||[]).map(c=>`<label class="air-cust" data-q="${escAttr(fdbKey((c.name||'')+' '+(c.surname||'')+' '+c.code))}"><input type="checkbox" data-air-test="${escAttr(c.code)}" ${tests.has(c.code)?'checked':''}> ${escHtml((c.name||'')+' '+(c.surname||''))} <span style="color:var(--ink-soft);">· ${escHtml(c.code)}</span></label>`).join('') || '<div class="food-note">Δεν υπάρχουν πελάτες.</div>'}
+    </div>
+    <button class="btn btn-green" id="air-s-save" style="width:100%;justify-content:center;margin-top:14px;">Αποθήκευση ρυθμίσεων</button>
+  </div>`;
+}
+
+function renderAirVersions(){
+  if(!aiRules.versions.length) return `<div class="panel pad"><div class="food-note">Δεν υπάρχουν εκδόσεις ακόμα.</div></div>`;
+  const used = {}; aiRules.proposals.forEach(p=>{ if(p.version_no) used[p.version_no] = (used[p.version_no]||0)+1; });
+  return `<div class="panel pad">
+    <div class="food-note" style="margin:0 0 10px;">Κάθε δημοσίευση κρατά την προηγούμενη έκδοση στο αρχείο. Με την <b>Επαναφορά</b> γυρίζεις αμέσως σε παλιά έκδοση, για όλους τους πελάτες.</div>
+    ${aiRules.versions.map(v=>`<div class="fdb-row" style="cursor:default;">
+      <div><div class="n">${escHtml(airVersionLabel(v))}</div>
+        <div class="s">Δημιουργία ${new Date(v.created_at).toLocaleDateString('el-GR')}${v.published_at?` · Δημοσίευση ${new Date(v.published_at).toLocaleString('el-GR')}`:''}${used[v.version_no]?` · ${used[v.version_no]} προτάσεις`:''}${v.note?` · ${escHtml(v.note)}`:''}</div></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+        <button class="btn btn-outline" style="padding:5px 10px;font-size:11px;" data-air-viewv="${escAttr(v.id)}">Προβολή</button>
+        ${v.status==='archived' ? `<button class="btn btn-info" style="padding:5px 10px;font-size:11px;" data-air-restore="${escAttr(v.id)}">↩ Επαναφορά</button>` : ''}
+        ${v.status==='draft' ? `<button class="btn btn-green" style="padding:5px 10px;font-size:11px;" data-air-publish="${escAttr(v.id)}">🚀 Δημοσίευση</button>` : ''}
+      </div></div>`).join('')}
+  </div>`;
+}
+
+/* ---------- Events ---------- */
+let airRecog = null;
+function bindAiRulesEvents(){
+  const $ = id=>document.getElementById(id);
+  const rerender = ()=>renderAiRulesContent();
+  const reloadAll = async ()=>{ await aiLoadAll(); rerender(); };
+  document.querySelectorAll('[data-air-sub]').forEach(b=>b.addEventListener('click', ()=>{ aiRules.sub = b.getAttribute('data-air-sub'); aiRules.edit = null; rerender(); }));
+  document.querySelectorAll('[data-air-view]').forEach(b=>b.addEventListener('click', async ()=>{ aiRules.viewVersionId = b.getAttribute('data-air-view'); await aiLoadCards(); rerender(); }));
+  document.querySelectorAll('[data-air-viewv]').forEach(b=>b.addEventListener('click', async ()=>{ aiRules.viewVersionId = b.getAttribute('data-air-viewv'); aiRules.sub='cards'; await aiLoadCards(); rerender(); }));
+
+  document.querySelectorAll('[data-air-newdraft]').forEach(b=>b.addEventListener('click', async ()=>{
+    b.disabled = true;
+    const { data, error } = await sb.rpc('ai_create_draft', { p_app: AI_APP });
+    if(error){ console.error(error); toast('Σφάλμα δημιουργίας προχείρου.'); b.disabled = false; return; }
+    aiRules.viewVersionId = data; toast('Δημιουργήθηκε πρόχειρο.'); reloadAll();
+  }));
+  document.querySelectorAll('[data-air-publish]').forEach(b=>b.addEventListener('click', async ()=>{
+    const id = b.getAttribute('data-air-publish');
+    const v = aiVersion(id);
+    const btnCards = (id===aiRules.viewVersionId ? aiRules.cards : []).filter(c=>c.kind==='button' && c.active);
+    if(id===aiRules.viewVersionId && !btnCards.length && !confirm('Το πρόχειρο δεν έχει ενεργή κάρτα «Κουμπί». Το κουμπί του πελάτη δεν θα λειτουργεί. Δημοσίευση παρ\' όλα αυτά;')) return;
+    const note = prompt(`Δημοσίευση της Έκδοσης ${v?v.version_no:''}. Από τώρα θα τη χρησιμοποιούν όλοι οι πελάτες.\n\nΣύντομη σημείωση για το τι άλλαξε (προαιρετικό):`, '');
+    if(note === null) return;
+    const { error } = await sb.rpc('ai_publish_version', { p_version_id: id, p_note: note });
+    if(error){ console.error(error); toast('Σφάλμα δημοσίευσης.'); return; }
+    toast(`Η Έκδοση ${v?v.version_no:''} δημοσιεύτηκε!`); aiRules.viewVersionId = id; reloadAll();
+  }));
+  document.querySelectorAll('[data-air-restore]').forEach(b=>b.addEventListener('click', async ()=>{
+    const id = b.getAttribute('data-air-restore'), v = aiVersion(id), pub = aiPublished();
+    if(!confirm(`Επαναφορά στην Έκδοση ${v.version_no};\n\nΗ Έκδοση ${pub?pub.version_no:''} θα πάει στο αρχείο και όλοι οι πελάτες θα χρησιμοποιούν αμέσως την Έκδοση ${v.version_no}.`)) return;
+    const { error } = await sb.rpc('ai_publish_version', { p_version_id: id, p_note: null });
+    if(error){ console.error(error); toast('Σφάλμα επαναφοράς.'); return; }
+    toast(`Επαναφέρθηκε η Έκδοση ${v.version_no}.`); reloadAll();
+  }));
+  document.querySelectorAll('[data-air-discard]').forEach(b=>b.addEventListener('click', async ()=>{
+    if(!confirm('Απόρριψη του προχείρου; Όλες οι αλλαγές του θα χαθούν. Η δημοσιευμένη έκδοση δεν επηρεάζεται.')) return;
+    const { error } = await sb.rpc('ai_discard_draft', { p_app: AI_APP });
+    if(error){ console.error(error); toast('Σφάλμα.'); return; }
+    aiRules.viewVersionId = null; toast('Το πρόχειρο απορρίφθηκε.'); reloadAll();
+  }));
+
+  // Κάρτες
+  document.querySelectorAll('[data-air-edit]').forEach(b=>b.addEventListener('click', ()=>{
+    const c = aiRules.cards.find(x=>x.id===b.getAttribute('data-air-edit')); if(!c) return;
+    aiRules.edit = { id:c.id, kind:c.kind, title:c.title, body:c.body, button_key:c.button_key||'', scope:c.scope, active:c.active, sort:c.sort };
+    rerender(); window.scrollTo(0,0);
+  }));
+  document.querySelectorAll('[data-air-new]').forEach(b=>b.addEventListener('click', ()=>{
+    const maxSort = aiRules.cards.reduce((m,c)=>Math.max(m, Number(c.sort)||0), 0);
+    aiRules.edit = { kind:'general', title:'', body:'', button_key:'', scope:'all', active:true, sort:maxSort+10 };
+    rerender(); window.scrollTo(0,0);
+  }));
+  document.querySelectorAll('[data-air-cancel]').forEach(b=>b.addEventListener('click', ()=>{ if(airRecog){ try{airRecog.stop();}catch(_){} } aiRules.edit = null; rerender(); }));
+  document.querySelectorAll('[data-air-f]').forEach(inp=>{
+    const ev = (inp.tagName==='SELECT' || inp.type==='checkbox') ? 'change' : 'input';
+    inp.addEventListener(ev, ()=>{
+      const f = inp.getAttribute('data-air-f');
+      aiRules.edit[f] = inp.type==='checkbox' ? inp.checked : inp.value;
+      if(f==='kind'){ if(aiRules.edit.kind==='button' && aiRules.edit.scope==='all') aiRules.edit.scope='program'; rerender(); }
+    });
+  });
+  if($('air-mic')) $('air-mic').addEventListener('click', ()=>{
+    const btn = $('air-mic'), ta = $('air-body');
+    if(airRecog){ try{ airRecog.stop(); }catch(_){} return; }
+    const R = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const r = new R(); r.lang = 'el-GR'; r.continuous = true; r.interimResults = false;
+    r.onresult = (ev)=>{
+      for(let i=ev.resultIndex; i<ev.results.length; i++){
+        if(ev.results[i].isFinal){
+          const txt = ev.results[i][0].transcript.trim();
+          ta.value = (ta.value && !/\s$/.test(ta.value) ? ta.value + ' ' : ta.value) + txt;
+          aiRules.edit.body = ta.value;
+        }
+      }
+    };
+    r.onend = ()=>{ airRecog = null; btn.textContent = '🎤 Υπαγόρευση'; btn.classList.remove('btn-critical'); };
+    r.onerror = (ev)=>{ if(ev.error==='not-allowed') toast('Δεν δόθηκε άδεια για το μικρόφωνο.'); };
+    try{ r.start(); airRecog = r; btn.textContent = '⏹ Σταμάτα'; btn.classList.add('btn-critical'); }catch(_){ toast('Η υπαγόρευση δεν ξεκίνησε.'); }
+  });
+  if($('air-save')) $('air-save').addEventListener('click', async ()=>{
+    const e = aiRules.edit; if(!e) return;
+    if(!e.title.trim()){ toast('Γράψε τίτλο.'); return; }
+    if(!e.body.trim()){ toast('Γράψε τις οδηγίες.'); return; }
+    if(e.kind==='button' && !e.button_key){ toast('Διάλεξε το συνδεδεμένο κουμπί.'); return; }
+    const row = { kind:e.kind, title:e.title.trim().slice(0,120), body:e.body.trim(), button_key: e.kind==='button' ? e.button_key : null,
+                  scope:e.scope, active:!!e.active, sort: Math.round(Number(e.sort)||0), updated_at:new Date().toISOString() };
+    const btn = $('air-save'); btn.disabled = true;
+    const res = e.id ? await sb.from('ai_rule_cards').update(row).eq('id', e.id).select('id')
+                     : await sb.from('ai_rule_cards').insert({ ...row, version_id: aiRules.viewVersionId }).select('id');
+    if(res.error || !(res.data||[]).length){ console.error(res.error); btn.disabled = false; toast('Σφάλμα αποθήκευσης (μόνο κάρτες του προχείρου αλλάζουν).', 4000); return; }
+    if(airRecog){ try{airRecog.stop();}catch(_){} }
+    aiRules.edit = null; toast('Η κάρτα αποθηκεύτηκε στο πρόχειρο.'); await aiLoadCards(); rerender();
+  });
+  if($('air-del')) $('air-del').addEventListener('click', async ()=>{
+    const e = aiRules.edit; if(!e || !e.id) return;
+    if(!confirm(`Διαγραφή της κάρτας «${e.title}» από το πρόχειρο;`)) return;
+    const { error } = await sb.from('ai_rule_cards').delete().eq('id', e.id);
+    if(error){ console.error(error); toast('Σφάλμα διαγραφής.'); return; }
+    aiRules.edit = null; toast('Διαγράφηκε.'); await aiLoadCards(); rerender();
+  });
+
+  // Δοκιμή
+  if($('air-t-note')) $('air-t-note').addEventListener('input', e=>{ aiRules.test.note = e.target.value; });
+  if($('air-t-cust')) $('air-t-cust').addEventListener('change', e=>{ aiRules.test.customer = e.target.value; });
+  if($('air-t-run')) $('air-t-run').addEventListener('click', async ()=>{
+    const t = aiRules.test; t.busy = true; t.results = null; rerender();
+    const base = { action:'simulate', button_key: ($('air-t-btn')||{}).value || 'program_renewal', note:t.note, customer_code: t.customer || null };
+    const run = (version)=>callAiAssistant({ ...base, version }).catch(err=>({ error: err.message }));
+    const [published, draft] = await Promise.all([ aiPublished() ? run('published') : null, aiDraft() ? run('draft') : null ]);
+    t.busy = false; t.results = { published, draft };
+    if(state.tab==='airules' && aiRules.sub==='test') rerender();
+  });
+
+  // Προτάσεις
+  document.querySelectorAll('[data-air-pf]').forEach(b=>b.addEventListener('click', ()=>{ aiRules.propFilter = b.getAttribute('data-air-pf'); rerender(); }));
+  document.querySelectorAll('[data-air-reload]').forEach(b=>b.addEventListener('click', reloadAll));
+  document.querySelectorAll('[data-air-approve]').forEach(b=>b.addEventListener('click', async ()=>{
+    const p = aiRules.proposals.find(x=>x.id===b.getAttribute('data-air-approve')); if(!p) return;
+    if(!confirm(`Έγκριση; Το πρόγραμμα θα προστεθεί στα προγράμματα του πελάτη ${aiCustomerName(p.customer_code)}.`)) return;
+    b.disabled = true;
+    const note = (document.querySelector(`[data-air-dnote="${p.id}"]`)||{}).value || '';
+    // Πρώτα «κλειδώνουμε» την πρόταση (μόνο αν είναι ακόμα σε αναμονή), μετά προσθέτουμε το πρόγραμμα
+    const lock = await sb.from('ai_proposals').update({ status:'approved', decided_by:auth.user.id, decided_at:new Date().toISOString(), decision_note: note.trim()||null })
+      .eq('id', p.id).eq('status', 'pending').select('id');
+    if(lock.error || !(lock.data||[]).length){ toast('Η πρόταση έχει ήδη αποφασιστεί.'); reloadAll(); return; }
+    const ins = await sb.from('programs').insert({ customer_code:p.customer_code, created_by:auth.user.id, days:p.proposal }).select('id').single();
+    if(ins.error){
+      console.error(ins.error);
+      await sb.from('ai_proposals').update({ status:'pending', decided_by:null, decided_at:null }).eq('id', p.id);
+      toast('Σφάλμα προσθήκης προγράμματος. Η πρόταση παραμένει σε αναμονή.', 4000); reloadAll(); return;
+    }
+    await sb.from('ai_proposals').update({ applied_program_id: String(ins.data.id) }).eq('id', p.id);
+    toast('Εγκρίθηκε! Ο πελάτης βλέπει πλέον το νέο πρόγραμμα.'); reloadAll();
+  }));
+  document.querySelectorAll('[data-air-reject]').forEach(b=>b.addEventListener('click', async ()=>{
+    const p = aiRules.proposals.find(x=>x.id===b.getAttribute('data-air-reject')); if(!p) return;
+    const note = ((document.querySelector(`[data-air-dnote="${p.id}"]`)||{}).value || '').trim();
+    if(!confirm('Απόρριψη της πρότασης;' + (note ? '' : '\n(Χωρίς σημείωση — ο πελάτης θα δει απλώς ότι δεν εγκρίθηκε.)'))) return;
+    const { error } = await sb.from('ai_proposals').update({ status:'rejected', decided_by:auth.user.id, decided_at:new Date().toISOString(), decision_note: note||null }).eq('id', p.id).eq('status','pending');
+    if(error){ console.error(error); toast('Σφάλμα.'); return; }
+    toast('Απορρίφθηκε.'); reloadAll();
+  }));
+
+  // Ρυθμίσεις
+  if($('air-s-q')) $('air-s-q').addEventListener('input', e=>{
+    const toks = fdbKey(e.target.value).split(' ').filter(Boolean);
+    document.querySelectorAll('.air-cust').forEach(l=>{ const k = l.getAttribute('data-q'); l.style.display = toks.every(t=>k.includes(t)) ? '' : 'none'; });
+  });
+  if($('air-s-save')) $('air-s-save').addEventListener('click', async ()=>{
+    const codes = [...document.querySelectorAll('[data-air-test]:checked')].map(x=>x.getAttribute('data-air-test'));
+    const row = { approval_program: $('air-s-ap').checked, daily_limit: Math.max(0, Math.min(100, Math.round(Number($('air-s-lim').value)||0))),
+                  test_customer_codes: codes, updated_at:new Date().toISOString() };
+    if(!row.approval_program && !confirm('Χωρίς έγκριση, τα προγράμματα του AI θα εφαρμόζονται ΑΜΕΣΩΣ στους πελάτες (εκτός από τις ευαίσθητες περιπτώσεις). Συνέχεια;')) return;
+    const { error } = await sb.from('ai_settings').update(row).eq('app', AI_APP);
+    if(error){ console.error(error); toast('Σφάλμα αποθήκευσης.'); return; }
+    Object.assign(aiRules.settings, row); toast('Οι ρυθμίσεις αποθηκεύτηκαν.'); rerender();
+  });
+}
+
+/* ===================================================================
+   ΠΕΛΑΤΗΣ — κουμπί «Θέλω ανανέωση προγράμματος»
+   =================================================================== */
+const aiClient = { latest:null, loadedFor:null, open:false, busy:false, note:'' };
+async function aiClientLoadLatest(){
+  if(!auth.user) return;
+  const uid = auth.user.id;
+  const { data, error } = await sb.from('ai_proposals').select('id, status, created_at, decided_at, message_to_client, decision_note')
+    .eq('user_id', uid).eq('button_key', 'program_renewal').order('created_at', { ascending:false }).limit(1);
+  if(!auth.user || auth.user.id !== uid) return;
+  aiClient.latest = error ? null : ((data||[])[0] || null);
+  aiClient.loadedFor = uid;
+}
+function renderAiClientPanel(){
+  if(!auth.customer) return '';
+  const l = aiClient.latest;
+  const recent = l && (Date.now() - new Date(l.decided_at || l.created_at)) < 14*864e5;
+  let status = '';
+  if(l && l.status==='pending') status = `<div class="air-cl-st">⏳ Το νέο σου πρόγραμμα ετοιμάστηκε και το ελέγχει ο προπονητής σου. Θα εμφανιστεί εδώ μόλις εγκριθεί.</div>`;
+  else if(l && recent && (l.status==='approved' || l.status==='auto_applied')) status = `<div class="air-cl-st ok">✅ Νέο πρόγραμμα! ${escHtml(l.message_to_client||'')}</div>`;
+  else if(l && recent && l.status==='rejected') status = `<div class="air-cl-st bad">Ο προπονητής σου δεν ενέκρινε την ανανέωση${l.decision_note?`: «${escHtml(l.decision_note)}»`:'.'}</div>`;
+  const pending = l && l.status==='pending';
+  return `<div class="panel pad" style="margin-bottom:16px;">
+    <div class="section-title" style="margin-bottom:8px;"><span class="dot"></span>✨ Ανανέωση προγράμματος</div>
+    ${status}
+    ${pending ? '' : aiClient.open ? `
+      <textarea id="ai-cl-note" rows="3" maxlength="600" placeholder="Θέλεις να μας πεις κάτι; (προαιρετικό) π.χ. «Θέλω περισσότερο πόδια» ή «Πονάει λίγο ο ώμος μου»" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);font-family:inherit;font-size:14px;">${escHtml(aiClient.note)}</textarea>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:10px;">
+        <button class="btn btn-primary" id="ai-cl-send" style="justify-content:center;" ${aiClient.busy?'disabled':''}>${aiClient.busy?'Ετοιμάζεται… (έως 1 λεπτό)':'Στείλε αίτημα'}</button>
+        <button class="btn btn-outline" id="ai-cl-cancel" style="justify-content:center;" ${aiClient.busy?'disabled':''}>Άκυρο</button>
+      </div>`
+    : `<button class="btn btn-primary" id="ai-cl-open" style="width:100%;justify-content:center;">${escHtml(AI_BUTTONS.program_renewal)}</button>`}
+  </div>`;
+}
+function bindAiClientEvents(){
+  const $ = id=>document.getElementById(id);
+  const refresh = ()=>{ if(state.clientViewMode==='mine' && state.clientNav.view==='programs') renderClientMain(); };
+  if($('ai-cl-open')) $('ai-cl-open').addEventListener('click', ()=>{ aiClient.open = true; refresh(); const n = $('ai-cl-note'); if(n) n.focus(); });
+  if($('ai-cl-cancel')) $('ai-cl-cancel').addEventListener('click', ()=>{ aiClient.open = false; refresh(); });
+  if($('ai-cl-note')) $('ai-cl-note').addEventListener('input', e=>{ aiClient.note = e.target.value; });
+  if($('ai-cl-send')) $('ai-cl-send').addEventListener('click', async ()=>{
+    aiClient.busy = true; refresh();
+    try{
+      const res = await callAiAssistant({ action:'request', button_key:'program_renewal', note: aiClient.note });
+      aiClient.open = false; aiClient.note = '';
+      if(res && res.status==='auto_applied'){
+        state.selectedCustomerPrograms = (await loadProgramsFor(auth.customer.code)).sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
+      }
+      toast(res && res.status==='auto_applied' ? 'Το νέο σου πρόγραμμα είναι έτοιμο!' : 'Το αίτημα στάλθηκε!', 3500);
+    }catch(err){ toast(err.message || 'Σφάλμα.', 4500); }
+    aiClient.busy = false;
+    await aiClientLoadLatest();
+    refresh();
+  });
+}
+
 async function renderAppClient(){
   document.getElementById('navlist').innerHTML = '';
   document.getElementById('mobile-tabs').innerHTML = '';
@@ -6201,7 +7135,8 @@ async function renderAppClient(){
 
   state.clientNav = { view:'programs', programId:null, dayIndex:null, itemIndex:null };
   state.clientViewMode = 'mine';
-  food.date = foodLocalISO(new Date()); food.meals = []; food.loadedFor = null; food.draft = null;
+  food.date = foodLocalISO(new Date()); food.meals = []; food.loadedFor = null; food.draft = null; food.recent = null;
+  aiClient.latest = null; aiClient.loadedFor = null; aiClient.open = false; aiClient.busy = false; aiClient.note = '';
 
   const main = document.getElementById('main');
   main.innerHTML = `
@@ -6278,22 +7213,31 @@ function renderClientMain(){
   }
   content.innerHTML = html;
   bindClientNavEvents();
+  if(nav.view==='programs' || !nav.programId){
+    bindAiClientEvents();
+    if(auth.user && aiClient.loadedFor !== auth.user.id){
+      aiClient.loadedFor = auth.user.id;
+      aiClientLoadLatest().then(()=>{ if(state.clientViewMode==='mine' && (state.clientNav.view==='programs' || !state.clientNav.programId)) renderClientMain(); });
+    }
+  }
 }
 
 function renderClientProgramsListView(){
   const progs = state.selectedCustomerPrograms;
   return `
     <div class="topbar"><div><h1>Το Πρόγραμμά μου</h1><div class="sub">Επίλεξε πρόγραμμα για να ξεκινήσεις</div></div></div>
+    ${renderAiClientPanel()}
     <div class="panel pad">
       <div class="section-title"><span class="dot"></span>Τα Προγράμματά μου</div>
       ${progs.length===0 ? `<div class="empty" style="padding:30px 0;"><div class="icon">🗂️</div><p>Δεν υπάρχουν ακόμα αποθηκευμένα προγράμματα.</p></div>` :
         progs.map((p,i)=>{
           const d = new Date(p.createdAt);
           const fromTpl = p.record && p.record.fromTemplate;
+          const fromAI = p.record && p.record.fromAI;
           return `<div class="client-card" data-open-program="${escAttr(p.id)}" ${fromTpl?'style="border-color:var(--accent);box-shadow:0 0 18px rgba(255,159,26,.35);"':''}>
             <div class="client-avatar">${progs.length-i}</div>
             <div class="client-meta">
-              <div class="name">${escHtml(categoryBadgeLabel(p.record))}${fromTpl?' <span style="color:var(--accent);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· Έτοιμο</span>':''}</div>
+              <div class="name">${escHtml(categoryBadgeLabel(p.record))}${fromTpl?' <span style="color:var(--accent);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· Έτοιμο</span>':''}${fromAI?' <span style="color:var(--cyan);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· ✨ AI</span>':''}</div>
               <div class="sub">${d.toLocaleDateString('el-GR')} · ${d.toLocaleTimeString('el-GR',{hour:'2-digit',minute:'2-digit'})}</div>
             </div>
           </div>`;
@@ -6590,9 +7534,10 @@ function renderTplLibGenderView(){
 
 function renderTplLibTopCatView(){
   const gender = state.tplLibNav.gender;
-  const seen = new Map();
-  state.tplTemplates.filter(t=>t.gender===gender).forEach(t=>{ if(!seen.has(t.top_category)) seen.set(t.top_category, t); });
-  const cats = [...seen.values()];
+  // Μόνο οι επίσημες κατηγορίες, με σταθερή σειρά (μία κάρτα η καθεμία)
+  const cats = Object.keys(TPL_CATEGORIES)
+    .map(c=>state.tplTemplates.find(t=>t.gender===gender && t.top_category===c && !tplCategoryProblem(t)))
+    .filter(Boolean);
   return `
     <div class="auth-back" data-tpllib-back="gender">${ICON.back}Φύλο</div>
     <div class="topbar"><div><h1>Προγράμματα ${escHtml(gender)}</h1></div></div>
@@ -6611,9 +7556,10 @@ function renderTplLibTopCatView(){
 
 function renderTplLibSubCatView(){
   const { gender, topCategory } = state.tplLibNav;
-  const seen = new Map();
-  state.tplTemplates.filter(t=>t.gender===gender && t.top_category===topCategory).forEach(t=>{ if(!seen.has(t.sub_category)) seen.set(t.sub_category, t); });
-  const subs = [...seen.values()];
+  // Μόνο οι επίσημες υποκατηγορίες, με σταθερή σειρά
+  const subs = (TPL_CATEGORIES[topCategory]||[])
+    .map(sc=>state.tplTemplates.find(t=>t.gender===gender && t.top_category===topCategory && t.sub_category===sc))
+    .filter(Boolean);
   return `
     <div class="auth-back" data-tpllib-back="topcat">${ICON.back}Κατηγορίες</div>
     <div class="topbar"><div><h1>Προγράμματα ${escHtml(topCategory)} — ${escHtml(gender)}</h1></div></div>
@@ -7043,6 +7989,11 @@ function render(skipNav){
     renderTplPreviewTab();
   } else if(state.tab==='aitrain' && auth.role==='owner'){
     renderAiTrainTab();
+  } else if(state.tab==='foodsdb' && auth.role==='owner'){
+    renderFoodsDbTab();
+  } else if(state.tab==='airules' && auth.role==='owner'){
+    aiRules.loaded = false;
+    renderAiRulesTab();
   } else {
     main.innerHTML = renderHistory();
     bindHistoryEvents();

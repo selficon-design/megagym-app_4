@@ -1,7 +1,7 @@
 # ΦΟΡΜΑ — αυτόματη ενημέρωση του Supabase.
 # Κάθε φορά που αλλάζει κάτι μέσα στον φάκελο supabase/ :
 #   1. τρέχει στη βάση όσα νέα αρχεία SQL υπάρχουν στο supabase/migrations/
-#   2. κάνει Deploy την Edge Function analyze-meal
+#   2. κάνει Deploy όλες τις Edge Functions (analyze-meal, ai-assistant)
 # Το index.html ενημερώνεται μόνο του από το GitHub Pages.
 #
 # Χρειάζεται δύο Secrets (Settings → Secrets and variables → Actions):
@@ -70,7 +70,7 @@ jobs:
           source "$RUNNER_TEMP/run.sh"
           run "Νέα SQL στη βάση" supabase db push --password "$SUPABASE_DB_PASSWORD" --yes
 
-      - name: Deploy Edge Function analyze-meal
+      - name: Deploy Edge Functions (όλες)
         run: |
           source "$RUNNER_TEMP/run.sh"
-          run "Deploy analyze-meal" supabase functions deploy analyze-meal --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+          run "Deploy Edge Functions" supabase functions deploy --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
