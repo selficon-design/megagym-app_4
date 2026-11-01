@@ -1,0 +1,54 @@
+# ΦΟΡΜΑ — μεταφορά των φωτογραφιών εξοπλισμού από το Wix στο Supabase Storage.
+# Κατεβάζει κάθε φωτογραφία (όπως είναι, χωρίς αλλοίωση ποιότητας) από τα links του
+# EQUIPMENT_BY_EXERCISE στο index.html και την ανεβάζει στο bucket library-images/equipment/
+# με το ίδιο όνομα αρχείου. Ό,τι έχει ήδη ανέβει παραλείπεται, άρα μπορεί να ξανατρέξει.
+# Τα βίντεο ΔΕΝ μεταφέρονται.
+name: Μεταφορά φωτογραφιών εξοπλισμού
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      RAW_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      RAW_PASS: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_REF: exxjwjfjwvkenncyaqvc
+      BUCKET: library-images
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+      - name: Μεταφορά
+        run: |
+          set -u
+          export SUPABASE_ACCESS_TOKEN=$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]')
+          PASS=$(printf '%s' "$RAW_PASS" | tr -d '\r\n')
+          echo "::add-mask::$SUPABASE_ACCESS_TOKEN"; echo "::add-mask::$PASS"
+          supabase link --project-ref "$PROJECT_REF" --password "$PASS" > link.log 2>&1 || { tail -5 link.log; echo "::error title=Σύνδεση::$(tail -3 link.log | tr '\n' ' ')"; exit 1; }
+
+          PUBLIC="https://$PROJECT_REF.supabase.co/storage/v1/object/public/$BUCKET/equipment"
+          mkdir -p equipment
+          grep -o 'https://static\.wixstatic\.com/media/[^"]*' index.html | sort -u > urls.txt
+          total=$(wc -l < urls.txt); ok=0; skipped=0; failed=""
+          while read -r url; do
+            name="${url##*/}"
+            if ! curl -fsSL --retry 3 --max-time 60 -o "equipment/$name" "$url"; then failed="$failed $name(λήψη)"; continue; fi
+            size=$(stat -c %s "equipment/$name")
+            type=$(file -b --mime-type "equipment/$name")
+            case "$type" in image/*) ;; *) failed="$failed $name($type)"; continue;; esac
+            remote=$(curl -sI "$PUBLIC/$name" | tr -d '\r' | awk 'tolower($1)=="content-length:"{print $2}' | tail -1)
+            if [ "$remote" = "$size" ]; then skipped=$((skipped+1)); continue; fi
+            if supabase storage cp "equipment/$name" "ss:///$BUCKET/equipment/$name" --linked --experimental \
+                 --content-type "$type" --cache-control "max-age=31536000" > cp.log 2>&1; then
+              remote=$(curl -sI "$PUBLIC/$name" | tr -d '\r' | awk 'tolower($1)=="content-length:"{print $2}' | tail -1)
+              if [ "$remote" = "$size" ]; then ok=$((ok+1)); else failed="$failed $name(έλεγχος:$remote/$size)"; fi
+            else
+              failed="$failed $name(ανέβασμα:$(tail -1 cp.log | tr -d '\n' | cut -c1-80))"
+            fi
+          done < urls.txt
+          echo "Σύνολο $total · ανέβηκαν $ok · υπήρχαν ήδη $skipped"
+          echo "::notice title=Αποτέλεσμα::Σύνολο $total · ανέβηκαν $ok · υπήρχαν ήδη $skipped · αποτυχίες: ${failed:-καμία}"
+          [ -z "$failed" ] || exit 1
