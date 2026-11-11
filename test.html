@@ -634,6 +634,23 @@ input,select{font-family:inherit;}
 .eqm-n{font-size:13.5px;font-weight:600;color:#dffaff;}
 .eqm-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
 .eqm-act .btn{padding:6px 10px;font-size:11px;}
+.cat-sec{border:1px solid rgba(61,216,255,.18);border-radius:10px;padding:8px 10px;margin:6px 0;background:rgba(3,11,18,.35);}
+.cat-sec summary{cursor:pointer;font-weight:600;}
+.cat-sec ul{margin:8px 0 2px;padding-left:18px;font-size:13px;line-height:1.55;}
+.cat-sec small{color:var(--ink-soft);}
+.cat-badge{display:inline-block;min-width:22px;text-align:center;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:700;}
+.cat-badge.new{background:rgba(60,220,140,.18);color:#6fe3a8;}
+.cat-badge.del{background:rgba(255,90,100,.18);color:#ff8b90;}
+.cat-badge.chg{background:rgba(255,200,80,.18);color:#ffd27a;}
+.cat-fields{margin:4px 0 6px;font-size:12px;}
+.cat-fields div{margin:2px 0;word-break:break-word;}
+.cat-fields span{color:var(--ink-soft);margin-right:4px;}
+.cat-fields del{color:#ff8b90;} .cat-fields ins{color:#6fe3a8;text-decoration:none;}
+.cat-warn{border:1px solid rgba(255,200,80,.35);background:rgba(255,200,80,.08);border-radius:10px;padding:8px 10px;margin:8px 0;font-size:13px;}
+.cat-warn ul{margin:6px 0 0;padding-left:18px;}
+.cat-same{padding:10px;border-radius:10px;background:rgba(60,220,140,.1);margin:6px 0;}
+.cat-ver{display:flex;gap:10px;align-items:center;border:1px solid rgba(61,216,255,.18);border-radius:10px;padding:8px 10px;margin:6px 0;}
+.cat-ver.on{border-color:rgba(60,220,140,.5);}
 .eqm-g{font-size:17px;margin:22px 0 4px;color:var(--accent);}
 .eqm-card{border:1px solid rgba(61,216,255,.22);border-radius:14px;padding:12px;margin:8px 0;background:rgba(3,11,18,.45);}
 .eqm-slots{display:grid;grid-template-columns:repeat(3,minmax(0,220px));gap:12px;margin-top:10px;}
@@ -1829,6 +1846,7 @@ async function resolveAuthState(){
     if(cust){ auth.customer = cust; auth.status = 'client'; }
     else { auth.status = 'client-needs-code'; }
   }
+  await catalogLoad(); // κατάλογος ασκήσεων από το Excel (αν έχει ανέβει)
   renderRoot();
 }
 
@@ -3484,6 +3502,7 @@ function renderNav(){
   if(auth.role === 'owner'){
     items.push({id:'tplbuilder', label:'Έτοιμα Προγράμματα TRANSFORMATION', icon:ICON.key});
     items.push({id:'libcats', label:'Κατηγορίες Βιβλιοθήκης', icon:ICON.plan});
+    items.push({id:'excelcat', label:'Κατάλογος Ασκήσεων (Excel)', icon:ICON.plan});
     items.push({id:'eqmedia', label:'Φωτογραφίες & Βίντεο Ασκήσεων', icon:ICON.plan});
     items.push({id:'aitrain', label:'Εκπαίδευση AI Διατροφής', icon:ICON.key});
     items.push({id:'foodsdb', label:'Τρόφιμα (βάση θερμίδων)', icon:ICON.search});
@@ -8425,6 +8444,389 @@ async function refreshAnnouncementList(){
   });
 }
 
+/* ===================================================================
+   ΚΑΤΑΛΟΓΟΣ ΑΣΚΗΣΕΩΝ ΑΠΟ ΤΟ EXCEL (BUILDER.xlsx)
+   Φύλλα: «ΑΣΚΗΣΕΙΣ» (μυϊκή ομάδα → τίτλοι ασκήσεων), «ΕΞΟΠΛΙΣΜΟΣ ΑΝΑ ΑΣΚΗΣΗ»
+   (εξοπλισμός + κείμενα + links), «ΓΥΜΝΑΣΤΗΡΙΑ».
+   Κανόνες ίδιοι με τον ενσωματωμένο κατάλογο: οι τίτλοι ασκήσεων καθαρίζονται από
+   κενά στις άκρες, τα ονόματα εξοπλισμού μένουν ΑΚΡΙΒΩΣ όπως στο Excel.
+   =================================================================== */
+const CATALOG_TEXT_COLUMNS = {
+  'ΠΕΡΙΓΡΑΦΗ':'description', 'ΤΙ ΓΥΜΝΑΖΕΙ':'whatItWorks', 'ΤΕΧΝΙΚΗ':'technique', 'ΣΚΟΠΟΣ':'purpose',
+  'ΑΝΑΠΝΟΗ':'breathing', 'ΤΑΧΥΤΗΤΑ ΕΚΤΕΛΕΣΗΣ':'executionSpeed', 'ΣΥΧΝΑ ΛΑΘΗ':'commonMistakes', 'ΑΣΦΑΛΕΙΑ':'safety',
+  'ΛΑΒΗ':'grip', 'TRANSFORMATION EXPERTS TIPS':'expertTips', 'ΟΔΗΓΙΕΣ ΕΝΤΑΣΗΣ':'intensityNotes',
+  'WARM UP':'warmup', 'COOL DOWN':'cooldown', 'ΠΑΡΑΤΗΡΗΣΕΙΣ':'notes'
+};
+const CATALOG_GROUP_ALIAS = { 'ΟΜΟΙ':'ΩΜΟΙ' };
+function catNorm(s){
+  return String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
+}
+function catCellText(v){ return v==null ? '' : String(v); }
+
+// Μετατρέπει το αρχείο Excel (ArrayBuffer) σε κατάλογο. Πετάει Error με κατανοητό μήνυμα αν λείπει κάτι.
+function parseCatalogWorkbook(XLSX, arrayBuffer, groupDisplay){
+  const wb = XLSX.read(arrayBuffer, { type:'array' });
+  const sheet = name=>{
+    const real = wb.SheetNames.find(n=>catNorm(n)===catNorm(name));
+    return real ? XLSX.utils.sheet_to_json(wb.Sheets[real], { header:1, raw:true, defval:null, blankrows:false }) : null;
+  };
+  const known = {}; Object.keys(groupDisplay).forEach(k=>{ known[catNorm(k)] = k; });
+  const groupKey = label=>{
+    const s = String(label||''); const part = s.includes(' - ') ? s.split(' - ').pop() : s;
+    let n = catNorm(part); n = CATALOG_GROUP_ALIAS[n] || n;
+    return known[n] || n.replace(/ /g,'_');
+  };
+  const warnings = [];
+
+  // 1) Ασκήσεις ανά μυϊκή ομάδα
+  const ex = sheet('ΑΣΚΗΣΕΙΣ');
+  if(!ex) throw new Error('Δεν βρέθηκε το φύλλο «ΑΣΚΗΣΕΙΣ» στο Excel.');
+  const exHdr = (ex[0]||[]).map(catNorm);
+  const cOrd = exHdr.findIndex(h=>h.startsWith('ΣΕΙΡΑ')), cGrp = exHdr.indexOf('ΜΥΙΚΗ ΟΜΑΔΑ'), cEx = exHdr.indexOf('ΑΣΚΗΣΕΙΣ');
+  if(cGrp<0 || cEx<0) throw new Error('Στο φύλλο «ΑΣΚΗΣΕΙΣ» λείπουν οι στήλες «ΜΥΙΚΗ ΟΜΑΔΑ» / «ΑΣΚΗΣΕΙΣ».');
+  const groups = {}, groupLabels = {};
+  ex.slice(1).forEach((r, i)=>{
+    const title = catCellText(r[cEx]).trim(); if(!title) return;
+    const g = groupKey(r[cGrp]);
+    if(!groups[g]){ groups[g] = []; groupLabels[g] = catCellText(r[cGrp]).trim(); }
+    groups[g].push({ ord: Number(r[cOrd]) || 0, i, title });
+  });
+  const EXERCISES = {};
+  Object.keys(groups).forEach(g=>{ EXERCISES[g] = groups[g].sort((a,b)=>a.ord-b.ord || a.i-b.i).map(x=>x.title); });
+
+  // 2) Εξοπλισμός ανά άσκηση (η γραμμή επικεφαλίδων είναι αυτή που έχει «ΑΣΚΗΣΗ» και «ΕΞΟΠΛΙΣΜΟΣ»)
+  const eq = sheet('ΕΞΟΠΛΙΣΜΟΣ ΑΝΑ ΑΣΚΗΣΗ');
+  if(!eq) throw new Error('Δεν βρέθηκε το φύλλο «ΕΞΟΠΛΙΣΜΟΣ ΑΝΑ ΑΣΚΗΣΗ» στο Excel.');
+  const hRow = eq.findIndex(r=>{ const h = (r||[]).map(catNorm); return h.includes('ΑΣΚΗΣΗ') && h.includes('ΕΞΟΠΛΙΣΜΟΣ'); });
+  if(hRow<0) throw new Error('Στο φύλλο «ΕΞΟΠΛΙΣΜΟΣ ΑΝΑ ΑΣΚΗΣΗ» δεν βρέθηκε η γραμμή με τις στήλες «ΑΣΚΗΣΗ» και «ΕΞΟΠΛΙΣΜΟΣ».');
+  const H = (eq[hRow]||[]).map(catNorm), col = name=>H.indexOf(name);
+  const cE = col('ΑΣΚΗΣΗ'), cN = col('ΕΞΟΠΛΙΣΜΟΣ'), cO = H.findIndex(h=>h.startsWith('ΣΕΙΡΑ ΠΡΟΤΑΣΗΣ')),
+        cC = H.findIndex(h=>h.startsWith('ΥΠΟΛΟΓΙΣΤΗΣ ΚΙΛΩΝ')), cG = col('ΓΥΜΝΑΣΤΗΡΙΑ'), cP = col('ΦΩΤΟΓΡΑΦΙΑ ΕΞΟΠΛΙΣΜΟΥ'),
+        cXP = col('ΦΩΤΟΓΡΑΦΙΑ ΑΣΚΗΣΗΣ'), cV = col('VIDEO ΑΣΚΗΣΗΣ'), cI = H.findIndex(h=>h.startsWith('ΣΠΟΥΔΑΙΟΤΗΤΑ'));
+  const textCols = Object.entries(CATALOG_TEXT_COLUMNS).map(([h,k])=>[col(h), k]);
+  const allTitles = new Set(Object.values(EXERCISES).flat());
+  const byEx = {};
+  eq.slice(hRow+1).forEach((r, i)=>{
+    const exn = catCellText(r[cE]).trim(), name = catCellText(r[cN]);
+    if(!exn || !name.trim()) return;
+    if(!allTitles.has(exn)) warnings.push(`Ο εξοπλισμός «${name.trim()}» αναφέρεται στην άσκηση «${exn}», που δεν υπάρχει στο φύλλο «ΑΣΚΗΣΕΙΣ».`);
+    const t = c=> c<0 ? '' : catCellText(r[c]);
+    const item = {
+      name,
+      calcType: t(cC).trim().replace(/\s+/g,'_').replace(/\./g,'_'),
+      importance: t(cI).trim(),
+      gyms: t(cG).replace(/;/g,',').split(',').map(x=>x.trim()).filter(Boolean),
+      photoUrl: t(cP).trim(), exercisePhotoUrl: t(cXP).trim(), videoUrl: t(cV).trim()
+    };
+    textCols.forEach(([c,k])=>{ item[k] = t(c); });
+    (byEx[exn] = byEx[exn] || []).push({ ord: Number(r[cO]) || 99, i, item });
+  });
+  Object.keys(byEx).forEach(e=>{
+    const seen = new Set();
+    byEx[e].forEach(x=>{ const n = x.item.name.trim(); if(seen.has(n)) warnings.push(`Ο εξοπλισμός «${n}» υπάρχει 2 φορές στην άσκηση «${e}».`); seen.add(n); });
+  });
+  const EQUIPMENT_BY_EXERCISE = {};
+  Object.keys(byEx).forEach(e=>{ EQUIPMENT_BY_EXERCISE[e] = byEx[e].sort((a,b)=>a.ord-b.ord || a.i-b.i).map(x=>x.item); });
+
+  // 3) Γυμναστήρια (προαιρετικό)
+  let GYMS = null;
+  const gy = sheet('ΓΥΜΝΑΣΤΗΡΙΑ');
+  if(gy && gy.length > 1){
+    const gh = (gy[0]||[]).map(catNorm), cId = gh.indexOf('ID'), cNm = gh.indexOf('ΓΥΜΝΑΣΤΗΡΙΑ');
+    if(cId>=0 && cNm>=0) GYMS = gy.slice(1).filter(r=>r[cId]!=null && catCellText(r[cNm]).trim()).map(r=>({ id:String(r[cId]).trim(), name:catCellText(r[cNm]).trim() }));
+  }
+  if(!Object.keys(EXERCISES).length) throw new Error('Το φύλλο «ΑΣΚΗΣΕΙΣ» είναι άδειο.');
+  return { EXERCISES, EQUIPMENT_BY_EXERCISE, GYMS, groupLabels, warnings };
+}
+
+/* ---------- Κατάλογος ασκήσεων: φόρτωση της ενεργής έκδοσης & εφαρμογή ----------
+   Η ενεργή έκδοση (από το «Ανέβασμα Excel») αντικαθιστά τον ενσωματωμένο κατάλογο
+   ΧΩΡΙΣ αλλαγή κώδικα. Αν δεν υπάρχει (ή αποτύχει η φόρτωση) μένει ο ενσωματωμένος.   */
+const XLSX_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+const CATALOG_CACHE_KEY = 'forma_exercise_catalog_v1';
+const catClone = o=>JSON.parse(JSON.stringify(o));
+const CATALOG_BUILTIN = {
+  EXERCISES: Object.fromEntries(Object.entries(EXERCISES).map(([g,l])=>[g, l.filter(x=>x!=='ΆΛΛΟ')])),
+  EQUIPMENT_BY_EXERCISE: catClone(EQUIPMENT_BY_EXERCISE),
+  GYMS: catClone(GYMS), groupLabels: {}
+};
+const CATALOG_BUILTIN_GROUP_DISPLAY = { ...GROUP_DISPLAY };
+// Φωτογραφίες που έχουν ήδη μεταφερθεί από το Wix στο Supabase: το link του Excel (Wix) αντιστοιχίζεται στο νέο.
+const CATALOG_MIGRATED_PHOTOS = new Map();
+Object.values(CATALOG_BUILTIN.EQUIPMENT_BY_EXERCISE).flat().forEach(e=>[e.photoUrl, e.exercisePhotoUrl].forEach(u=>{
+  const m = /\/library-images\/equipment\/(.+)$/.exec(u||''); if(m) CATALOG_MIGRATED_PHOTOS.set(m[1], u);
+}));
+function catalogMapPhoto(u){
+  const m = /^https:\/\/static\.wixstatic\.com\/media\/(.+)$/.exec(String(u||'').trim());
+  return m ? (CATALOG_MIGRATED_PHOTOS.get(m[1].replace(/~/g,'-')) || u) : u;
+}
+const catalog = { active:null, appliedId:null, versions:null, preview:null, busy:'', error:'', confirmId:null };
+
+function catalogGroupKeyOfLabel(label){
+  const s = String(label||''); const part = s.includes(' - ') ? s.split(' - ').pop() : s;
+  let n = catNorm(part); n = CATALOG_GROUP_ALIAS[n] || n;
+  const k = Object.keys(GROUP_DISPLAY).find(x=>catNorm(x)===n);
+  return k || n.replace(/ /g,'_');
+}
+function catalogPrettyGroup(label, key){
+  const s = String(label||key||''); const part = (s.includes(' - ') ? s.split(' - ').pop() : s).trim() || key;
+  return part.charAt(0) + part.slice(1).toLocaleLowerCase('el');
+}
+// Αλλάζει τον κατάλογο ΠΑΝΩ στα ίδια αντικείμενα (όλες οι λίστες της εφαρμογής βλέπουν αμέσως τα νέα).
+function applyCatalog(data){
+  const setList = (arr, items)=>{ arr.length = 0; items.forEach(x=>arr.push(x)); };
+  const withOther = l=>(l||[]).filter(x=>x!=='ΆΛΛΟ').concat(['ΆΛΛΟ']);
+  const groups = data.EXERCISES || {};
+  Object.keys(groups).forEach(g=>{
+    if(EXERCISES[g]) setList(EXERCISES[g], withOther(groups[g])); else EXERCISES[g] = withOther(groups[g]);
+    if(!GROUP_DISPLAY[g]) GROUP_DISPLAY[g] = catalogPrettyGroup((data.groupLabels||{})[g], g);
+  });
+  Object.keys(EXERCISES).forEach(g=>{ if(!groups[g]) setList(EXERCISES[g], ['ΆΛΛΟ']); }); // ομάδα που δεν υπάρχει πια στο Excel
+  setList(CALVES_OR_SHOULDERS, uniq([...(groups['ΓΑΜΠΕΣ']||[]), ...(groups['ΩΜΟΙ']||[])]).concat(['ΆΛΛΟ']));
+  // Έτοιμα Προγράμματα: ίδιες ασκήσεις, με τις ετικέτες ομάδων του builder
+  const covered = new Set();
+  TPL_MUSCLE_GROUPS.forEach(label=>{
+    const g = catalogGroupKeyOfLabel(label); covered.add(g);
+    const list = withOther(groups[g]);
+    if(TPL_EXERCISES[label]) setList(TPL_EXERCISES[label], list); else TPL_EXERCISES[label] = list;
+  });
+  Object.keys(groups).forEach(g=>{
+    if(covered.has(g)) return;
+    const label = (data.groupLabels||{})[g] || g;
+    if(!TPL_MUSCLE_GROUPS.includes(label)) TPL_MUSCLE_GROUPS.push(label);
+    TPL_EXERCISES[label] = withOther(groups[g]);
+  });
+  Object.keys(EQUIPMENT_BY_EXERCISE).forEach(k=>{ delete EQUIPMENT_BY_EXERCISE[k]; });
+  Object.entries(data.EQUIPMENT_BY_EXERCISE || {}).forEach(([k,v])=>{ EQUIPMENT_BY_EXERCISE[k] = v; });
+  if(Array.isArray(data.GYMS) && data.GYMS.length) setList(GYMS, data.GYMS);
+  Object.keys(EQM_GROUP_OF).forEach(k=>{ delete EQM_GROUP_OF[k]; });
+  Object.keys(EXERCISES).forEach(g=>EXERCISES[g].forEach(x=>{ if(!EQM_GROUP_OF[x]) EQM_GROUP_OF[x] = g; }));
+  EQ_CATALOG_BY_NAME = null;
+}
+function catalogCurrent(){
+  return {
+    EXERCISES: Object.fromEntries(Object.entries(EXERCISES).map(([g,l])=>[g, l.filter(x=>x!=='ΆΛΛΟ')]).filter(([,l])=>l.length)),
+    EQUIPMENT_BY_EXERCISE, GYMS
+  };
+}
+function catalogCacheRead(){ try{ return JSON.parse(localStorage.getItem(CATALOG_CACHE_KEY) || 'null'); }catch(_){ return null; } }
+function catalogCacheWrite(v){ try{ if(v) localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify(v)); else localStorage.removeItem(CATALOG_CACHE_KEY); }catch(_){} }
+function catalogUse(row){
+  if(!row){
+    if(catalog.appliedId != null) applyCatalog(CATALOG_BUILTIN);
+    catalog.active = null; catalog.appliedId = null; return;
+  }
+  if(catalog.appliedId !== row.id) applyCatalog(row.data);
+  catalog.active = { id: row.id, file_name: row.file_name, created_at: row.created_at, activated_at: row.activated_at, summary: row.summary };
+  catalog.appliedId = row.id;
+}
+// Καλείται στην εκκίνηση (μετά τη σύνδεση). Ελαφρύ: πρώτα ρωτά μόνο ποια έκδοση είναι ενεργή.
+async function catalogLoad(){
+  try{
+    const { data: head, error } = await sb.from('exercise_catalog_versions')
+      .select('id, file_name, created_at, activated_at, summary').eq('is_active', true).maybeSingle();
+    if(error){ console.warn('catalog', error); return; }
+    if(!head){ catalogCacheWrite(null); catalogUse(null); return; }
+    if(catalog.appliedId === head.id){ catalog.active = head; return; }
+    const cached = catalogCacheRead();
+    if(cached && cached.id === head.id && cached.data){ catalogUse({ ...head, data: cached.data }); return; }
+    const { data: full, error: e2 } = await sb.from('exercise_catalog_versions').select('id, data').eq('id', head.id).maybeSingle();
+    if(e2 || !full){ console.warn('catalog data', e2); return; }
+    catalogCacheWrite({ id: full.id, data: full.data });
+    catalogUse({ ...head, data: full.data });
+  }catch(err){ console.warn('catalog load', err); }
+}
+
+/* ---------- Σύγκριση: τι αλλάζει με το νέο Excel ---------- */
+const CATALOG_FIELD_LABELS = {
+  calcType:'Υπολογιστής κιλών', importance:'Σπουδαιότητα', gyms:'Γυμναστήρια', order:'Σειρά πρότασης',
+  photoUrl:'Link φωτογραφίας εξοπλισμού', exercisePhotoUrl:'Link φωτογραφίας άσκησης', videoUrl:'Link βίντεο',
+  description:'Περιγραφή', whatItWorks:'Τι γυμνάζει', technique:'Τεχνική', purpose:'Σκοπός', breathing:'Αναπνοή',
+  executionSpeed:'Ταχύτητα εκτέλεσης', commonMistakes:'Συχνά λάθη', safety:'Ασφάλεια', grip:'Λαβή', expertTips:'Transformation Experts Tips',
+  intensityNotes:'Οδηγίες έντασης', warmup:'Warm up', cooldown:'Cool down', notes:'Παρατηρήσεις', name:'Όνομα'
+};
+function catalogSame(a, b){
+  const n = v=>typeof v==='string' ? v.replace(/\r\n?/g,'\n').trim() : JSON.stringify(v==null?'':v);
+  return n(a) === n(b);
+}
+function catalogDiff(oldC, newC){
+  const d = { groupsAdded:[], groupsRemoved:[], exAdded:[], exRemoved:[], exMoved:[], eqAdded:[], eqRemoved:[], eqChanged:[], gymsChanged:false };
+  const groupOf = c=>{ const m = {}; Object.entries(c.EXERCISES).forEach(([g,l])=>l.forEach(x=>{ if(!m[x]) m[x] = g; })); return m; };
+  const og = groupOf(oldC), ng = groupOf(newC);
+  Object.keys(newC.EXERCISES).forEach(g=>{ if(!oldC.EXERCISES[g]) d.groupsAdded.push(g); });
+  Object.keys(oldC.EXERCISES).forEach(g=>{ if(!newC.EXERCISES[g]) d.groupsRemoved.push(g); });
+  Object.keys(ng).forEach(x=>{ if(!og[x]) d.exAdded.push({ g: ng[x], ex: x }); else if(og[x] !== ng[x]) d.exMoved.push({ ex: x, from: og[x], to: ng[x] }); });
+  Object.keys(og).forEach(x=>{ if(!ng[x]) d.exRemoved.push({ g: og[x], ex: x }); });
+  const allEx = new Set([...Object.keys(oldC.EQUIPMENT_BY_EXERCISE), ...Object.keys(newC.EQUIPMENT_BY_EXERCISE)]);
+  allEx.forEach(ex=>{
+    // ταίριασμα με το όνομα (και τη σειρά εμφάνισης, αν το ίδιο όνομα υπάρχει 2 φορές)
+    const keyed = l=>{ const seen = {}; return l.map(e=>{ seen[e.name] = (seen[e.name]||0) + 1; return { k: e.name+'#'+seen[e.name], e }; }); };
+    const a = keyed(oldC.EQUIPMENT_BY_EXERCISE[ex] || []), b = keyed(newC.EQUIPMENT_BY_EXERCISE[ex] || []);
+    const aMap = new Map(a.map(x=>[x.k, x.e])), bKeys = new Set(b.map(x=>x.k));
+    const commonA = a.filter(x=>bKeys.has(x.k)).map(x=>x.k), commonB = b.filter(x=>aMap.has(x.k)).map(x=>x.k);
+    b.forEach(({k, e})=>{
+      const o = aMap.get(k);
+      if(!o){ d.eqAdded.push({ ex, name: e.name }); return; }
+      const fields = [];
+      new Set([...Object.keys(o), ...Object.keys(e)]).forEach(f=>{ if(!catalogSame(o[f], e[f])) fields.push(f); });
+      if(commonA.indexOf(k) !== commonB.indexOf(k)) fields.push('order');
+      if(fields.length) d.eqChanged.push({ ex, name: e.name, fields, old: o, neu: e });
+    });
+    a.forEach(({k, e})=>{ if(!bKeys.has(k)) d.eqRemoved.push({ ex, name: e.name }); });
+  });
+  d.gymsChanged = !!newC.GYMS && JSON.stringify(newC.GYMS) !== JSON.stringify(oldC.GYMS);
+  d.total = d.groupsAdded.length + d.groupsRemoved.length + d.exAdded.length + d.exRemoved.length + d.exMoved.length
+          + d.eqAdded.length + d.eqRemoved.length + d.eqChanged.length + (d.gymsChanged?1:0);
+  return d;
+}
+function catalogCounts(c){
+  return { groups: Object.keys(c.EXERCISES).length, exercises: Object.values(c.EXERCISES).flat().length,
+           equipment: Object.values(c.EQUIPMENT_BY_EXERCISE).flat().length, gyms: (c.GYMS||[]).length };
+}
+let xlsxLoading = null;
+function loadXlsx(){
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  if(!xlsxLoading){
+    xlsxLoading = new Promise((resolve, reject)=>{
+      const s = document.createElement('script'); s.src = XLSX_SRC; s.async = true;
+      s.onload = ()=> window.XLSX ? resolve(window.XLSX) : reject(new Error('Δεν φόρτωσε το εργαλείο ανάγνωσης Excel.'));
+      s.onerror = ()=>{ xlsxLoading = null; reject(new Error('Δεν φόρτωσε το εργαλείο ανάγνωσης Excel. Έλεγξε τη σύνδεση.')); };
+      document.head.appendChild(s);
+    });
+  }
+  return xlsxLoading;
+}
+async function catalogReadFile(file){
+  if(!/\.xlsx$/i.test(file.name)) throw new Error('Διάλεξε αρχείο Excel (.xlsx).');
+  const XLSX = await loadXlsx();
+  const parsed = parseCatalogWorkbook(XLSX, await file.arrayBuffer(), GROUP_DISPLAY);
+  Object.values(parsed.EQUIPMENT_BY_EXERCISE).flat().forEach(e=>{ e.photoUrl = catalogMapPhoto(e.photoUrl); e.exercisePhotoUrl = catalogMapPhoto(e.exercisePhotoUrl); });
+  const data = { EXERCISES: parsed.EXERCISES, EQUIPMENT_BY_EXERCISE: parsed.EQUIPMENT_BY_EXERCISE, GYMS: parsed.GYMS || catClone(GYMS), groupLabels: parsed.groupLabels };
+  return { data, warnings: parsed.warnings, diff: catalogDiff(catalogCurrent(), data), file_name: file.name, counts: catalogCounts(data) };
+}
+
+/* ---------- Owner: οθόνη «Κατάλογος Ασκήσεων (Excel)» ---------- */
+async function catalogLoadVersions(){
+  const { data, error } = await sb.from('exercise_catalog_versions')
+    .select('id, file_name, summary, is_active, created_at, activated_at').order('id', { ascending:false }).limit(30);
+  if(error){ console.warn(error); catalog.versions = []; catalog.error = 'Δεν φόρτωσε το ιστορικό εκδόσεων.'; return; }
+  catalog.versions = data || [];
+}
+function renderCatalogTab(){
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <h1 style="margin-bottom:2px;">Κατάλογος Ασκήσεων (Excel)</h1>
+    <div class="sub" style="margin-bottom:18px;">Ανέβασε το <b>BUILDER.xlsx</b>: μυϊκές ομάδες, τίτλοι ασκήσεων, εξοπλισμός (με κείμενα) και γυμναστήρια. Πριν αλλάξει οτιδήποτε βλέπεις τι είναι <b>νέο</b>, τι <b>αλλάζει</b> και τι <b>αφαιρείται</b>. Οι φωτογραφίες και τα βίντεο που ανέβηκαν από την εφαρμογή δεν επηρεάζονται.</div>
+    <div class="mobile-preview-frame" style="max-width:960px;"><div id="cat-content"><div style="color:var(--ink-soft);">Φόρτωση...</div></div></div>`;
+  Promise.all([catalogLoad(), catalogLoadVersions(), eqMediaLoad()]).then(()=>{ if(state.tab==='excelcat') renderCatalogContent(); });
+}
+function catGroupName(g){ return GROUP_DISPLAY[g] || CATALOG_BUILTIN_GROUP_DISPLAY[g] || g; }
+function catFmtDate(s){ try{ return new Date(s).toLocaleString('el-GR', { dateStyle:'short', timeStyle:'short' }); }catch(_){ return s||''; } }
+function catShort(v){ const s = Array.isArray(v) ? v.join(', ') : String(v==null?'':v); return s.length>140 ? s.slice(0,140)+'…' : (s || '—'); }
+function catList(title, items, cls, fmt){
+  if(!items.length) return '';
+  return `<details class="cat-sec" ${items.length<=12?'open':''}><summary><span class="cat-badge ${cls}">${items.length}</span> ${escHtml(title)}</summary>
+    <ul>${items.map(x=>`<li>${fmt(x)}</li>`).join('')}</ul></details>`;
+}
+function renderCatalogPreview(p){
+  const d = p.diff, c = p.counts;
+  const media = state.exMedia || {};
+  // Ασκήσεις (τίτλος + εξοπλισμός) που φεύγουν από τον κατάλογο ενώ έχουν ανεβασμένα αρχεία
+  const lost = [];
+  Object.entries(EQUIPMENT_BY_EXERCISE).forEach(([ex, list])=>list.forEach(e=>{
+    const m = media[exMediaKey(ex, e.name)];
+    if(m && (m.video_id || m.exercise_photo_url || m.equipment_photo_url) && !(p.data.EQUIPMENT_BY_EXERCISE[ex]||[]).some(n=>n.name===e.name)) lost.push(e.name.trim()+' — '+ex);
+  }));
+  return `<div class="panel pad cat-preview">
+    <div style="font-weight:700;font-size:15px;margin-bottom:4px;">📄 ${escHtml(p.file_name)}</div>
+    <div class="food-note" style="margin:0 0 10px;">Στο αρχείο: ${c.groups} μυϊκές ομάδες · ${c.exercises} τίτλοι ασκήσεων · ${c.equipment} εξοπλισμοί · ${c.gyms} γυμναστήρια</div>
+    ${p.warnings.length ? `<div class="cat-warn">⚠️ <b>Προσοχή:</b><ul>${p.warnings.map(w=>`<li>${escHtml(w)}</li>`).join('')}</ul></div>` : ''}
+    ${lost.length ? `<div class="cat-warn">⚠️ <b>${lost.length}</b> από όσα αφαιρούνται έχουν φωτογραφίες/βίντεο ανεβασμένα από την εφαρμογή. Τα αρχεία <b>δεν σβήνονται</b>· αν απλώς μετονόμασες τίτλο ή εξοπλισμό, θα χρειαστεί να τα ξαναδέσεις στο νέο όνομα από την οθόνη «Φωτογραφίες & Βίντεο Ασκήσεων».<ul>${lost.map(x=>`<li>${escHtml(x)}</li>`).join('')}</ul></div>` : ''}
+    ${d.total === 0 ? `<div class="cat-same">✅ Καμία διαφορά με τον κατάλογο που ισχύει τώρα.</div>` : `
+      <div style="font-weight:700;margin:6px 0;">Αλλαγές (${d.total})</div>
+      ${catList('Νέες μυϊκές ομάδες', d.groupsAdded, 'new', g=>escHtml(catalogPrettyGroup(p.data.groupLabels[g], g)))}
+      ${catList('Μυϊκές ομάδες που αφαιρούνται', d.groupsRemoved, 'del', g=>escHtml(catGroupName(g)))}
+      ${catList('Νέοι τίτλοι ασκήσεων', d.exAdded, 'new', x=>`${escHtml(x.ex)} <small>(${escHtml(catGroupName(x.g) || x.g)})</small>`)}
+      ${catList('Τίτλοι ασκήσεων που αφαιρούνται', d.exRemoved, 'del', x=>`${escHtml(x.ex)} <small>(${escHtml(catGroupName(x.g))})</small>`)}
+      ${catList('Τίτλοι που αλλάζουν μυϊκή ομάδα', d.exMoved, 'chg', x=>`${escHtml(x.ex)} <small>(${escHtml(catGroupName(x.from))} → ${escHtml(catGroupName(x.to))})</small>`)}
+      ${catList('Νέος εξοπλισμός', d.eqAdded, 'new', x=>`<b>${escHtml(x.name.trim())}</b> <small>στο «${escHtml(x.ex)}»</small>`)}
+      ${catList('Εξοπλισμός που αφαιρείται', d.eqRemoved, 'del', x=>`<b>${escHtml(x.name.trim())}</b> <small>από το «${escHtml(x.ex)}»</small>`)}
+      ${catList('Εξοπλισμός με αλλαγές', d.eqChanged, 'chg', x=>`<b>${escHtml(x.name.trim())}</b> <small>στο «${escHtml(x.ex)}»</small>
+        <div class="cat-fields">${x.fields.map(f=>f==='order' ? `<div><span>${escHtml(CATALOG_FIELD_LABELS.order)}</span> άλλαξε θέση στη λίστα</div>`
+          : `<div><span>${escHtml(CATALOG_FIELD_LABELS[f]||f)}</span> <del>${escHtml(catShort(x.old[f]))}</del> → <ins>${escHtml(catShort(x.neu[f]))}</ins></div>`).join('')}</div>`)}
+      ${d.gymsChanged ? `<details class="cat-sec" open><summary><span class="cat-badge chg">1</span> Γυμναστήρια</summary><ul><li>${escHtml((p.data.GYMS||[]).map(g=>g.id+'. '+g.name).join(' · '))}</li></ul></details>` : ''}
+      <div class="food-note" style="margin:8px 0 0;">Τα links φωτογραφιών/βίντεο του Excel χρησιμοποιούνται μόνο όπου δεν έχει ανέβει αρχείο από την εφαρμογή.</div>`}
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+      <button class="btn btn-primary" id="cat-confirm" style="flex:1;justify-content:center;" ${catalog.busy?'disabled':''}>${catalog.busy ? escHtml(catalog.busy) : (d.total ? '✅ Επιβεβαίωση & ενημέρωση καταλόγου' : '✅ Αποθήκευση ως νέα έκδοση')}</button>
+      <button class="btn btn-outline" id="cat-cancel" ${catalog.busy?'disabled':''}>Ακύρωση</button>
+    </div>
+  </div>`;
+}
+function renderCatalogContent(){
+  const box = document.getElementById('cat-content'); if(!box) return;
+  const a = catalog.active, vs = catalog.versions || [];
+  const cur = catalogCounts(catalogCurrent());
+  box.innerHTML = `
+    <div class="panel pad" style="margin-bottom:14px;">
+      <div style="font-weight:700;margin-bottom:4px;">Ισχύει τώρα</div>
+      <div class="food-note" style="margin:0 0 10px;">${a ? `Έκδοση #${a.id}${a.file_name?` · ${escHtml(a.file_name)}`:''} · ${escHtml(catFmtDate(a.activated_at || a.created_at))}` : 'Ο ενσωματωμένος κατάλογος της εφαρμογής (δεν έχει ανέβει Excel ακόμα).'}<br>${cur.groups} μυϊκές ομάδες · ${cur.exercises} τίτλοι ασκήσεων · ${cur.equipment} εξοπλισμοί · ${cur.gyms} γυμναστήρια</div>
+      ${catalog.preview ? '' : `<label class="btn btn-primary" style="width:100%;justify-content:center;cursor:pointer;${catalog.busy?'opacity:.6;pointer-events:none;':''}">${catalog.busy ? escHtml(catalog.busy) : '📤 Ανέβασμα Excel'}<input type="file" id="cat-file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none;"></label>`}
+      ${catalog.error ? `<div class="cat-warn" style="margin-top:10px;">❌ ${escHtml(catalog.error)}</div>` : ''}
+    </div>
+    ${catalog.preview ? renderCatalogPreview(catalog.preview) : ''}
+    <div class="section-title" style="margin-top:18px;"><span class="dot"></span>Ιστορικό εκδόσεων</div>
+    ${vs.length ? vs.map(v=>{
+      const s = v.summary || {}, cnt = s.counts || {};
+      return `<div class="cat-ver ${v.is_active?'on':''}">
+        <div style="flex:1;min-width:0;">
+          <div><b>#${v.id}</b> ${v.is_active?'<span class="cat-badge new">ενεργή</span>':''} ${escHtml(v.file_name||'')}</div>
+          <div class="food-note" style="margin:2px 0 0;">${escHtml(catFmtDate(v.created_at))}${cnt.exercises!=null?` · ${cnt.exercises} ασκήσεις · ${cnt.equipment} εξοπλισμοί`:''}${s.changes!=null?` · ${s.changes} αλλαγές`:''}</div>
+        </div>
+        ${v.is_active ? '' : `<button class="btn btn-outline" data-cat-restore="${v.id}" ${catalog.busy?'disabled':''}>${catalog.confirmId===v.id ? 'Σίγουρα; Πάτα ξανά' : '↩️ Επαναφορά'}</button>`}
+      </div>`; }).join('') : '<div class="food-note">Δεν υπάρχουν εκδόσεις ακόμα.</div>'}
+    ${a ? `<button class="btn btn-outline" data-cat-restore="builtin" style="width:100%;justify-content:center;margin-top:10px;" ${catalog.busy?'disabled':''}>${catalog.confirmId==='builtin' ? 'Σίγουρα; Πάτα ξανά' : '↩️ Επιστροφή στον ενσωματωμένο κατάλογο της εφαρμογής'}</button>` : ''}`;
+  bindCatalogEvents();
+}
+function bindCatalogEvents(){
+  const $ = id=>document.getElementById(id);
+  const redraw = ()=>{ if(state.tab==='excelcat') renderCatalogContent(); };
+  if($('cat-file')) $('cat-file').addEventListener('change', async e=>{
+    const file = e.target.files && e.target.files[0]; e.target.value = ''; if(!file) return;
+    catalog.error = ''; catalog.busy = 'Ανάγνωση Excel...'; catalog.confirmId = null; redraw();
+    try{ catalog.preview = await catalogReadFile(file); }
+    catch(err){ console.error(err); catalog.error = err.message || 'Το αρχείο δεν διαβάστηκε.'; }
+    catalog.busy = ''; redraw();
+  });
+  if($('cat-cancel')) $('cat-cancel').addEventListener('click', ()=>{ catalog.preview = null; redraw(); });
+  if($('cat-confirm')) $('cat-confirm').addEventListener('click', async ()=>{
+    const p = catalog.preview; if(!p) return;
+    catalog.busy = 'Αποθήκευση...'; catalog.error = ''; redraw();
+    try{
+      const summary = { counts: p.counts, changes: p.diff.total, warnings: p.warnings.length };
+      const { data: id, error } = await sb.rpc('exercise_catalog_publish', { p_data: p.data, p_file_name: p.file_name, p_summary: summary });
+      if(error) throw new Error(error.message || 'Δεν αποθηκεύτηκε.');
+      catalogCacheWrite({ id, data: p.data });
+      catalogUse({ id, data: p.data, file_name: p.file_name, created_at: new Date().toISOString(), summary });
+      catalog.preview = null;
+      await catalogLoadVersions();
+      toast('Ο κατάλογος ενημερώθηκε!');
+    }catch(err){ console.error(err); catalog.error = err.message; }
+    catalog.busy = ''; redraw();
+  });
+  document.querySelectorAll('[data-cat-restore]').forEach(b=>b.addEventListener('click', async ()=>{
+    const raw = b.getAttribute('data-cat-restore'), id = raw==='builtin' ? 'builtin' : Number(raw);
+    if(catalog.confirmId !== id){ catalog.confirmId = id; redraw(); return; }
+    catalog.confirmId = null; catalog.busy = 'Επαναφορά...'; catalog.error = ''; redraw();
+    try{
+      const { error } = await sb.rpc('exercise_catalog_activate', { p_id: id==='builtin' ? null : id });
+      if(error) throw new Error(error.message || 'Η επαναφορά απέτυχε.');
+      await catalogLoad(); await catalogLoadVersions();
+      toast(id==='builtin' ? 'Ισχύει ξανά ο ενσωματωμένος κατάλογος.' : `Ισχύει ξανά η έκδοση #${id}.`);
+    }catch(err){ console.error(err); catalog.error = err.message; }
+    catalog.busy = ''; redraw();
+  }));
+}
+
 function render(skipNav){
   if(!skipNav) renderNav(); else { /* still refresh active states */ 
     document.querySelectorAll('.navitem').forEach(el=>el.classList.toggle('active', el.getAttribute('data-tab')===state.tab));
@@ -8445,6 +8847,8 @@ function render(skipNav){
     renderAiTrainTab();
   } else if(state.tab==='foodsdb' && auth.role==='owner'){
     renderFoodsDbTab();
+  } else if(state.tab==='excelcat' && auth.role==='owner'){
+    renderCatalogTab();
   } else if(state.tab==='eqmedia' && auth.role==='owner'){
     renderEqMediaTab();
   } else if(state.tab==='libcats' && auth.role==='owner'){
