@@ -634,6 +634,7 @@ input,select{font-family:inherit;}
 .eqm-n{font-size:13.5px;font-weight:600;color:#dffaff;}
 .eqm-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
 .eqm-act .btn{padding:6px 10px;font-size:11px;}
+.tpllib-focus{box-shadow:0 0 0 2px #ffd23f, 0 0 24px rgba(255,210,63,.35) !important;}
 .eq-arrow{width:28px;height:26px;border-radius:8px;border:1px solid rgba(61,216,255,.35);background:rgba(3,11,18,.5);color:#bdf3ff;font-size:11px;cursor:pointer;line-height:1;padding:0;}
 .eq-arrow:disabled{opacity:.25;cursor:default;}
 .tpl-move{display:flex;flex-direction:column;gap:4px;flex-shrink:0;}
@@ -2127,8 +2128,12 @@ async function renderTplPreviewTab(){
   }
   const jump = state.tplLibJump && state.tplTemplates.find(x=>x.id===state.tplLibJump);
   state.tplLibJump = null;
-  if(jump) state.tplLibNav = { view:'detail', gender: jump.gender, topCategory: jump.top_category, subCategory: jump.sub_category || null, programId: jump.id, dayIndex:null, itemIndex:null };
+  if(jump) state.tplLibNav = { view:'programs', gender: jump.gender, topCategory: jump.top_category, subCategory: jump.sub_category || null, programId:null, dayIndex:null, itemIndex:null };
   renderTplLibMain();
+  if(jump){ // η σελίδα της κατηγορίας με τη φωτογραφία του προγράμματος· πηγαίνουμε στην κάρτα του
+    const card = document.getElementById('tpllib-card-'+jump.id);
+    if(card){ card.classList.add('tpllib-focus'); card.scrollIntoView({ behavior:'smooth', block:'start' }); }
+  }
 }
 function rebuildTplPreviewShell(){
   const main = document.getElementById('main');
@@ -8178,7 +8183,7 @@ function renderTplLibProgramsView(){
     <div class="topbar"><div><h1>${escHtml(subCategory || topCategory)}</h1></div></div>
     ${progs.length===0 ? tplLibEmptyState('Δεν υπάρχουν ακόμα προγράμματα εδώ.') :
       progs.map(t=>`
-      <div class="panel" style="margin-bottom:16px;overflow:hidden;">
+      <div class="panel" id="tpllib-card-${escAttr(t.id)}" style="margin-bottom:16px;overflow:hidden;">
         ${tplPhotoBlock(t.photo_url, 'ΦΩΤΟΓΡΑΦΙΑ ΠΡΟΓΡΑΜΜΑΤΟΣ')}
         <div class="pad">
           <div class="set-box" style="margin-bottom:8px;">${t.num_days} ΗΜΕΡΕΣ${(!t.is_published && auth.role==='owner') ? ' · <span style="color:#ffcf9e;">ΠΡΟΣΧΕΔΙΟ</span>':''}</div>
