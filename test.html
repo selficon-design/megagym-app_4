@@ -401,6 +401,19 @@ input,select{font-family:inherit;}
   transition:opacity .2s ease, transform .2s ease;
 }
 #scroll-top-btn:hover{box-shadow:0 0 28px rgba(61,216,255,.8), 0 4px 14px rgba(0,0,0,.5);transform:translateY(-2px);}
+#hand-mode-btn{
+  position:fixed;bottom:80px;right:18px;z-index:90;width:48px;height:48px;border-radius:50%;
+  background:linear-gradient(145deg,#0f2131,#060d14);border:1.5px solid var(--cyan);color:var(--cyan-soft);
+  font-size:20px;cursor:pointer;display:none;align-items:center;justify-content:center;
+  box-shadow:0 0 18px rgba(61,216,255,.5), 0 4px 14px rgba(0,0,0,.5);
+}
+#hand-mode-btn.on{background:linear-gradient(145deg,#ffb347,#ff8a00);border-color:#ffd27a;color:#111;box-shadow:0 0 22px rgba(255,159,26,.7);}
+@media (hover:hover) and (pointer:fine){ #hand-mode-btn{display:flex;} }
+body.hand-mode, body.hand-mode *{cursor:grab;}
+body.hand-mode.hand-dragging, body.hand-mode.hand-dragging *{cursor:grabbing !important;user-select:none;}
+body.hand-mode :is(button, a, input, select, textarea, label, summary, [role=button], [data-tpl-thumb], .role-btn, .kcal-btn, .navitem),
+body.hand-mode :is(button, a, label, summary, [role=button], .role-btn, .kcal-btn, .navitem) *{cursor:pointer;}
+body.hand-mode :is(input[type=text], input[type=number], input:not([type]), textarea){cursor:text;}
 .modal-overlay{
   position:fixed;inset:0;background:rgba(2,6,10,.78);z-index:100;
   display:flex;align-items:center;justify-content:center;padding:20px;
@@ -634,6 +647,9 @@ input,select{font-family:inherit;}
 .eqm-n{font-size:13.5px;font-weight:600;color:#dffaff;}
 .eqm-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
 .eqm-act .btn{padding:6px 10px;font-size:11px;}
+.lbl-all{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+.apply-all{border:1px solid rgba(255,159,26,.55);background:rgba(255,159,26,.1);color:#ffc465;border-radius:999px;padding:3px 10px;font-size:10.5px;font-weight:700;cursor:pointer;text-transform:none;letter-spacing:0;}
+.apply-all.confirm{background:#ff9f1a;color:#111;}
 .dur-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(255,210,63,.14);color:#ffd23f;font-size:11px;font-weight:700;letter-spacing:0;text-transform:none;white-space:nowrap;}
 .dur-day{display:inline-block;color:#ffd23f;font-size:11.5px;font-weight:600;letter-spacing:0;text-transform:none;}
 .dur-day b{color:#fff3b0;}
@@ -1115,6 +1131,7 @@ input,select{font-family:inherit;}
 </div>
 <div id="modal-root"></div>
 <button id="scroll-top-btn" style="display:none;">↑</button>
+<button id="hand-mode-btn" title="Χεράκι: σύρε τη σελίδα πάνω-κάτω με το ποντίκι">✋</button>
 <div id="print-area"></div>
 <div id="pdf-capture-wrap" style="position:fixed;left:-99999px;top:0;width:800px;background:#fff;"></div>
 
@@ -2938,6 +2955,7 @@ async function renderTplBuilderTab(){
 // Κλείνει τη φόρμα άσκησης και κρατά στην οθόνη την άσκηση που μόλις διορθώθηκε/προστέθηκε
 function tplCloseItemForm(b, itemIndex){
   const af = b.addForm; b.addForm = null;
+  state.tplApplyAllConfirm = null;
   // πορτοκαλί πλαίσιο στην άσκηση που μόλις αποθηκεύτηκε (μόνο σε αποθήκευση, όχι σε ακύρωση)
   b.lastEdited = (af && itemIndex!=null) ? { di: af.dayIndex, ii: itemIndex } : null;
   renderTplFormArea();
@@ -3030,6 +3048,12 @@ function renderTplItemCard(it, dayIndex, itemIndex, count){
     </div>`;
 }
 
+// «Σε όλες»: η τιμή του πεδίου πηγαίνει σε όλες τις ασκήσεις με βάρη του προγράμματος (όλες οι ημέρες)
+const TPL_ALL_LABELS = { set:'Set', rep:'Rep', rest:'Διάλειμμα', tempo:'Τέμπο', failure:'Ένταση' };
+function tplApplyAllBtn(key){
+  const confirm = state.tplApplyAllConfirm === key;
+  return `<button type="button" class="apply-all ${confirm?'confirm':''}" data-tpl-applyall="${key}">${confirm ? 'Σίγουρα; Πάτα ξανά' : '↻ Σε όλες τις ασκήσεις'}</button>`;
+}
 function renderTplAddItemForm(af){
   if(af.type==='cardio') return renderTplAddCardioForm(af);
   return renderTplAddMuscleForm(af);
@@ -3056,11 +3080,11 @@ function renderTplAddMuscleForm(af){
         </select>
         ${af.exercise==='ΆΛΛΟ' ? `<input type="text" id="tpl-af-customex" value="${escAttr(af.customExercise||'')}" placeholder="Όνομα άσκησης" style="margin-top:8px;width:100%;padding:9px 11px;border-radius:10px;border:1.5px dashed var(--accent);background:var(--accent-soft);color:var(--ink);">`:''}
       </div>
-      <div class="field"><label>Set</label><div class="chip-row">${TPL_SET_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.set===v?'active':''}" data-tpl-af-set="${v}">${v}</button>`).join('')}</div></div>
-      <div class="field"><label>Rep</label><div class="chip-row">${TPL_REP_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.rep===v?'active':''}" data-tpl-af-rep="${escAttr(v)}" style="font-size:11px;">${escHtml(v)}</button>`).join('')}</div></div>
-      <div class="field"><label>Διάλειμμα</label><div class="chip-row">${TPL_REST_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.rest===v?'active':''}" data-tpl-af-rest="${escAttr(v)}">${escHtml(v)}</button>`).join('')}</div></div>
-      <div class="field"><label>Τέμπο</label><div class="chip-row">${TPL_TEMPO_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.tempo===v?'active':''}" data-tpl-af-tempo="${escAttr(v)}">${escHtml(v)}</button>`).join('')}</div></div>
-      <div class="field"><label>Ένταση</label><div class="chip-row">${FAILURE_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.failure===v?'active':''}" data-tpl-af-failure="${v}">${failureLabel(v)}</button>`).join('')}</div></div>
+      <div class="field"><label class="lbl-all">Set ${tplApplyAllBtn('set')}</label><div class="chip-row">${TPL_SET_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.set===v?'active':''}" data-tpl-af-set="${v}">${v}</button>`).join('')}</div></div>
+      <div class="field"><label class="lbl-all">Rep ${tplApplyAllBtn('rep')}</label><div class="chip-row">${TPL_REP_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.rep===v?'active':''}" data-tpl-af-rep="${escAttr(v)}" style="font-size:11px;">${escHtml(v)}</button>`).join('')}</div></div>
+      <div class="field"><label class="lbl-all">Διάλειμμα ${tplApplyAllBtn('rest')}</label><div class="chip-row">${TPL_REST_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.rest===v?'active':''}" data-tpl-af-rest="${escAttr(v)}">${escHtml(v)}</button>`).join('')}</div></div>
+      <div class="field"><label class="lbl-all">Τέμπο ${tplApplyAllBtn('tempo')}</label><div class="chip-row">${TPL_TEMPO_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.tempo===v?'active':''}" data-tpl-af-tempo="${escAttr(v)}">${escHtml(v)}</button>`).join('')}</div></div>
+      <div class="field"><label class="lbl-all">Ένταση ${tplApplyAllBtn('failure')}</label><div class="chip-row">${FAILURE_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.failure===v?'active':''}" data-tpl-af-failure="${v}">${failureLabel(v)}</button>`).join('')}</div></div>
       ${(af.exercise && af.exercise!=='ΆΛΛΟ' && EQUIPMENT_BY_EXERCISE[af.exercise]) ? `
       <div class="field">
         <label>Προτεινόμενος Εξοπλισμός (από λίστα)</label>
@@ -3229,6 +3253,7 @@ function bindTplBuilderEvents(){
       const it = b.days[di].items[ii];
       if(!it) return;
       b.lastEdited = null;
+      state.tplApplyAllConfirm = null;
       b.addForm = it.type==='cardio'
         ? { dayIndex:di, type:'cardio', equipment:it.equipment, mode:it.mode, speedLow:it.speedLow, speedHigh:it.speedHigh, incline:it.incline, intensity:it.intensity, minutes:it.minutes, drillEveryMinutes:it.drillEveryMinutes, editIndex:ii }
         : { dayIndex:di, type:'muscle', groupLabel:tplLabelNow(it.groupLabel), exercise:it.exercise, customExercise:'', set:it.set, rep:it.rep, rest:it.rest, tempo:it.tempo, failure:it.failure,
@@ -3285,6 +3310,16 @@ function bindTplBuilderEvents(){
     document.querySelectorAll('[data-tpl-af-eqmove]').forEach(el=>el.addEventListener('click', ()=>{
       const [i,dir] = el.getAttribute('data-tpl-af-eqmove').split(':').map(Number);
       if(moveInArray(af.equipment, i, dir)) renderTplFormArea();
+    }));
+    document.querySelectorAll('[data-tpl-applyall]').forEach(el=>el.addEventListener('click', ()=>{
+      const key = el.getAttribute('data-tpl-applyall');
+      if(state.tplApplyAllConfirm !== key){ state.tplApplyAllConfirm = key; renderTplFormArea(); return; }
+      state.tplApplyAllConfirm = null;
+      const val = af[key]; let n = 0;
+      b.days.forEach(d=>d.items.forEach(it=>{ if(it.type==='muscle'){ if(it[key] !== val) n++; it[key] = val; } }));
+      const shown = key==='failure' ? failureLabel(val) : val;
+      renderTplFormArea();
+      toast(`${TPL_ALL_LABELS[key]} «${shown}» σε όλες τις ασκήσεις του προγράμματος (${n} άλλαξαν). Θυμήσου «Αποθήκευση Αλλαγών».`);
     }));
     const submitBtn = document.getElementById('tpl-af-submit');
     if(submitBtn) submitBtn.addEventListener('click', ()=>{
@@ -9171,6 +9206,40 @@ document.addEventListener('click', (e)=>{
 renderRoot();
 resolveAuthState();
 
+// Χεράκι: με το ποντίκι σέρνεις τη σελίδα πάνω-κάτω· πάνω σε κουμπιά ο δείκτης γίνεται κανονικός «κέρσορας»
+(function initHandMode(){
+  const btn = document.getElementById('hand-mode-btn'); if(!btn) return;
+  const KEY = 'forma_hand_mode';
+  const set = on=>{ document.body.classList.toggle('hand-mode', on); btn.classList.toggle('on', on); btn.textContent = on ? '🖱' : '✋';
+    btn.title = on ? 'Επιστροφή στο κανονικό ποντίκι' : 'Χεράκι: σύρε τη σελίδα πάνω-κάτω με το ποντίκι';
+    try{ localStorage.setItem(KEY, on ? '1' : '0'); }catch(_){} };
+  let saved = false; try{ saved = localStorage.getItem(KEY)==='1'; }catch(_){}
+  set(saved);
+  btn.addEventListener('click', ()=>set(!document.body.classList.contains('hand-mode')));
+  const INTERACTIVE = 'button, a, input, select, textarea, label, summary, video, iframe, [role=button], [contenteditable], [data-tpl-thumb], .role-btn, .kcal-btn, .navitem';
+  const scrollerOf = el=>{
+    for(let n = el; n && n !== document.body; n = n.parentElement){
+      const oy = getComputedStyle(n).overflowY;
+      if((oy==='auto' || oy==='scroll') && n.scrollHeight > n.clientHeight) return n;
+    }
+    return null;
+  };
+  let drag = null;
+  document.addEventListener('mousedown', e=>{
+    if(e.button!==0 || !document.body.classList.contains('hand-mode') || e.target.closest(INTERACTIVE)) return;
+    drag = { y: e.clientY, x: e.clientX, el: scrollerOf(e.target), moved: false };
+    document.body.classList.add('hand-dragging');
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e=>{
+    if(!drag) return;
+    const dy = e.clientY - drag.y, dx = e.clientX - drag.x; drag.y = e.clientY; drag.x = e.clientX;
+    if(dy || dx) drag.moved = true;
+    if(drag.el){ drag.el.scrollTop -= dy; drag.el.scrollLeft -= dx; } else window.scrollBy(0, -dy);
+  });
+  const end = ()=>{ if(!drag) return; drag = null; document.body.classList.remove('hand-dragging'); };
+  window.addEventListener('mouseup', end); window.addEventListener('blur', end);
+})();
 (function initScrollTopBtn(){
   const btn = document.getElementById('scroll-top-btn');
   if(!btn) return;
