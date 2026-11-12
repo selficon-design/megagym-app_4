@@ -634,6 +634,7 @@ input,select{font-family:inherit;}
 .eqm-n{font-size:13.5px;font-weight:600;color:#dffaff;}
 .eqm-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
 .eqm-act .btn{padding:6px 10px;font-size:11px;}
+.tpl-last > .tl-card{border-color:#ff9f1a !important;box-shadow:0 0 0 1px #ff9f1a, 0 0 18px rgba(255,159,26,.35);}
 .tpllib-editbar{position:sticky;top:8px;z-index:5;width:100%;justify-content:center;margin-bottom:12px;box-shadow:0 6px 18px rgba(0,0,0,.45);}
 .tpllib-focus{box-shadow:0 0 0 2px #ffd23f, 0 0 24px rgba(255,210,63,.35) !important;}
 .eq-arrow{width:28px;height:26px;border-radius:8px;border:1px solid rgba(61,216,255,.35);background:rgba(3,11,18,.5);color:#bdf3ff;font-size:11px;cursor:pointer;line-height:1;padding:0;}
@@ -1756,7 +1757,7 @@ function loadTemplateIntoBuilder(t){
     sortOrder: t.sort_order || 0,
     isPublished: !!t.is_published,
     days: (t.data && t.data.days && t.data.days.length) ? t.data.days : tplBuildDays(t.num_days || 4),
-    addForm: null,
+    addForm: null, lastEdited: null,
   };
   renderTplFormArea();
   document.getElementById('tpl-form-area')?.scrollIntoView({behavior:'smooth', block:'start'});
@@ -2879,6 +2880,8 @@ async function renderTplBuilderTab(){
 // Κλείνει τη φόρμα άσκησης και κρατά στην οθόνη την άσκηση που μόλις διορθώθηκε/προστέθηκε
 function tplCloseItemForm(b, itemIndex){
   const af = b.addForm; b.addForm = null;
+  // πορτοκαλί πλαίσιο στην άσκηση που μόλις αποθηκεύτηκε (μόνο σε αποθήκευση, όχι σε ακύρωση)
+  b.lastEdited = (af && itemIndex!=null) ? { di: af.dayIndex, ii: itemIndex } : null;
   renderTplFormArea();
   if(!af) return;
   const ii = itemIndex!=null ? itemIndex : af.editIndex;
@@ -2918,7 +2921,7 @@ function renderTplDaysEditor(b){
             ${day.items.length===0 ? `<div style="color:var(--ink-soft);font-size:12.5px;margin-bottom:10px;">Δεν έχεις προσθέσει ακόμα τίποτα σε αυτή την ημέρα.</div>` :
               day.items.map((it,ii)=> (b.addForm && b.addForm.dayIndex===di && b.addForm.editIndex===ii)
                 ? `<div id="tpl-af-box">${renderTplAddItemForm(b.addForm)}</div>`      // η επεξεργασία ανοίγει στη θέση της άσκησης
-                : `<div id="tpl-item-${di}-${ii}">${renderTplItemCard(it,di,ii,day.items.length)}</div>`).join('')
+                : `<div id="tpl-item-${di}-${ii}" class="${b.lastEdited && b.lastEdited.di===di && b.lastEdited.ii===ii ? 'tpl-last' : ''}">${renderTplItemCard(it,di,ii,day.items.length)}</div>`).join('')
             }
             ${b.addForm && b.addForm.dayIndex===di && b.addForm.editIndex==null ? `<div id="tpl-af-box">${renderTplAddItemForm(b.addForm)}</div>` : `
               <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">
@@ -3151,6 +3154,7 @@ function bindTplBuilderEvents(){
     el.addEventListener('click', ()=>{
       const di = parseInt(el.getAttribute('data-tpl-addform'));
       const type = el.getAttribute('data-tpl-addtype');
+      b.lastEdited = null;
       b.addForm = type==='cardio'
         ? { dayIndex:di, type:'cardio', equipment:'', mode:'steady', speedLow:'', speedHigh:'', incline:'', intensity:'', minutes:'', drillEveryMinutes:'', editIndex:null }
         : { dayIndex:di, type:'muscle', groupLabel:'', exercise:'', customExercise:'', set:4, rep:TPL_REP_OPTIONS[3], rest:TPL_REST_OPTIONS[2], tempo:TPL_TEMPO_OPTIONS[0], failure:0,
@@ -3166,6 +3170,7 @@ function bindTplBuilderEvents(){
       const [di,ii] = el.getAttribute('data-tpl-edititem').split(':').map(Number);
       const it = b.days[di].items[ii];
       if(!it) return;
+      b.lastEdited = null;
       b.addForm = it.type==='cardio'
         ? { dayIndex:di, type:'cardio', equipment:it.equipment, mode:it.mode, speedLow:it.speedLow, speedHigh:it.speedHigh, incline:it.incline, intensity:it.intensity, minutes:it.minutes, drillEveryMinutes:it.drillEveryMinutes, editIndex:ii }
         : { dayIndex:di, type:'muscle', groupLabel:tplLabelNow(it.groupLabel), exercise:it.exercise, customExercise:'', set:it.set, rep:it.rep, rest:it.rest, tempo:it.tempo, failure:it.failure,
@@ -3180,6 +3185,7 @@ function bindTplBuilderEvents(){
       const [di,ii,dir] = el.getAttribute('data-tpl-moveitem').split(':').map(Number);
       const day = b.days[di]; if(!day) return;
       if(b.addForm && b.addForm.dayIndex===di && b.addForm.editIndex!=null) return toast('Κλείσε πρώτα τη φόρμα επεξεργασίας.');
+      b.lastEdited = null;
       if(moveInArray(day.items, ii, dir)) renderTplFormArea();
     });
   });
@@ -5516,6 +5522,7 @@ function renderModal(){
     document.getElementById('tplremove-overlay')?.addEventListener('click', (e)=>{ if(e.target.id==='tplremove-overlay'){ state.tplRemoveConfirm=null; renderModal(); } });
     document.getElementById('tplremove-accept')?.addEventListener('click', ()=>{
       state.tplBuilder.days[rc.dayIndex].items.splice(rc.itemIndex,1);
+      state.tplBuilder.lastEdited = null;
       state.tplRemoveConfirm = null;
       renderModal();
       renderTplFormArea();
