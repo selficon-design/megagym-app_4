@@ -634,6 +634,18 @@ input,select{font-family:inherit;}
 .eqm-n{font-size:13.5px;font-weight:600;color:#dffaff;}
 .eqm-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
 .eqm-act .btn{padding:6px 10px;font-size:11px;}
+.eq-arrow{width:28px;height:26px;border-radius:8px;border:1px solid rgba(61,216,255,.35);background:rgba(3,11,18,.5);color:#bdf3ff;font-size:11px;cursor:pointer;line-height:1;padding:0;}
+.eq-arrow:disabled{opacity:.25;cursor:default;}
+.tpl-move{display:flex;flex-direction:column;gap:4px;flex-shrink:0;}
+.eq-order{margin-top:8px;border:1px dashed rgba(61,216,255,.3);border-radius:10px;padding:8px;}
+.eq-order-h{font-size:10.5px;color:var(--cyan-soft);font-weight:700;margin-bottom:6px;}
+.eq-order-row{display:flex;align-items:center;gap:6px;margin:4px 0;font-size:12px;}
+.eq-order-t{flex:1;min-width:0;}
+.eq-order-n{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;border-radius:999px;background:#ffd23f;color:#111;font-weight:800;font-size:11px;flex-shrink:0;}
+.eq-order-n.sm{min-width:17px;height:17px;font-size:10px;}
+.tpl-dup{flex-basis:100%;border-top:1px solid rgba(61,216,255,.18);padding-top:10px;margin-top:4px;}
+.tpl-dup label{display:block;font-size:11px;color:var(--cyan-soft);margin-bottom:4px;}
+.tpl-dup input{width:100%;padding:9px 11px;border-radius:10px;border:1.5px solid rgba(61,216,255,.35);background:rgba(3,11,18,.6);color:var(--ink);}
 .cat-sec{border:1px solid rgba(61,216,255,.18);border-radius:10px;padding:8px 10px;margin:6px 0;background:rgba(3,11,18,.35);}
 .cat-sec summary{cursor:pointer;font-weight:600;}
 .cat-sec ul{margin:8px 0 2px;padding-left:18px;font-size:13px;line-height:1.55;}
@@ -1755,6 +1767,44 @@ function tplBuildDays(n){
 
 function makeRowId(d,g){ return 'd'+d+'_'+g; }
 
+/* Σειρά στοιχείων ημέρας: day.order = ['w','c','w',...] (w = άσκηση με βάρη, c = αερόβιο), με τη σειρά
+   που τα έβαλε ο προπονητής στο Έτοιμο Πρόγραμμα. Χωρίς order → η παλιά λογική (topSection). */
+function dayCardioList(day){ return (day && day.cardioSlots || []).filter(s=>s && s.equipment); }
+function daySegments(day){
+  const g = (day && day.groups) || [], c = dayCardioList(day);
+  let order = Array.isArray(day && day.order) ? day.order : null;
+  if(!order) order = (day && day.topSection==='cardio') ? [...c.map(()=>'c'), ...g.map(()=>'w')] : [...g.map(()=>'w'), ...c.map(()=>'c')];
+  let wi = 0, ci = 0; const segs = [];
+  const push = (t, x)=>{ const last = segs[segs.length-1]; if(last && last.t===t) last.list.push(x); else segs.push({ t, list:[x] }); };
+  order.forEach(k=>{ if(k==='c'){ if(ci<c.length) push('c', c[ci++]); } else if(wi<g.length) push('w', g[wi++]); });
+  while(wi<g.length) push('w', g[wi++]);
+  while(ci<c.length) push('c', c[ci++]);
+  return segs;
+}
+function recordUsesSegments(record){
+  return record.subtype==='combo' || (record.days||[]).some(d=>dayCardioList(d).length || Array.isArray(d.order));
+}
+function renderDaySegments(d, wFn, cFn, emptyHead){
+  const segs = daySegments(d);
+  const out = segs.map(s=> s.t==='w' ? wFn(s.list) : cFn(s.list)).join('');
+  return segs.some(s=>s.t==='w') ? out : (emptyHead||'') + out;
+}
+function moveInArray(arr, i, dir){
+  const j = i + dir; if(!arr || j<0 || j>=arr.length) return false;
+  const x = arr[i]; arr[i] = arr[j]; arr[j] = x; return true;
+}
+// Λίστα «σειρά προβολής» του επιλεγμένου εξοπλισμού (1 = κύριος) με βελάκια
+function renderEquipOrderList(list, attr, prefix){
+  prefix = prefix || '';
+  if(!list || list.length < 2) return '';
+  return `<div class="eq-order">
+    <div class="eq-order-h">Σειρά που θα τα δει ο αθλούμενος (1 = κύριος εξοπλισμός)</div>
+    ${list.map((e,i)=>`<div class="eq-order-row"><span class="eq-order-n">${i+1}</span><span class="eq-order-t">${escHtml(String(e.name||'').trim())}</span>
+      <button type="button" class="eq-arrow" ${attr}="${prefix}${i}:-1" ${i===0?'disabled':''} aria-label="Πάνω">▲</button>
+      <button type="button" class="eq-arrow" ${attr}="${prefix}${i}:1" ${i===list.length-1?'disabled':''} aria-label="Κάτω">▼</button></div>`).join('')}
+  </div>`;
+}
+
 // fixedSetRep: null (muscle, per-exercise selectable) or {set,rep,rest} (fatburn weights/combo)
 const DAY_LABELS_EXTENDED = ["ΗΜΕΡΑ ΠΡΩΤΗ","ΗΜΕΡΑ ΔΕΥΤΕΡΗ","ΗΜΕΡΑ ΤΡΙΤΗ","ΗΜΕΡΑ ΤΕΤΑΡΤΗ","ΗΜΕΡΑ ΠΕΜΠΤΗ","ΗΜΕΡΑ ΕΚΤΗ","ΗΜΕΡΑ ΕΒΔΟΜΗ","ΗΜΕΡΑ ΟΓΔΟΗ","ΗΜΕΡΑ ΕΝΑΤΗ","ΗΜΕΡΑ ΔΕΚΑΤΗ","ΗΜΕΡΑ ΕΝΔΕΚΑΤΗ","ΗΜΕΡΑ ΔΩΔΕΚΑΤΗ"];
 function buildDays(numDays, fixedSetRep){
@@ -2033,6 +2083,15 @@ async function saveTemplateProgram(row){
   const { error } = await sb.from('template_programs').insert(row);
   return !error;
 }
+// Αντίγραφο έτοιμου προγράμματος με νέο όνομα (κρυφό από τους πελάτες μέχρι να δημοσιευτεί)
+async function duplicateTemplateProgram(t, name){
+  const row = JSON.parse(JSON.stringify(t));
+  ['id','created_at','updated_at','updated_by','updated_by_email'].forEach(k=>{ delete row[k]; });
+  Object.assign(row, { name, is_published:false, created_by: auth.user.id, created_by_email: auth.email });
+  const { data, error } = await sb.from('template_programs').insert(row).select().single();
+  if(error){ console.error(error); return null; }
+  return data;
+}
 async function deleteTemplateProgram(id){
   const { error } = await sb.from('template_programs').delete().eq('id', id);
   return !error;
@@ -2066,6 +2125,9 @@ async function renderTplPreviewTab(){
     state.tplTemplates = await loadTemplatePrograms();
     state.tplTemplatesLoaded = true;
   }
+  const jump = state.tplLibJump && state.tplTemplates.find(x=>x.id===state.tplLibJump);
+  state.tplLibJump = null;
+  if(jump) state.tplLibNav = { view:'detail', gender: jump.gender, topCategory: jump.top_category, subCategory: jump.sub_category || null, programId: jump.id, dayIndex:null, itemIndex:null };
   renderTplLibMain();
 }
 function rebuildTplPreviewShell(){
@@ -2836,7 +2898,7 @@ function renderTplDaysEditor(b){
           </div>
           <div style="padding:16px 20px;">
             ${day.items.length===0 ? `<div style="color:var(--ink-soft);font-size:12.5px;margin-bottom:10px;">Δεν έχεις προσθέσει ακόμα τίποτα σε αυτή την ημέρα.</div>` :
-              day.items.map((it,ii)=>renderTplItemCard(it,di,ii)).join('')
+              day.items.map((it,ii)=>renderTplItemCard(it,di,ii,day.items.length)).join('')
             }
             ${b.addForm && b.addForm.dayIndex===di ? renderTplAddItemForm(b.addForm) : `
               <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">
@@ -2850,11 +2912,18 @@ function renderTplDaysEditor(b){
     </div>`;
 }
 
-function renderTplItemCard(it, dayIndex, itemIndex){
+function renderTplMoveBtns(dayIndex, itemIndex, count){
+  return `<div class="tpl-move">
+    <button type="button" class="eq-arrow" data-tpl-moveitem="${dayIndex}:${itemIndex}:-1" ${itemIndex===0?'disabled':''} title="Μετακίνηση πάνω">▲</button>
+    <button type="button" class="eq-arrow" data-tpl-moveitem="${dayIndex}:${itemIndex}:1" ${itemIndex>=count-1?'disabled':''} title="Μετακίνηση κάτω">▼</button>
+  </div>`;
+}
+function renderTplItemCard(it, dayIndex, itemIndex, count){
   if(it.type==='cardio'){
     return `
       <div class="tl-card" style="margin-bottom:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
-        <div>
+        ${renderTplMoveBtns(dayIndex, itemIndex, count)}
+        <div style="flex:1;min-width:0;">
           <div style="font-weight:700;font-size:13px;color:#dffaff;">🏃 ${escHtml(it.equipment)}</div>
           <div style="font-size:11.5px;color:var(--ink-soft);margin-top:2px;">${it.minutes?escHtml(String(it.minutes))+' λεπτά':''}${it.intensity?' · '+escHtml(it.intensity):''}${it.mode?' · '+(it.mode==='drill'?'DRILL':'Σταθερή'):''}</div>
         </div>
@@ -2866,7 +2935,8 @@ function renderTplItemCard(it, dayIndex, itemIndex){
   }
   return `
     <div class="tl-card" style="margin-bottom:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
-      <div>
+      ${renderTplMoveBtns(dayIndex, itemIndex, count)}
+      <div style="flex:1;min-width:0;">
         <div style="font-weight:700;font-size:13px;color:#dffaff;text-transform:uppercase;">${escHtml(tplLabelNow(it.groupLabel))}</div>
         <div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">${escHtml(it.exercise)}</div>
         <div style="font-size:11px;color:var(--cyan-soft);margin-top:2px;" class="mono">SET ${it.set} · REP ${escHtml(it.rep)} · ${escHtml(it.rest)} · ${escHtml(it.tempo)} · ${failureLabel(it.failure)}</div>
@@ -2920,12 +2990,13 @@ function renderTplAddMuscleForm(af){
             return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
               <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);cursor:pointer;flex:1;">
                 <input type="checkbox" data-tpl-af-eqcheck data-eqidx="${ei}" ${checked?'checked':''}>
-                ${escHtml(eq.name)}
+                ${checked && (af.equipment||[]).length>1 ? `<span class="eq-order-n sm">${(af.equipment||[]).findIndex(e=>e.name===eq.name)+1}</span>`:''}${escHtml(eq.name)}
               </label>
               <button type="button" class="btn btn-outline" style="padding:4px 9px;font-size:10px;flex-shrink:0;white-space:nowrap;" data-eqpreview-exercise="${escAttr(af.exercise)}" data-eqpreview-name="${escAttr(eq.name)}">👁 PREVIEW</button>
             </div>`;
           }).join('')}
         </div>
+        ${renderEquipOrderList(af.equipment, 'data-tpl-af-eqmove')}
       </div>
       `:''}
       `:''}
@@ -3084,6 +3155,14 @@ function bindTplBuilderEvents(){
     });
   });
 
+  document.querySelectorAll('[data-tpl-moveitem]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const [di,ii,dir] = el.getAttribute('data-tpl-moveitem').split(':').map(Number);
+      const day = b.days[di]; if(!day) return;
+      if(b.addForm && b.addForm.dayIndex===di && b.addForm.editIndex!=null) return toast('Κλείσε πρώτα τη φόρμα επεξεργασίας.');
+      if(moveInArray(day.items, ii, dir)) renderTplFormArea();
+    });
+  });
   document.querySelectorAll('[data-tpl-removeitem]').forEach(el=>{
     el.addEventListener('click', ()=>{
       const [di,ii] = el.getAttribute('data-tpl-removeitem').split(':').map(Number);
@@ -3119,6 +3198,10 @@ function bindTplBuilderEvents(){
         renderTplFormArea();
       });
     });
+    document.querySelectorAll('[data-tpl-af-eqmove]').forEach(el=>el.addEventListener('click', ()=>{
+      const [i,dir] = el.getAttribute('data-tpl-af-eqmove').split(':').map(Number);
+      if(moveInArray(af.equipment, i, dir)) renderTplFormArea();
+    }));
     const submitBtn = document.getElementById('tpl-af-submit');
     if(submitBtn) submitBtn.addEventListener('click', ()=>{
       const exerciseName = af.exercise==='ΆΛΛΟ' ? af.customExercise.trim() : af.exercise;
@@ -3244,13 +3327,48 @@ function renderTplListArea(){
             <div style="font-size:10.5px;color:var(--ink-soft);margin-top:2px;">Δημιουργός: ${escHtml(t.created_by_email||'—')}${t.updated_by_email?` · Τελευταία επεξεργασία: ${escHtml(t.updated_by_email)}`:''}</div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-outline" style="padding:6px 10px;font-size:11px;" data-tpl-preview="${escAttr(t.id)}">👁 Preview</button>
             <button class="btn btn-info" style="padding:6px 10px;font-size:11px;" data-tpl-edit="${escAttr(t.id)}">Επεξεργασία</button>
+            <button class="btn btn-outline" style="padding:6px 10px;font-size:11px;" data-tpl-dup="${escAttr(t.id)}">⧉ Αντιγραφή</button>
             <button class="btn btn-outline" style="padding:6px 10px;font-size:11px;" data-tpl-togglepub="${escAttr(t.id)}">${t.is_published?'Απόκρυψη':'Δημοσίευση'}</button>
             <button class="btn btn-outline" style="padding:6px 10px;font-size:11px;" data-tpl-delete="${escAttr(t.id)}">Διαγραφή</button>
           </div>
+          ${state.tplDup && state.tplDup.id===t.id ? `<div class="tpl-dup">
+            <label>Όνομα του νέου προγράμματος</label>
+            <input type="text" id="tpl-dup-name" value="${escAttr(state.tplDup.name)}" maxlength="120">
+            <div class="food-note" style="margin:4px 0 8px;">Το αντίγραφο αποθηκεύεται <b>κρυφό</b> από τους πελάτες και ανοίγει για επεξεργασία. Το δημοσιεύεις όταν είναι έτοιμο.</div>
+            <div style="display:flex;gap:8px;"><button class="btn btn-primary" id="tpl-dup-ok" style="padding:7px 12px;font-size:12px;">Δημιουργία αντιγράφου</button><button class="btn btn-outline" id="tpl-dup-cancel" style="padding:7px 12px;font-size:12px;">Ακύρωση</button></div>
+          </div>`:''}
         </div>
       `).join('')
     }`;
+  document.querySelectorAll('[data-tpl-preview]').forEach(el=>el.addEventListener('click', ()=>{
+    state.tplLibJump = el.getAttribute('data-tpl-preview');
+    state.tab = 'tplpreview'; render();
+  }));
+  document.querySelectorAll('[data-tpl-dup]').forEach(el=>el.addEventListener('click', ()=>{
+    const t = state.tplTemplates.find(x=>x.id===el.getAttribute('data-tpl-dup')); if(!t) return;
+    state.tplDup = { id: t.id, name: (t.name||'') + ' (αντίγραφο)' }; renderTplListArea();
+    const inp = document.getElementById('tpl-dup-name'); if(inp){ inp.focus(); inp.select(); }
+  }));
+  document.getElementById('tpl-dup-cancel')?.addEventListener('click', ()=>{ state.tplDup = null; renderTplListArea(); });
+  document.getElementById('tpl-dup-name')?.addEventListener('input', e=>{ if(state.tplDup) state.tplDup.name = e.target.value; });
+  document.getElementById('tpl-dup-ok')?.addEventListener('click', async e=>{
+    const t = state.tplTemplates.find(x=>x.id===(state.tplDup||{}).id); if(!t) return;
+    const name = (document.getElementById('tpl-dup-name').value||'').trim();
+    if(!name) return toast('Γράψε όνομα για το νέο πρόγραμμα.');
+    if(state.tplTemplates.some(x=>x.gender===t.gender && x.top_category===t.top_category && (x.name||'').trim().toLowerCase()===name.toLowerCase()))
+      return toast('Υπάρχει ήδη πρόγραμμα με αυτό το όνομα στην ίδια κατηγορία.');
+    e.target.disabled = true;
+    const created = await duplicateTemplateProgram(t, name);
+    e.target.disabled = false;
+    if(!created) return toast('Η αντιγραφή απέτυχε. Δοκίμασε ξανά.');
+    state.tplDup = null;
+    state.tplTemplates = await loadTemplatePrograms();
+    renderTplListArea();
+    loadTemplateIntoBuilder(created);
+    toast('Δημιουργήθηκε το «'+name+'» — κάνε τις αλλαγές σου και πάτα Αποθήκευση.');
+  });
   document.querySelectorAll('[data-tpl-edit]').forEach(el=>{
     el.addEventListener('click', ()=>{
       const id = el.getAttribute('data-tpl-edit');
@@ -3789,12 +3907,13 @@ function renderGroupRow(dayIdx, row){
               return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
                 <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);cursor:pointer;flex:1;">
                   <input type="checkbox" data-equip-check data-day="${dayIdx}" data-row="${row.id}" data-eqidx="${ei}" ${checked?'checked':''}>
-                  ${escHtml(eq.name)}
+                  ${checked && row.equipment.length>1 ? `<span class="eq-order-n sm">${row.equipment.findIndex(e=>e.name===eq.name)+1}</span>`:''}${escHtml(eq.name)}
                 </label>
                 <button type="button" class="btn btn-outline" style="padding:4px 9px;font-size:10px;flex-shrink:0;white-space:nowrap;" data-eqpreview-exercise="${escAttr(row.selected)}" data-eqpreview-name="${escAttr(eq.name)}">👁 PREVIEW</button>
               </div>`;
             }).join('')}
           </div>
+          ${renderEquipOrderList(row.equipment, 'data-equip-move', dayIdx+':'+row.id+':')}
         </div>`:''}
         <div style="margin-top:10px;">
           <div style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--cyan-soft);margin-bottom:6px;">Ένταση</div>
@@ -3922,12 +4041,11 @@ function renderPreview(){
   let body = '';
   if(record.subtype === 'cardio'){
     body = renderCardioPreviewTable(record.cardioSlots, '');
-  } else if(record.subtype === 'combo'){
-    body = record.days.map(d=>{
-      const w = d.groups.length? renderDaysPreviewTable([{label:d.label, groups:d.groups}]) : `<div style="font-family:'Orbitron';font-weight:600;font-size:14px;color:var(--cyan-soft);margin-bottom:6px;">${escHtml(d.label)}</div>`;
-      const c = renderCardioPreviewTable(d.cardioSlots, 'Αερόβιο — '+d.label);
-      return d.topSection==='cardio' ? (c+w) : (w+c);
-    }).join('');
+  } else if(recordUsesSegments(record)){
+    body = record.days.map(d=>renderDaySegments(d,
+      gs=>renderDaysPreviewTable([{label:d.label, groups:gs}]),
+      cs=>renderCardioPreviewTable(cs, 'Αερόβιο — '+d.label),
+      `<div style="font-family:'Orbitron';font-weight:600;font-size:14px;color:var(--cyan-soft);margin-bottom:6px;">${escHtml(d.label)}</div>`)).join('');
   } else {
     body = renderDaysPreviewTable(record.days);
   }
@@ -4065,6 +4183,13 @@ function bindBuilderEvents(){
       const row = state.days[di].groups.find(r=>r.id===rid);
       row.failure = f;
       render();
+    });
+  });
+  document.querySelectorAll('[data-equip-move]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const [di, rid, i, dir] = el.getAttribute('data-equip-move').split(':');
+      const row = state.days[parseInt(di)] && state.days[parseInt(di)].groups.find(r=>r.id===rid);
+      if(row && moveInArray(row.equipment, parseInt(i), parseInt(dir))) render(true);
     });
   });
   document.querySelectorAll('[data-equip-check]').forEach(el=>{
@@ -4285,12 +4410,11 @@ function buildPrintHtml(record, client){
   let body = '';
   if(record.subtype === 'cardio'){
     body = pdfCardioBlock(record.cardioSlots, '');
-  } else if(record.subtype === 'combo'){
-    body = (record.days||[]).map(d=>{
-      const w = d.groups && d.groups.length ? pdfDaysBlock([{label:d.label, groups:d.groups}]) : `<div class="pp-day"><h3>${escHtml(d.label)}</h3></div>`;
-      const c = pdfCardioBlock(d.cardioSlots, 'Αερόβιο — '+d.label);
-      return d.topSection==='cardio' ? (c+w) : (w+c);
-    }).join('');
+  } else if(recordUsesSegments(record)){
+    body = (record.days||[]).map(d=>renderDaySegments(d,
+      gs=>pdfDaysBlock([{label:d.label, groups:gs}]),
+      cs=>pdfCardioBlock(cs, 'Αερόβιο — '+d.label),
+      `<div class="pp-day"><h3>${escHtml(d.label)}</h3></div>`)).join('');
   } else {
     body = pdfDaysBlock(record.days||[]);
   }
@@ -5571,12 +5695,10 @@ function renderRecordBodyForCard(record){
   }
   if(record.subtype === 'cardio'){
     body += renderCardioPreviewTable(record.cardioSlots||[], '');
-  } else if(record.subtype === 'combo'){
-    body += (record.days||[]).map(d=>{
-      const w = d.groups && d.groups.length ? renderDaysPreviewTable([{label:d.label, groups:d.groups}], {workout:true, programName:getProgramNameForRecord(record)}) : '';
-      const c = renderCardioPreviewTable(d.cardioSlots||[], 'Αερόβιο — '+d.label);
-      return d.topSection==='cardio' ? (c+w) : (w+c);
-    }).join('');
+  } else if(recordUsesSegments(record)){
+    body += (record.days||[]).map(d=>renderDaySegments(d,
+      gs=>renderDaysPreviewTable([{label:d.label, groups:gs}], {workout:true, programName:getProgramNameForRecord(record)}),
+      cs=>renderCardioPreviewTable(cs, 'Αερόβιο — '+d.label), '')).join('');
   } else {
     body += renderDaysPreviewTable(record.days||[], {workout:true, programName:getProgramNameForRecord(record)});
   }
@@ -5614,7 +5736,7 @@ function convertTemplateToProgramRecord(t){
       set: it.set, rep: it.rep, rest: it.rest, failure: it.failure||0, equipment: it.equipment||[]
     }));
     const cardioSlots = (d.items||[]).filter(it=>it.type==='cardio').map(it=>({...it, equipment: normalizeCardioEquipment(it.equipment)}));
-    return { label: d.label, groups, cardioSlots, topSection: (cardioSlots.length && !groups.length) ? 'cardio' : 'weights' };
+    return { label: d.label, groups, cardioSlots, topSection: (cardioSlots.length && !groups.length) ? 'cardio' : 'weights', order: (d.items||[]).filter(it=>it.type==='muscle'||it.type==='cardio').map(it=>it.type==='cardio'?'c':'w') };
   });
   return { category, subtype, notes:'', instructions:'', nutrition:null, days };
 }
@@ -7648,12 +7770,8 @@ function getClientDayItems(record, dayIndex){
   }
   const day = (record.days||[])[dayIndex];
   if(!day) return [];
-  const weightsItems = (day.groups||[]).map(g=>({type:'muscle', groupLabel:g.groupLabel, exercise:g.exercise, set:g.set, rep:g.rep, rest:g.rest, failure:g.failure, equipment:g.equipment||[]}));
-  if(record.subtype === 'combo'){
-    const cardioItems = (day.cardioSlots||[]).map(s=>({type:'cardio', ...s}));
-    return day.topSection==='cardio' ? [...cardioItems, ...weightsItems] : [...weightsItems, ...cardioItems];
-  }
-  return weightsItems;
+  const toW = g=>({type:'muscle', groupLabel:g.groupLabel, exercise:g.exercise, set:g.set, rep:g.rep, rest:g.rest, failure:g.failure, equipment:g.equipment||[]});
+  return daySegments(day).flatMap(s=> s.t==='w' ? s.list.map(toW) : s.list.map(c=>({type:'cardio', ...c})));
 }
 
 function renderClientMain(){
@@ -7963,7 +8081,7 @@ function mapTemplateToCustomRecord(t){
     const cardioSlots = d.items.filter(it=>it.type==='cardio').map(it=>({
       equipment: it.equipment, mode: it.mode, speedLow: it.speedLow, speedHigh: it.speedHigh, incline: it.incline, intensity: it.intensity, minutes: it.minutes, drillEveryMinutes: it.drillEveryMinutes
     }));
-    return { label: d.label, groups, cardioSlots, topSection:'weights' };
+    return { label: d.label, groups, cardioSlots, topSection:'weights', order: (d.items||[]).filter(it=>it.type==='muscle'||it.type==='cardio').map(it=>it.type==='cardio'?'c':'w') };
   });
   const record = {
     category, subtype,
