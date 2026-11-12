@@ -634,10 +634,12 @@ input,select{font-family:inherit;}
 .eqm-n{font-size:13.5px;font-weight:600;color:#dffaff;}
 .eqm-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
 .eqm-act .btn{padding:6px 10px;font-size:11px;}
+.cardio-neon{border:2px solid #39ff14 !important;box-shadow:0 0 0 1px #39ff14, 0 0 16px rgba(57,255,20,.55), inset 0 0 10px rgba(57,255,20,.12) !important;}
+.cardio-neon .rt1, .cardio-neon .ricon{color:#7dff5c !important;}
 .field-missing{outline:2px solid #ff9f1a;outline-offset:4px;border-radius:10px;}
 .tpl-thumb{width:84px;height:84px;border-radius:10px;object-fit:cover;flex-shrink:0;cursor:zoom-in;border:1px solid rgba(61,216,255,.3);background:#06141f;}
 .tpl-thumb.empty{display:flex;align-items:center;justify-content:center;text-align:center;font-size:10px;color:var(--ink-soft);cursor:default;line-height:1.3;}
-.tpl-last > .tl-card, .tl-card.tpl-hl{border-color:#ff9f1a !important;box-shadow:0 0 0 1px #ff9f1a, 0 0 18px rgba(255,159,26,.35);}
+.tpl-last > .tl-card, .tl-card.tpl-hl{border-color:#ff9f1a !important;box-shadow:0 0 0 1px #ff9f1a, 0 0 18px rgba(255,159,26,.35) !important;}
 .tpllib-editbar{position:sticky;top:8px;z-index:5;width:100%;justify-content:center;margin-bottom:12px;box-shadow:0 6px 18px rgba(0,0,0,.45);}
 .tpllib-focus{box-shadow:0 0 0 2px #ffd23f, 0 0 24px rgba(255,210,63,.35) !important;}
 .eq-arrow{width:28px;height:26px;border-radius:8px;border:1px solid rgba(61,216,255,.35);background:rgba(3,11,18,.5);color:#bdf3ff;font-size:11px;cursor:pointer;line-height:1;padding:0;}
@@ -2949,7 +2951,7 @@ function renderTplMoveBtns(dayIndex, itemIndex, count){
 function renderTplItemCard(it, dayIndex, itemIndex, count){
   if(it.type==='cardio'){
     return `
-      <div class="tl-card" style="margin-bottom:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+      <div class="tl-card cardio-neon" style="margin-bottom:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
         ${renderTplMoveBtns(dayIndex, itemIndex, count)}
         <div style="flex:1;min-width:0;">
           <div style="font-weight:700;font-size:13px;color:#dffaff;">🏃 ${escHtml(it.equipment)}</div>
@@ -7922,9 +7924,9 @@ function renderClientItemsListView(p, record, dayIndex){
               <div class="rtext"><div class="rt1">${escHtml(item.groupLabel)}</div><div class="rt2">${escHtml(item.exercise)}</div></div>
             </button>`;
           }
-          return `<button class="role-btn" data-open-item="${i}" style="align-items:flex-start;">
+          return `<button class="role-btn cardio-neon" data-open-item="${i}" style="align-items:flex-start;">
             <div class="ricon">${ICON.plan}</div>
-            <div class="rtext"><div class="rt1">${escHtml(item.equipment||'Αερόβιο')}</div><div class="rt2">Αερόβια άσκηση</div></div>
+            <div class="rtext"><div class="rt1">🏃 ${escHtml(item.equipment||'Αερόβιο')}</div><div class="rt2">Αερόβια άσκηση</div></div>
           </button>`;
         }).join('')
       }
@@ -8304,7 +8306,7 @@ function renderTplLibItemsView(){
             <div class="rtext"><div class="rt1">${escHtml(tplLabelNow(it.groupLabel))}</div><div class="rt2">${escHtml(it.exercise)}</div></div>
           </button>`;
         }
-        return `<button class="role-btn" data-tpllib-item="${i}" style="align-items:flex-start;">
+        return `<button class="role-btn cardio-neon" data-tpllib-item="${i}" style="align-items:flex-start;">
           <div class="ricon">${ICON.plan}</div>
           <div class="rtext"><div class="rt1">🏃 ${escHtml(it.equipment)}</div><div class="rt2">Αερόβια άσκηση</div></div>
         </button>`;
