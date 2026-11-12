@@ -634,6 +634,7 @@ input,select{font-family:inherit;}
 .eqm-n{font-size:13.5px;font-weight:600;color:#dffaff;}
 .eqm-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
 .eqm-act .btn{padding:6px 10px;font-size:11px;}
+.tpllib-editbar{position:sticky;top:8px;z-index:5;width:100%;justify-content:center;margin-bottom:12px;box-shadow:0 6px 18px rgba(0,0,0,.45);}
 .tpllib-focus{box-shadow:0 0 0 2px #ffd23f, 0 0 24px rgba(255,210,63,.35) !important;}
 .eq-arrow{width:28px;height:26px;border-radius:8px;border:1px solid rgba(61,216,255,.35);background:rgba(3,11,18,.5);color:#bdf3ff;font-size:11px;cursor:pointer;line-height:1;padding:0;}
 .eq-arrow:disabled{opacity:.25;cursor:default;}
@@ -2128,6 +2129,7 @@ async function renderTplPreviewTab(){
   }
   const jump = state.tplLibJump && state.tplTemplates.find(x=>x.id===state.tplLibJump);
   state.tplLibJump = null;
+  state.tplLibReturnId = jump ? jump.id : null;
   if(jump) state.tplLibNav = { view:'programs', gender: jump.gender, topCategory: jump.top_category, subCategory: jump.sub_category || null, programId:null, dayIndex:null, itemIndex:null };
   renderTplLibMain();
   if(jump){ // η σελίδα της κατηγορίας με τη φωτογραφία του προγράμματος· πηγαίνουμε στην κάρτα του
@@ -2874,10 +2876,20 @@ async function renderTplBuilderTab(){
   renderTplListArea();
 }
 
+// Κλείνει τη φόρμα άσκησης και κρατά στην οθόνη την άσκηση που μόλις διορθώθηκε/προστέθηκε
+function tplCloseItemForm(b, itemIndex){
+  const af = b.addForm; b.addForm = null;
+  renderTplFormArea();
+  if(!af) return;
+  const ii = itemIndex!=null ? itemIndex : af.editIndex;
+  const el = ii!=null ? document.getElementById(`tpl-item-${af.dayIndex}-${ii}`) : null;
+  el?.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
 function renderTplFormArea(){
   const area = document.getElementById('tpl-form-area');
   if(!area) return;
   const b = state.tplBuilder;
+  const scroller = document.scrollingElement || document.documentElement, keepY = scroller.scrollTop; // η οθόνη μένει εκεί που είναι
   area.innerHTML = `
     ${renderGymSelector()}
     ${b.id ? `<div class="calc-type-box" style="text-align:center;">✎ ΕΠΕΞΕΡΓΑΣΙΑ ΥΠΑΡΧΟΝΤΟΣ ΠΡΟΓΡΑΜΜΑΤΟΣ — «${escHtml(b.name)}»</div>`:''}
@@ -2888,6 +2900,7 @@ function renderTplFormArea(){
       ${b.id ? `<button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;" id="tpl-cancel-edit">Ακύρωση Επεξεργασίας — Νέο Πρόγραμμα</button>`:''}
     </div>
   `;
+  scroller.scrollTop = keepY;
   bindTplBuilderEvents();
 }
 
@@ -2903,9 +2916,11 @@ function renderTplDaysEditor(b){
           </div>
           <div style="padding:16px 20px;">
             ${day.items.length===0 ? `<div style="color:var(--ink-soft);font-size:12.5px;margin-bottom:10px;">Δεν έχεις προσθέσει ακόμα τίποτα σε αυτή την ημέρα.</div>` :
-              day.items.map((it,ii)=>renderTplItemCard(it,di,ii,day.items.length)).join('')
+              day.items.map((it,ii)=> (b.addForm && b.addForm.dayIndex===di && b.addForm.editIndex===ii)
+                ? `<div id="tpl-af-box">${renderTplAddItemForm(b.addForm)}</div>`      // η επεξεργασία ανοίγει στη θέση της άσκησης
+                : `<div id="tpl-item-${di}-${ii}">${renderTplItemCard(it,di,ii,day.items.length)}</div>`).join('')
             }
-            ${b.addForm && b.addForm.dayIndex===di ? renderTplAddItemForm(b.addForm) : `
+            ${b.addForm && b.addForm.dayIndex===di && b.addForm.editIndex==null ? `<div id="tpl-af-box">${renderTplAddItemForm(b.addForm)}</div>` : `
               <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">
                 <button class="btn btn-outline" data-tpl-addform="${di}" data-tpl-addtype="muscle">+ Άσκηση με Βάρη</button>
                 <button class="btn btn-outline" data-tpl-addform="${di}" data-tpl-addtype="cardio">+ Αερόβιο</button>
@@ -3144,7 +3159,7 @@ function bindTplBuilderEvents(){
     });
   });
   const cancelBtn = document.getElementById('tpl-af-cancel');
-  if(cancelBtn) cancelBtn.addEventListener('click', ()=>{ b.addForm=null; renderTplFormArea(); });
+  if(cancelBtn) cancelBtn.addEventListener('click', ()=>tplCloseItemForm(b));
 
   document.querySelectorAll('[data-tpl-edititem]').forEach(el=>{
     el.addEventListener('click', ()=>{
@@ -3156,7 +3171,7 @@ function bindTplBuilderEvents(){
         : { dayIndex:di, type:'muscle', groupLabel:tplLabelNow(it.groupLabel), exercise:it.exercise, customExercise:'', set:it.set, rep:it.rep, rest:it.rest, tempo:it.tempo, failure:it.failure,
             equipment: (it.equipment||[]).map(e=>({...e})), editIndex:ii };
       renderTplFormArea();
-      document.getElementById('tpl-form-area')?.scrollIntoView({behavior:'smooth', block:'start'});
+      document.getElementById('tpl-af-box')?.scrollIntoView({behavior:'smooth', block:'nearest'});
     });
   });
 
@@ -3221,8 +3236,7 @@ function bindTplBuilderEvents(){
       } else {
         b.days[af.dayIndex].items.push(newItem);
       }
-      b.addForm = null;
-      renderTplFormArea();
+      tplCloseItemForm(b, af.editIndex!=null ? af.editIndex : b.days[af.dayIndex].items.length-1);
     });
   }
   if(b.addForm && b.addForm.type==='cardio'){
@@ -3247,8 +3261,7 @@ function bindTplBuilderEvents(){
       } else {
         b.days[af.dayIndex].items.push(newItem);
       }
-      b.addForm = null;
-      renderTplFormArea();
+      tplCloseItemForm(b, af.editIndex!=null ? af.editIndex : b.days[af.dayIndex].items.length-1);
     });
   }
 
@@ -8063,8 +8076,24 @@ function renderTplLibMain(){
   else if(nav.view==='items') html = renderTplLibItemsView();
   else if(nav.view==='exercise') html = renderTplLibExerciseView();
   else html = renderTplLibGenderView();
-  content.innerHTML = html;
+  content.innerHTML = tplLibEditBar() + html;
   bindTplLibEvents();
+}
+// Owner: κουμπί επιστροφής στην επεξεργασία του προγράμματος που ελέγχει στη βιβλιοθήκη
+function tplLibEditBar(){
+  if(auth.role!=='owner' || state.tplLibShellContext!=='trainer') return '';
+  const id = state.tplLibNav.programId || state.tplLibReturnId;
+  const t = id && state.tplTemplates.find(x=>x.id===id);
+  if(!t) return '';
+  return `<button class="btn btn-info tpllib-editbar" data-tpllib-edit="${escAttr(t.id)}">✎ Επιστροφή στην επεξεργασία «${escHtml(t.name)}»</button>`;
+}
+function openTplEditor(id){
+  const t = state.tplTemplates.find(x=>x.id===id); if(!t) return;
+  const sameOpen = state.tplBuilder && state.tplBuilder.id===id;   // κρατά ό,τι δεν έχει αποθηκευτεί ακόμα
+  state.tab = 'tplbuilder';
+  render();
+  if(!sameOpen) loadTemplateIntoBuilder(t);
+  else document.getElementById('tpl-form-area')?.scrollIntoView({ behavior:'smooth', block:'start' });
 }
 function tplLibCurrentProgram(){
   return state.tplTemplates.find(t=>t.id===state.tplLibNav.programId) || null;
@@ -8190,6 +8219,7 @@ function renderTplLibProgramsView(){
           <h3 style="font-size:16px;margin-bottom:8px;">${escHtml(t.name)}</h3>
           ${t.description ? `<p style="font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin-bottom:12px;">${escNL(t.description)}</p>`:''}
           <button class="btn btn-primary" style="width:100%;justify-content:center;" data-tpllib-program="${escAttr(t.id)}">ΠΛΗΡΟΦΟΡΙΕΣ</button>
+          ${(auth.role==='owner' && state.tplLibShellContext==='trainer') ? `<button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:8px;" data-tpllib-edit="${escAttr(t.id)}">✎ Επεξεργασία</button>`:''}
         </div>
       </div>`).join('')
     }`;
@@ -8312,6 +8342,7 @@ function renderTplLibExerciseView(){
 }
 
 function bindTplLibEvents(){
+  document.querySelectorAll('[data-tpllib-edit]').forEach(el=>el.addEventListener('click', ()=>openTplEditor(el.getAttribute('data-tpllib-edit'))));
   document.querySelectorAll('[data-tpllib-gender]').forEach(el=>{
     el.addEventListener('click', ()=>{
       state.tplLibNav = { view:'topcat', gender: el.getAttribute('data-tpllib-gender'), topCategory:null, subCategory:null, programId:null, dayIndex:null, itemIndex:null };
