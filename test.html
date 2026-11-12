@@ -1264,10 +1264,11 @@ const TPL_EXERCISES = {
 const TPL_SET_OPTIONS = [3,4,5,6];
 const TPL_REP_OPTIONS = ['2 έως 4','4 έως 6','6 έως 8','8 έως 10','10 έως 12','13 έως 15'];
 const TPL_REST_OPTIONS = ['60sec','90sec','120sec','150sec','180sec','240sec'];
-const TPL_TEMPO_OPTIONS = ['0,5-1-0,5','0,5-0,5-0,5','1-1-1','1-2-1'];
+const TPL_TEMPO_OPTIONS = ['0,5-1-0,5','1-1-1','1-2-1','2-2-2','2,5-2,5-2,5'];
 /* ---------- Διάρκεια προγράμματος ----------
-   Άσκηση = Set × (μέσος όρος επαναλήψεων × δευτ./επανάληψη) + (Set−1) × διάλειμμα + 10″ καθυστέρηση.
-   Δευτ./επανάληψη = άθροισμα του tempo (π.χ. 0,5-1-0,5 = 2″ → 10 επαναλήψεις = 20″).
+   Χρόνος άσκησης (δείχνεται σε κάθε άσκηση) = Set × μέσος όρος επαναλήψεων × δευτ./επανάληψη.
+   Στο σύνολο της ημέρας κάθε άσκηση μετράει: χρόνος άσκησης + Set × (διάλειμμα × 2) + 10″ καθυστέρηση.
+   Δευτ./επανάληψη = άθροισμα του tempo (π.χ. 0,5-1-0,5 = 2″ → 11 επαναλήψεις = 22″).
    Αερόβιο = τα λεπτά του. Χωρίς tempo (προγράμματα από το «Νέο Πρόγραμμα») → 1-1-1.          */
 const DEFAULT_TEMPO = '1-1-1';
 const EXERCISE_SETUP_SEC = 10;
@@ -1284,15 +1285,19 @@ function restSec(r){
   const n = parseFloat(m[0].replace(',','.'));
   return (/sec|δευτ|″|"/i.test(s) || !/min|λεπ|′|'/i.test(s)) ? n : n*60;
 }
-function exerciseDurationSec(it){
+function exerciseWorkSec(it){
+  const sets = parseInt(it && it.set) || 0;
+  return sets ? Math.round(sets * repsAvg(it.rep) * tempoSecPerRep(it.tempo)) : 0;
+}
+function exerciseDurationSec(it){   // με διαλείμματα (×2) και καθυστέρηση — για το σύνολο
   const sets = parseInt(it && it.set) || 0; if(!sets) return 0;
-  return Math.round(sets * repsAvg(it.rep) * tempoSecPerRep(it.tempo) + (sets-1) * restSec(it.rest) + EXERCISE_SETUP_SEC);
+  return exerciseWorkSec(it) + Math.round(sets * restSec(it.rest) * 2) + EXERCISE_SETUP_SEC;
 }
 function cardioDurationSec(it){ return Math.round((parseFloat(String(it && it.minutes || '').replace(',','.')) || 0) * 60); }
 function itemDurationSec(it){ return it && it.type==='cardio' ? cardioDurationSec(it) : exerciseDurationSec(it); }
 function fmtDur(sec){
   sec = Math.round(sec||0); const hh = Math.floor(sec/3600), mm = Math.floor((sec%3600)/60), ss = sec%60;
-  if(hh) return `${hh}ω ${mm}′`;
+  if(hh) return `${hh}ω ${mm}′${ss ? String(ss).padStart(2,'0')+'″' : ''}`;
   return ss ? `${mm}′${String(ss).padStart(2,'0')}″` : `${mm}′`;
 }
 function dayDurationHtml(items){
@@ -1301,7 +1306,7 @@ function dayDurationHtml(items){
   const parts = []; if(w) parts.push('Βάρη '+fmtDur(w)); if(c) parts.push('Αερόβιο '+fmtDur(c));
   return `<span class="dur-day">⏱ ${parts.join(' + ')}${(w && c) ? ` = <b>${fmtDur(w+c)}</b>` : ''}</span>`;
 }
-function durBadge(it){ const s = itemDurationSec(it); return s ? `<span class="dur-badge">⏱ ${fmtDur(s)}</span>` : ''; }
+function durBadge(it){ const s = it && it.type==='cardio' ? cardioDurationSec(it) : exerciseWorkSec(it); return s ? `<span class="dur-badge">⏱ ${fmtDur(s)}</span>` : ''; }
 const TPL_CARDIO_EQUIPMENT = ['ΔΙΑΔΡΟΜΟΣ','ΕΛΛΕΙΠΤΙΚΟ','ΠΟΔΗΛΑΤΟ ΟΡΘΙΟ','ΠΟΔΗΛΑΤΟ ΚΑΘΙΣΤΟ','ΠΟΔΗΛΑΤΟ SPINNING','ΣΚΑΛΟΠΑΤΙΑ','MEGA WAVE','ΚΩΠΗΛΑΤΙΚΗ','AIR BIKE'];
 const TPL_CARDIO_MINUTES = CARDIO_MINUTES;   // 5, 10, 15 … 90 λεπτά
 const TPL_GENDERS = ['ΑΝΔΡΕΣ','ΓΥΝΑΙΚΕΣ'];
