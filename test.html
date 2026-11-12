@@ -634,6 +634,9 @@ input,select{font-family:inherit;}
 .eqm-n{font-size:13.5px;font-weight:600;color:#dffaff;}
 .eqm-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
 .eqm-act .btn{padding:6px 10px;font-size:11px;}
+.dur-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(255,210,63,.14);color:#ffd23f;font-size:11px;font-weight:700;letter-spacing:0;text-transform:none;white-space:nowrap;}
+.dur-day{display:inline-block;color:#ffd23f;font-size:11.5px;font-weight:600;letter-spacing:0;text-transform:none;}
+.dur-day b{color:#fff3b0;}
 .cardio-neon{border:2px solid #39ff14 !important;box-shadow:0 0 0 1px #39ff14, 0 0 16px rgba(57,255,20,.55), inset 0 0 10px rgba(57,255,20,.12) !important;}
 .cardio-neon .rt1, .cardio-neon .ricon{color:#7dff5c !important;}
 .field-missing{outline:2px solid #ff9f1a;outline-offset:4px;border-radius:10px;}
@@ -1261,7 +1264,44 @@ const TPL_EXERCISES = {
 const TPL_SET_OPTIONS = [3,4,5,6];
 const TPL_REP_OPTIONS = ['2 έως 4','4 έως 6','6 έως 8','8 έως 10','10 έως 12','13 έως 15'];
 const TPL_REST_OPTIONS = ['60sec','90sec','120sec','150sec','180sec','240sec'];
-const TPL_TEMPO_OPTIONS = ['2-1-2','2-2-2','1-1-1'];
+const TPL_TEMPO_OPTIONS = ['0,5-1-0,5','0,5-0,5-0,5','1-1-1','1-2-1'];
+/* ---------- Διάρκεια προγράμματος ----------
+   Άσκηση = Set × (μέσος όρος επαναλήψεων × δευτ./επανάληψη) + (Set−1) × διάλειμμα + 10″ καθυστέρηση.
+   Δευτ./επανάληψη = άθροισμα του tempo (π.χ. 0,5-1-0,5 = 2″ → 10 επαναλήψεις = 20″).
+   Αερόβιο = τα λεπτά του. Χωρίς tempo (προγράμματα από το «Νέο Πρόγραμμα») → 1-1-1.          */
+const DEFAULT_TEMPO = '1-1-1';
+const EXERCISE_SETUP_SEC = 10;
+function tempoSecPerRep(t){
+  const p = String(t||DEFAULT_TEMPO).split('-').map(x=>parseFloat(String(x).replace(',','.'))).filter(n=>!isNaN(n));
+  return p.length ? p.reduce((a,b)=>a+b, 0) : 3;
+}
+function repsAvg(r){
+  const n = (String(r==null?'':r).match(/\d+(?:[.,]\d+)?/g)||[]).map(x=>parseFloat(x.replace(',','.')));
+  return !n.length ? 10 : (n.length>1 ? (n[0]+n[1])/2 : n[0]);
+}
+function restSec(r){
+  const s = String(r||''), m = s.match(/\d+(?:[.,]\d+)?/); if(!m) return 0;
+  const n = parseFloat(m[0].replace(',','.'));
+  return (/sec|δευτ|″|"/i.test(s) || !/min|λεπ|′|'/i.test(s)) ? n : n*60;
+}
+function exerciseDurationSec(it){
+  const sets = parseInt(it && it.set) || 0; if(!sets) return 0;
+  return Math.round(sets * repsAvg(it.rep) * tempoSecPerRep(it.tempo) + (sets-1) * restSec(it.rest) + EXERCISE_SETUP_SEC);
+}
+function cardioDurationSec(it){ return Math.round((parseFloat(String(it && it.minutes || '').replace(',','.')) || 0) * 60); }
+function itemDurationSec(it){ return it && it.type==='cardio' ? cardioDurationSec(it) : exerciseDurationSec(it); }
+function fmtDur(sec){
+  sec = Math.round(sec||0); const hh = Math.floor(sec/3600), mm = Math.floor((sec%3600)/60), ss = sec%60;
+  if(hh) return `${hh}ω ${mm}′`;
+  return ss ? `${mm}′${String(ss).padStart(2,'0')}″` : `${mm}′`;
+}
+function dayDurationHtml(items){
+  let w = 0, c = 0; (items||[]).forEach(it=>{ if(it.type==='cardio') c += cardioDurationSec(it); else if(it.type==='muscle' || it.exercise) w += exerciseDurationSec(it); });
+  if(!w && !c) return '';
+  const parts = []; if(w) parts.push('Βάρη '+fmtDur(w)); if(c) parts.push('Αερόβιο '+fmtDur(c));
+  return `<span class="dur-day">⏱ ${parts.join(' + ')}${(w && c) ? ` = <b>${fmtDur(w+c)}</b>` : ''}</span>`;
+}
+function durBadge(it){ const s = itemDurationSec(it); return s ? `<span class="dur-badge">⏱ ${fmtDur(s)}</span>` : ''; }
 const TPL_CARDIO_EQUIPMENT = ['ΔΙΑΔΡΟΜΟΣ','ΕΛΛΕΙΠΤΙΚΟ','ΠΟΔΗΛΑΤΟ ΟΡΘΙΟ','ΠΟΔΗΛΑΤΟ ΚΑΘΙΣΤΟ','ΠΟΔΗΛΑΤΟ SPINNING','ΣΚΑΛΟΠΑΤΙΑ','MEGA WAVE','ΚΩΠΗΛΑΤΙΚΗ','AIR BIKE'];
 const TPL_CARDIO_MINUTES = CARDIO_MINUTES;   // 5, 10, 15 … 90 λεπτά
 const TPL_GENDERS = ['ΑΝΔΡΕΣ','ΓΥΝΑΙΚΕΣ'];
@@ -2922,7 +2962,7 @@ function renderTplDaysEditor(b){
         <div class="day-card" style="margin-bottom:16px;">
           <div class="day-head">
             <div class="tag"><div class="day-num">${di+1}</div><h3>${escHtml(day.label)}</h3></div>
-            <div class="count">${day.items.length} στοιχεία</div>
+            <div class="count">${day.items.length} στοιχεία ${dayDurationHtml(day.items)}</div>
           </div>
           <div style="padding:16px 20px;">
             ${day.items.length===0 ? `<div style="color:var(--ink-soft);font-size:12.5px;margin-bottom:10px;">Δεν έχεις προσθέσει ακόμα τίποτα σε αυτή την ημέρα.</div>` :
@@ -2954,7 +2994,7 @@ function renderTplItemCard(it, dayIndex, itemIndex, count){
       <div class="tl-card cardio-neon" style="margin-bottom:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
         ${renderTplMoveBtns(dayIndex, itemIndex, count)}
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:700;font-size:13px;color:#dffaff;">🏃 ${escHtml(it.equipment)}</div>
+          <div style="font-weight:700;font-size:13px;color:#dffaff;">🏃 ${escHtml(it.equipment)} ${durBadge(it)}</div>
           <div style="font-size:11.5px;color:var(--ink-soft);margin-top:2px;">${it.minutes?escHtml(String(it.minutes))+' λεπτά':'<span style="color:#ff9f1a;font-weight:700;">⚠️ χωρίς χρόνο</span>'}${it.intensity?' · '+escHtml(it.intensity):''}${it.mode?' · '+(it.mode==='drill'?'DRILL':'Σταθερή'):''}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
@@ -2967,7 +3007,7 @@ function renderTplItemCard(it, dayIndex, itemIndex, count){
     <div class="tl-card" style="margin-bottom:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
       ${renderTplMoveBtns(dayIndex, itemIndex, count)}
       <div style="flex:1;min-width:0;">
-        <div style="font-weight:700;font-size:13px;color:#dffaff;text-transform:uppercase;">${escHtml(tplLabelNow(it.groupLabel))}</div>
+        <div style="font-weight:700;font-size:13px;color:#dffaff;text-transform:uppercase;">${escHtml(tplLabelNow(it.groupLabel))} ${durBadge(it)}</div>
         <div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">${escHtml(it.exercise)}</div>
         <div style="font-size:11px;color:var(--cyan-soft);margin-top:2px;" class="mono">SET ${it.set} · REP ${escHtml(it.rep)} · ${escHtml(it.rest)} · ${escHtml(it.tempo)} · ${failureLabel(it.failure)}</div>
         ${(it.equipment&&it.equipment.length) ? `<div style="font-size:10.5px;color:#ffd23f;margin-top:4px;">⚙ ${it.equipment.map(e=>escHtml(e.name)).join(' · ')}</div>` : `<div style="font-size:10.5px;color:#ff8080;margin-top:4px;font-style:italic;">Χωρίς επιλεγμένο εξοπλισμό</div>`}
@@ -5778,7 +5818,7 @@ function convertTemplateToProgramRecord(t){
     const groups = (d.items||[]).filter(it=>it.type==='muscle').map(it=>({
       exercise: it.exercise,
       groupLabel: GROUP_DISPLAY[extractGreekGroupKey(it.groupLabel)] || it.groupLabel,
-      set: it.set, rep: it.rep, rest: it.rest, failure: it.failure||0, equipment: it.equipment||[]
+      set: it.set, rep: it.rep, rest: it.rest, tempo: it.tempo || '', failure: it.failure||0, equipment: it.equipment||[]
     }));
     const cardioSlots = (d.items||[]).filter(it=>it.type==='cardio').map(it=>({...it, equipment: normalizeCardioEquipment(it.equipment)}));
     return { label: d.label, groups, cardioSlots, topSection: (cardioSlots.length && !groups.length) ? 'cardio' : 'weights', order: (d.items||[]).filter(it=>it.type==='muscle'||it.type==='cardio').map(it=>it.type==='cardio'?'c':'w') };
@@ -7815,7 +7855,7 @@ function getClientDayItems(record, dayIndex){
   }
   const day = (record.days||[])[dayIndex];
   if(!day) return [];
-  const toW = g=>({type:'muscle', groupLabel:g.groupLabel, exercise:g.exercise, set:g.set, rep:g.rep, rest:g.rest, failure:g.failure, equipment:g.equipment||[]});
+  const toW = g=>({type:'muscle', groupLabel:g.groupLabel, exercise:g.exercise, set:g.set, rep:g.rep, rest:g.rest, tempo:g.tempo, failure:g.failure, equipment:g.equipment||[]});
   return daySegments(day).flatMap(s=> s.t==='w' ? s.list.map(toW) : s.list.map(c=>({type:'cardio', ...c})));
 }
 
@@ -7900,7 +7940,7 @@ function renderClientDaysListView(p, record){
         const sub = groupNames + (hasCardio ? (groupNames?' + Αερόβιο':'Αερόβιο') : '');
         return `<button class="role-btn" data-open-day="${i}" style="align-items:flex-start;">
           <div class="ricon">${ICON.plan}</div>
-          <div class="rtext"><div class="rt1">${escHtml(d.label)}</div><div class="rt2">${escHtml(sub)}</div></div>
+          <div class="rtext"><div class="rt1">${escHtml(d.label)}</div><div class="rt2">${escHtml(sub)}</div><div class="rt2">${dayDurationHtml(getClientDayItems(record, i))}</div></div>
         </button>`;
       }).join('')}
     </div>`;
@@ -7914,19 +7954,19 @@ function renderClientItemsListView(p, record, dayIndex){
   const backLabel = isCardioOnly ? 'Όλα τα προγράμματα' : 'Ημέρες';
   return `
     <div class="auth-back" data-client-back="${backTarget}">${ICON.back}${escHtml(backLabel)}</div>
-    <div class="topbar"><div><h1 style="font-size:20px;">${escHtml(dayLabel)}</h1></div></div>
+    <div class="topbar"><div><h1 style="font-size:20px;">${escHtml(dayLabel)}</h1><div style="margin-top:4px;">${dayDurationHtml(items)}</div></div></div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       ${items.length===0 ? `<div class="panel pad empty"><p>Δεν υπάρχουν ασκήσεις εδώ.</p></div>` :
         items.map((item,i)=>{
           if(item.type==='muscle'){
             return `<button class="role-btn" data-open-item="${i}" style="align-items:flex-start;">
               <div class="ricon">${ICON.plan}</div>
-              <div class="rtext"><div class="rt1">${escHtml(item.groupLabel)}</div><div class="rt2">${escHtml(item.exercise)}</div></div>
+              <div class="rtext"><div class="rt1">${escHtml(item.groupLabel)} ${durBadge(item)}</div><div class="rt2">${escHtml(item.exercise)}</div></div>
             </button>`;
           }
           return `<button class="role-btn cardio-neon" data-open-item="${i}" style="align-items:flex-start;">
             <div class="ricon">${ICON.plan}</div>
-            <div class="rtext"><div class="rt1">🏃 ${escHtml(item.equipment||'Αερόβιο')}</div><div class="rt2">Αερόβια άσκηση</div></div>
+            <div class="rtext"><div class="rt1">🏃 ${escHtml(item.equipment||'Αερόβιο')} ${durBadge(item)}</div><div class="rt2">Αερόβια άσκηση</div></div>
           </button>`;
         }).join('')
       }
@@ -8137,7 +8177,7 @@ function mapTemplateToCustomRecord(t){
   }
   const mappedDays = days.map(d=>{
     const groups = d.items.filter(it=>it.type==='muscle').map(it=>({
-      groupLabel: it.groupLabel, exercise: it.exercise, set: it.set, rep: it.rep, rest: it.rest, failure: it.failure, equipment: it.equipment||[]
+      groupLabel: it.groupLabel, exercise: it.exercise, set: it.set, rep: it.rep, rest: it.rest, tempo: it.tempo || '', failure: it.failure, equipment: it.equipment||[]
     }));
     const cardioSlots = d.items.filter(it=>it.type==='cardio').map(it=>({
       equipment: it.equipment, mode: it.mode, speedLow: it.speedLow, speedHigh: it.speedHigh, incline: it.incline, intensity: it.intensity, minutes: it.minutes, drillEveryMinutes: it.drillEveryMinutes
@@ -8284,7 +8324,7 @@ function renderTplLibDaysView(){
         const hasCardio = d.items.some(it=>it.type==='cardio');
         return `<button class="role-btn" data-tpllib-day="${i}" style="align-items:flex-start;">
           <div class="ricon">${ICON.plan}</div>
-          <div class="rtext"><div class="rt1">${escHtml(d.label)}</div><div class="rt2">${escHtml(muscleNames.join(', '))}${hasCardio?(muscleNames.length?' + Αερόβιο':'Αερόβιο'):''}</div></div>
+          <div class="rtext"><div class="rt1">${escHtml(d.label)}</div><div class="rt2">${escHtml(muscleNames.join(', '))}${hasCardio?(muscleNames.length?' + Αερόβιο':'Αερόβιο'):''}</div><div class="rt2">${dayDurationHtml(d.items)}</div></div>
         </button>`;
       }).join('')}
     </div>`;
@@ -8297,18 +8337,18 @@ function renderTplLibItemsView(){
   if(!day) return tplLibEmptyState('Δεν βρέθηκε η ημέρα.');
   return `
     <div class="auth-back" data-tpllib-back="days">${ICON.back}Ημέρες</div>
-    <div class="topbar"><div><h1 style="font-size:20px;">${escHtml(day.label)}</h1></div></div>
+    <div class="topbar"><div><h1 style="font-size:20px;">${escHtml(day.label)}</h1><div style="margin-top:4px;">${dayDurationHtml(day.items)}</div></div></div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       ${day.items.map((it,i)=>{
         if(it.type==='muscle'){
           return `<button class="role-btn" data-tpllib-item="${i}" style="align-items:flex-start;">
             <div class="ricon">${ICON.plan}</div>
-            <div class="rtext"><div class="rt1">${escHtml(tplLabelNow(it.groupLabel))}</div><div class="rt2">${escHtml(it.exercise)}</div></div>
+            <div class="rtext"><div class="rt1">${escHtml(tplLabelNow(it.groupLabel))} ${durBadge(it)}</div><div class="rt2">${escHtml(it.exercise)}</div></div>
           </button>`;
         }
         return `<button class="role-btn cardio-neon" data-tpllib-item="${i}" style="align-items:flex-start;">
           <div class="ricon">${ICON.plan}</div>
-          <div class="rtext"><div class="rt1">🏃 ${escHtml(it.equipment)}</div><div class="rt2">Αερόβια άσκηση</div></div>
+          <div class="rtext"><div class="rt1">🏃 ${escHtml(it.equipment)} ${durBadge(it)}</div><div class="rt2">Αερόβια άσκηση</div></div>
         </button>`;
       }).join('')}
     </div>`;
