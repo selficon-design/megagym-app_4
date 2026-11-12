@@ -2867,7 +2867,7 @@ function renderTplItemCard(it, dayIndex, itemIndex){
   return `
     <div class="tl-card" style="margin-bottom:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
       <div>
-        <div style="font-weight:700;font-size:13px;color:#dffaff;text-transform:uppercase;">${escHtml(it.groupLabel)}</div>
+        <div style="font-weight:700;font-size:13px;color:#dffaff;text-transform:uppercase;">${escHtml(tplLabelNow(it.groupLabel))}</div>
         <div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">${escHtml(it.exercise)}</div>
         <div style="font-size:11px;color:var(--cyan-soft);margin-top:2px;" class="mono">SET ${it.set} · REP ${escHtml(it.rep)} · ${escHtml(it.rest)} · ${escHtml(it.tempo)} · ${failureLabel(it.failure)}</div>
         ${(it.equipment&&it.equipment.length) ? `<div style="font-size:10.5px;color:#ffd23f;margin-top:4px;">⚙ ${it.equipment.map(e=>escHtml(e.name)).join(' · ')}</div>` : `<div style="font-size:10.5px;color:#ff8080;margin-top:4px;font-style:italic;">Χωρίς επιλεγμένο εξοπλισμό</div>`}
@@ -3077,7 +3077,7 @@ function bindTplBuilderEvents(){
       if(!it) return;
       b.addForm = it.type==='cardio'
         ? { dayIndex:di, type:'cardio', equipment:it.equipment, mode:it.mode, speedLow:it.speedLow, speedHigh:it.speedHigh, incline:it.incline, intensity:it.intensity, minutes:it.minutes, drillEveryMinutes:it.drillEveryMinutes, editIndex:ii }
-        : { dayIndex:di, type:'muscle', groupLabel:it.groupLabel, exercise:it.exercise, customExercise:'', set:it.set, rep:it.rep, rest:it.rest, tempo:it.tempo, failure:it.failure,
+        : { dayIndex:di, type:'muscle', groupLabel:tplLabelNow(it.groupLabel), exercise:it.exercise, customExercise:'', set:it.set, rep:it.rep, rest:it.rest, tempo:it.tempo, failure:it.failure,
             equipment: (it.equipment||[]).map(e=>({...e})), editIndex:ii };
       renderTplFormArea();
       document.getElementById('tpl-form-area')?.scrollIntoView({behavior:'smooth', block:'start'});
@@ -8100,7 +8100,7 @@ function renderTplLibDaysView(){
     <div class="topbar"><div><h1>${escHtml(t.name)}</h1></div></div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       ${days.map((d,i)=>{
-        const muscleNames = d.items.filter(it=>it.type==='muscle').map(it=>it.groupLabel).filter((v,idx,a)=>a.indexOf(v)===idx);
+        const muscleNames = d.items.filter(it=>it.type==='muscle').map(it=>tplLabelNow(it.groupLabel)).filter((v,idx,a)=>a.indexOf(v)===idx);
         const hasCardio = d.items.some(it=>it.type==='cardio');
         return `<button class="role-btn" data-tpllib-day="${i}" style="align-items:flex-start;">
           <div class="ricon">${ICON.plan}</div>
@@ -8123,7 +8123,7 @@ function renderTplLibItemsView(){
         if(it.type==='muscle'){
           return `<button class="role-btn" data-tpllib-item="${i}" style="align-items:flex-start;">
             <div class="ricon">${ICON.plan}</div>
-            <div class="rtext"><div class="rt1">${escHtml(it.groupLabel)}</div><div class="rt2">${escHtml(it.exercise)}</div></div>
+            <div class="rtext"><div class="rt1">${escHtml(tplLabelNow(it.groupLabel))}</div><div class="rt2">${escHtml(it.exercise)}</div></div>
           </button>`;
         }
         return `<button class="role-btn" data-tpllib-item="${i}" style="align-items:flex-start;">
@@ -8155,7 +8155,7 @@ function renderTplLibExerciseView(){
 
   return `
     <div class="auth-back" data-tpllib-back="items">${ICON.back}Πίσω</div>
-    <div style="font-size:11px;color:var(--cyan-soft);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">${escHtml(it.groupLabel)}</div>
+    <div style="font-size:11px;color:var(--cyan-soft);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">${escHtml(tplLabelNow(it.groupLabel))}</div>
     <h2 style="font-size:20px;margin-bottom:14px;">${escHtml(it.exercise)}</h2>
     <div class="panel pad" style="margin-bottom:16px;">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
@@ -8550,6 +8550,15 @@ const CATALOG_BUILTIN = {
   EQUIPMENT_BY_EXERCISE: catClone(EQUIPMENT_BY_EXERCISE),
   GYMS: catClone(GYMS), groupLabels: {}
 };
+const catLabelSame = (a,b)=>String(a||'').replace(/\s+/g,' ').trim() === String(b||'').replace(/\s+/g,' ').trim();
+// Τρέχουσα ετικέτα (π.χ. «ABS - ΚΟΙΛΙΑΚΟΙ») ανά μυϊκή ομάδα, όπως φαίνεται στα Έτοιμα Προγράμματα
+const CATALOG_TPL_LABEL = {};
+TPL_MUSCLE_GROUPS.forEach(l=>{ const g = catalogGroupKeyOfLabel(l); CATALOG_TPL_LABEL[g] = l; CATALOG_BUILTIN.groupLabels[g] = l; });
+// Παλιά αποθηκευμένα προγράμματα κρατούν την ετικέτα της εποχής τους· δείχνουμε πάντα την τρέχουσα.
+function tplLabelNow(label){
+  if(!label || !String(label).includes(' - ')) return label;
+  return CATALOG_TPL_LABEL[catalogGroupKeyOfLabel(label)] || label;
+}
 const CATALOG_BUILTIN_GROUP_DISPLAY = { ...GROUP_DISPLAY };
 // Φωτογραφίες που έχουν ήδη μεταφερθεί από το Wix στο Supabase: το link του Excel (Wix) αντιστοιχίζεται στο νέο.
 const CATALOG_MIGRATED_PHOTOS = new Map();
@@ -8585,10 +8594,19 @@ function applyCatalog(data){
   setList(CALVES_OR_SHOULDERS, uniq([...(groups['ΓΑΜΠΕΣ']||[]), ...(groups['ΩΜΟΙ']||[])]).concat(['ΆΛΛΟ']));
   // Έτοιμα Προγράμματα: ίδιες ασκήσεις, με τις ετικέτες ομάδων του builder
   const covered = new Set();
-  TPL_MUSCLE_GROUPS.forEach(label=>{
+  TPL_MUSCLE_GROUPS.slice().forEach((label, idx)=>{
     const g = catalogGroupKeyOfLabel(label); covered.add(g);
     const list = withOther(groups[g]);
     if(TPL_EXERCISES[label]) setList(TPL_EXERCISES[label], list); else TPL_EXERCISES[label] = list;
+    const nl = (data.groupLabels||{})[g];
+    if(nl && !catLabelSame(nl, label)){            // νέο όνομα ομάδας από το Excel (π.χ. ABS → ABDOMINAL)
+      TPL_MUSCLE_GROUPS[idx] = nl;
+      if(TPL_EXERCISES[nl]) setList(TPL_EXERCISES[nl], list); else TPL_EXERCISES[nl] = TPL_EXERCISES[label]; // η παλιά ετικέτα μένει για τα παλιά προγράμματα
+    }
+  });
+  Object.keys(TPL_EXERCISES).forEach(label=>{        // παλιές ετικέτες που δεν είναι πια στη λίστα: ίδιες ασκήσεις
+    if(TPL_MUSCLE_GROUPS.includes(label)) return;
+    const g = catalogGroupKeyOfLabel(label); if(groups[g]) setList(TPL_EXERCISES[label], withOther(groups[g]));
   });
   Object.keys(groups).forEach(g=>{
     if(covered.has(g)) return;
@@ -8596,6 +8614,7 @@ function applyCatalog(data){
     if(!TPL_MUSCLE_GROUPS.includes(label)) TPL_MUSCLE_GROUPS.push(label);
     TPL_EXERCISES[label] = withOther(groups[g]);
   });
+  TPL_MUSCLE_GROUPS.forEach(l=>{ const g = catalogGroupKeyOfLabel(l); CATALOG_TPL_LABEL[g] = l; GROUP_LABEL_BILINGUAL[g] = l; });
   Object.keys(EQUIPMENT_BY_EXERCISE).forEach(k=>{ delete EQUIPMENT_BY_EXERCISE[k]; });
   Object.entries(data.EQUIPMENT_BY_EXERCISE || {}).forEach(([k,v])=>{ EQUIPMENT_BY_EXERCISE[k] = v; });
   if(Array.isArray(data.GYMS) && data.GYMS.length) setList(GYMS, data.GYMS);
@@ -8606,7 +8625,7 @@ function applyCatalog(data){
 function catalogCurrent(){
   return {
     EXERCISES: Object.fromEntries(Object.entries(EXERCISES).map(([g,l])=>[g, l.filter(x=>x!=='ΆΛΛΟ')]).filter(([,l])=>l.length)),
-    EQUIPMENT_BY_EXERCISE, GYMS
+    EQUIPMENT_BY_EXERCISE, GYMS, groupLabels: { ...CATALOG_TPL_LABEL }
   };
 }
 function catalogCacheRead(){ try{ return JSON.parse(localStorage.getItem(CATALOG_CACHE_KEY) || 'null'); }catch(_){ return null; } }
@@ -8650,11 +8669,15 @@ function catalogSame(a, b){
   return n(a) === n(b);
 }
 function catalogDiff(oldC, newC){
-  const d = { groupsAdded:[], groupsRemoved:[], exAdded:[], exRemoved:[], exMoved:[], eqAdded:[], eqRemoved:[], eqChanged:[], gymsChanged:false };
+  const d = { groupsAdded:[], groupsRemoved:[], groupsRenamed:[], exAdded:[], exRemoved:[], exMoved:[], eqAdded:[], eqRemoved:[], eqChanged:[], gymsChanged:false };
   const groupOf = c=>{ const m = {}; Object.entries(c.EXERCISES).forEach(([g,l])=>l.forEach(x=>{ if(!m[x]) m[x] = g; })); return m; };
   const og = groupOf(oldC), ng = groupOf(newC);
   Object.keys(newC.EXERCISES).forEach(g=>{ if(!oldC.EXERCISES[g]) d.groupsAdded.push(g); });
   Object.keys(oldC.EXERCISES).forEach(g=>{ if(!newC.EXERCISES[g]) d.groupsRemoved.push(g); });
+  Object.entries(newC.groupLabels||{}).forEach(([g, l])=>{
+    const o = (oldC.groupLabels||{})[g];
+    if(o && oldC.EXERCISES[g] && !catLabelSame(o, l)) d.groupsRenamed.push({ g, from: o, to: l });
+  });
   Object.keys(ng).forEach(x=>{ if(!og[x]) d.exAdded.push({ g: ng[x], ex: x }); else if(og[x] !== ng[x]) d.exMoved.push({ ex: x, from: og[x], to: ng[x] }); });
   Object.keys(og).forEach(x=>{ if(!ng[x]) d.exRemoved.push({ g: og[x], ex: x }); });
   const allEx = new Set([...Object.keys(oldC.EQUIPMENT_BY_EXERCISE), ...Object.keys(newC.EQUIPMENT_BY_EXERCISE)]);
@@ -8675,7 +8698,7 @@ function catalogDiff(oldC, newC){
     a.forEach(({k, e})=>{ if(!bKeys.has(k)) d.eqRemoved.push({ ex, name: e.name }); });
   });
   d.gymsChanged = !!newC.GYMS && JSON.stringify(newC.GYMS) !== JSON.stringify(oldC.GYMS);
-  d.total = d.groupsAdded.length + d.groupsRemoved.length + d.exAdded.length + d.exRemoved.length + d.exMoved.length
+  d.total = d.groupsAdded.length + d.groupsRemoved.length + d.groupsRenamed.length + d.exAdded.length + d.exRemoved.length + d.exMoved.length
           + d.eqAdded.length + d.eqRemoved.length + d.eqChanged.length + (d.gymsChanged?1:0);
   return d;
 }
@@ -8745,6 +8768,7 @@ function renderCatalogPreview(p){
     ${d.total === 0 ? `<div class="cat-same">✅ Καμία διαφορά με τον κατάλογο που ισχύει τώρα.</div>` : `
       <div style="font-weight:700;margin:6px 0;">Αλλαγές (${d.total})</div>
       ${catList('Νέες μυϊκές ομάδες', d.groupsAdded, 'new', g=>escHtml(catalogPrettyGroup(p.data.groupLabels[g], g)))}
+      ${catList('Μυϊκές ομάδες με νέο όνομα', d.groupsRenamed, 'chg', x=>`<del>${escHtml(x.from)}</del> → <ins>${escHtml(x.to)}</ins>`)}
       ${catList('Μυϊκές ομάδες που αφαιρούνται', d.groupsRemoved, 'del', g=>escHtml(catGroupName(g)))}
       ${catList('Νέοι τίτλοι ασκήσεων', d.exAdded, 'new', x=>`${escHtml(x.ex)} <small>(${escHtml(catGroupName(x.g) || x.g)})</small>`)}
       ${catList('Τίτλοι ασκήσεων που αφαιρούνται', d.exRemoved, 'del', x=>`${escHtml(x.ex)} <small>(${escHtml(catGroupName(x.g))})</small>`)}
