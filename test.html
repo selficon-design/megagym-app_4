@@ -655,6 +655,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .tpl-gender-switch button:not(.active){opacity:.75;}
 .lbl-all{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
 .apply-all{border:1px solid rgba(255,159,26,.55);background:rgba(255,159,26,.1);color:#ffc465;border-radius:999px;padding:3px 10px;font-size:10.5px;font-weight:700;cursor:pointer;text-transform:none;letter-spacing:0;}
+.apply-all.done{background:#2bd96b;border-color:#2bd96b;color:#06210f;box-shadow:0 0 12px rgba(43,217,107,.55);}
 .apply-all.confirm{background:#ff9f1a;color:#111;}
 .dur-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(255,210,63,.14);color:#ffd23f;font-size:11px;font-weight:700;letter-spacing:0;text-transform:none;white-space:nowrap;}
 .dur-day{display:inline-block;color:#ffd23f;font-size:11.5px;font-weight:600;letter-spacing:0;text-transform:none;}
@@ -2983,7 +2984,7 @@ function setTplGenderView(g){
 // Κλείνει τη φόρμα άσκησης και κρατά στην οθόνη την άσκηση που μόλις διορθώθηκε/προστέθηκε
 function tplCloseItemForm(b, itemIndex){
   const af = b.addForm; b.addForm = null;
-  state.tplApplyAllConfirm = null;
+  state.tplApplyAllConfirm = null; state.tplApplyAllDone = null;
   // πορτοκαλί πλαίσιο στην άσκηση που μόλις αποθηκεύτηκε (μόνο σε αποθήκευση, όχι σε ακύρωση)
   b.lastEdited = (af && itemIndex!=null) ? { di: af.dayIndex, ii: itemIndex } : null;
   renderTplFormArea();
@@ -3080,7 +3081,9 @@ function renderTplItemCard(it, dayIndex, itemIndex, count){
 const TPL_ALL_LABELS = { set:'Set', rep:'Rep', rest:'Διάλειμμα', tempo:'Τέμπο', failure:'Ένταση' };
 function tplApplyAllBtn(key){
   const confirm = state.tplApplyAllConfirm === key;
-  return `<button type="button" class="apply-all ${confirm?'confirm':''}" data-tpl-applyall="${key}">${confirm ? 'Σίγουρα; Πάτα ξανά' : '↻ Σε όλες τις ασκήσεις'}</button>`;
+  const af = state.tplBuilder && state.tplBuilder.addForm;
+  const done = !confirm && state.tplApplyAllDone && Object.prototype.hasOwnProperty.call(state.tplApplyAllDone, key) && af && af[key] === state.tplApplyAllDone[key];
+  return `<button type="button" class="apply-all ${confirm?'confirm':''} ${done?'done':''}" data-tpl-applyall="${key}">${confirm ? 'Σίγουρα; Πάτα ξανά' : (done ? '✓ Έγινε σε όλες' : '↻ Σε όλες τις ασκήσεις')}</button>`;
 }
 function renderTplAddItemForm(af){
   if(af.type==='cardio') return renderTplAddCardioForm(af);
@@ -3281,7 +3284,7 @@ function bindTplBuilderEvents(){
       const it = b.days[di].items[ii];
       if(!it) return;
       b.lastEdited = null;
-      state.tplApplyAllConfirm = null;
+      state.tplApplyAllConfirm = null; state.tplApplyAllDone = null;
       b.addForm = it.type==='cardio'
         ? { dayIndex:di, type:'cardio', equipment:it.equipment, mode:it.mode, speedLow:it.speedLow, speedHigh:it.speedHigh, incline:it.incline, intensity:it.intensity, minutes:it.minutes, drillEveryMinutes:it.drillEveryMinutes, editIndex:ii }
         : { dayIndex:di, type:'muscle', groupLabel:tplLabelNow(it.groupLabel), exercise:it.exercise, customExercise:'', set:it.set, rep:it.rep, rest:it.rest, tempo:it.tempo, failure:it.failure,
@@ -3346,6 +3349,7 @@ function bindTplBuilderEvents(){
       const val = af[key]; let n = 0;
       b.days.forEach(d=>d.items.forEach(it=>{ if(it.type==='muscle'){ if(it[key] !== val) n++; it[key] = val; } }));
       const shown = key==='failure' ? failureLabel(val) : val;
+      state.tplApplyAllDone = { ...(state.tplApplyAllDone||{}), [key]: val };   // πράσινο: εφαρμόστηκε
       renderTplFormArea();
       toast(`${TPL_ALL_LABELS[key]} «${shown}» σε όλες τις ασκήσεις του προγράμματος (${n} άλλαξαν). Θυμήσου «Αποθήκευση Αλλαγών».`);
     }));
