@@ -1271,8 +1271,8 @@ const TPL_TEMPO_OPTIONS = ['0,5-1-0,5','1-1-1','1-2-1','2-2-2','2,5-2,5-2,5'];
    Σύνολο ημέρας = άθροισμα ασκήσεων + αερόβιο,
    και από άσκηση σε άσκηση (αλλαγή μηχανήματος & ρύθμιση) σταθερά 2,5′ αντί για το διάλειμμα.
    Δευτ./επανάληψη = άθροισμα του tempo (π.χ. 0,5-1-0,5 = 2″ → 11 επαναλήψεις = 22″).
-   Αερόβιο = τα λεπτά του. Χωρίς tempo (προγράμματα από το «Νέο Πρόγραμμα») → 1-1-1.          */
-const DEFAULT_TEMPO = '1-1-1';
+   Αερόβιο = τα λεπτά του. Χωρίς tempo (προγράμματα από το «Νέο Πρόγραμμα») → 1-2-1.          */
+const DEFAULT_TEMPO = '1-2-1';   // αρχάριοι· για προχωρημένους 0,5-1-0,5
 const EXERCISE_SETUP_SEC = 10;
 const MACHINE_CHANGE_SEC = 150;   // 2,5 λεπτά από μηχάνημα σε μηχάνημα
 function tempoSecPerRep(t){
@@ -3215,7 +3215,7 @@ function bindTplBuilderEvents(){
       b.lastEdited = null;
       b.addForm = type==='cardio'
         ? { dayIndex:di, type:'cardio', equipment:'', mode:'steady', speedLow:'', speedHigh:'', incline:'', intensity:'', minutes:'', drillEveryMinutes:'', editIndex:null }
-        : { dayIndex:di, type:'muscle', groupLabel:'', exercise:'', customExercise:'', set:4, rep:TPL_REP_OPTIONS[3], rest:TPL_REST_OPTIONS[2], tempo:TPL_TEMPO_OPTIONS[0], failure:0,
+        : { dayIndex:di, type:'muscle', groupLabel:'', exercise:'', customExercise:'', set:4, rep:TPL_REP_OPTIONS[3], rest:TPL_REST_OPTIONS[2], tempo:DEFAULT_TEMPO, failure:0,
             equipment:[], editIndex:null };
       renderTplFormArea();
     });
