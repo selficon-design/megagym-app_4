@@ -653,6 +653,9 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .tpl-gender-switch button.active{border-color:var(--cyan);background:var(--cyan);box-shadow:0 0 18px rgba(61,216,255,.55);color:#04121c;}
 .tpl-gender-switch button.active span{background:rgba(4,18,28,.2);}
 .tpl-gender-switch button:not(.active){opacity:.75;}
+.tpl-sum{display:flex;flex-direction:column;gap:2px;margin:4px 0 6px;font-size:11px;color:var(--cyan-soft);line-height:1.45;}
+.tpl-sum .mono{letter-spacing:.02em;}
+.tpl-sum-dur{color:#ffd23f;font-weight:600;}
 .lbl-all{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
 .apply-all{border:1px solid rgba(255,159,26,.55);background:rgba(255,159,26,.1);color:#ffc465;border-radius:999px;padding:3px 10px;font-size:10.5px;font-weight:700;cursor:pointer;text-transform:none;letter-spacing:0;}
 .apply-all.done{background:#2bd96b;border-color:#2bd96b;color:#06210f;box-shadow:0 0 12px rgba(43,217,107,.55);}
@@ -1327,15 +1330,43 @@ function fmtDur(sec){
   if(hh) return `${hh}ω ${mm}′${ss ? String(ss).padStart(2,'0')+'″' : ''}`;
   return ss ? `${mm}′${String(ss).padStart(2,'0')}″` : `${mm}′`;
 }
-function dayDurationHtml(items){
+function dayDurationParts(items){
   let w = 0, c = 0, n = 0;
   (items||[]).forEach(it=>{ const s = it.type==='cardio' ? cardioDurationSec(it) : exerciseDurationSec(it); if(!s) return; n++; if(it.type==='cardio') c += s; else w += s; });
-  if(!w && !c) return '';
   if(w && n > 1) w += (n-1) * MACHINE_CHANGE_SEC;   // αλλαγές μηχανήματος ανάμεσα στις ασκήσεις (όχι μετά την τελευταία)
+  return { w, c };
+}
+function dayDurationHtml(items){
+  const { w, c } = dayDurationParts(items);
+  if(!w && !c) return '';
   const parts = []; if(w) parts.push('Βάρη '+fmtDur(w)); if(c) parts.push('Αερόβιο '+fmtDur(c));
   return `<span class="dur-day">⏱ ${parts.join(' + ')}${(w && c) ? ` = <b>${fmtDur(w+c)}</b>` : ''}</span>`;
 }
 // Συνολικός χρόνος άσκησης: set + διαλείμματα ανάμεσα στα set (όχι μετά το τελευταίο) + 10″
+// Σύνοψη έτοιμου προγράμματος: Set · Rep · Διάλειμμα · Tempo · Ένταση · διάρκεια ανά ημέρα
+function tplProgramSummary(t){
+  const days = (t && t.data && t.data.days) || [];
+  const mus = days.flatMap(d=>(d.items||[]).filter(it=>it.type==='muscle'));
+  const cardio = days.flatMap(d=>(d.items||[]).filter(it=>it.type==='cardio'));
+  const uniq = (arr, fmt)=>{ const u = [...new Set(arr.filter(v=>v!==undefined && v!==null && v!=='').map(String))]; return u.length ? u.map(fmt||(x=>x)).join(' / ') : ''; };
+  const parts = [];
+  if(mus.length){
+    parts.push(uniq(mus.map(i=>i.set))+' SET');
+    parts.push(uniq(mus.map(i=>i.rep)).replace(/ έως /g,'-')+' REP');
+    parts.push(uniq(mus.map(i=>i.rest)));
+    const tp = uniq(mus.map(i=>i.tempo)); if(tp) parts.push('TEMPO '+tp);
+    parts.push(uniq(mus.map(i=>i.failure==null?0:i.failure), v=>v).replace(/^/,'UNTIL FAILURE '));
+  }
+  if(cardio.length) parts.push('+ ΑΕΡΟΒΙΟ');
+  const secs = days.map(d=>{ const p = dayDurationParts(d.items||[]); return p.w + p.c; }).filter(Boolean);
+  const mn = Math.min(...secs), mx = Math.max(...secs);
+  const durTxt = !secs.length ? '' : (mn===mx ? fmtDur(mn) : `${fmtDur(mn)} – ${fmtDur(mx)}`);
+  return { line: parts.filter(Boolean).join(' · '), dur: durTxt };
+}
+function tplSummaryHtml(t){
+  const s = tplProgramSummary(t); if(!s.line && !s.dur) return '';
+  return `<div class="tpl-sum">${s.line ? `<span class="mono">${escHtml(s.line)}</span>` : ''}${s.dur ? `<span class="tpl-sum-dur">⏱ ανά ημέρα: ${escHtml(s.dur)}</span>` : ''}</div>`;
+}
 function durBadge(it){ const s = itemDurationSec(it); return s ? `<span class="dur-badge">⏱ ${fmtDur(s)}</span>` : ''; }
 const TPL_CARDIO_EQUIPMENT = ['ΔΙΑΔΡΟΜΟΣ','ΕΛΛΕΙΠΤΙΚΟ','ΠΟΔΗΛΑΤΟ ΟΡΘΙΟ','ΠΟΔΗΛΑΤΟ ΚΑΘΙΣΤΟ','ΠΟΔΗΛΑΤΟ SPINNING','ΣΚΑΛΟΠΑΤΙΑ','MEGA WAVE','ΚΩΠΗΛΑΤΙΚΗ','AIR BIKE'];
 const TPL_CARDIO_MINUTES = CARDIO_MINUTES;   // 5, 10, 15 … 90 λεπτά
@@ -3486,6 +3517,7 @@ function renderTplListArea(){
             <div style="font-weight:700;font-size:14px;color:#dffaff;margin-top:2px;">${escHtml(t.name)}</div>
             ${tplCategoryProblem(t) ? `<div style="font-size:11.5px;color:#ffb36b;font-weight:700;margin-top:3px;">⚠️ ${escHtml(tplCategoryProblem(t))} (δεν εμφανίζεται στη βιβλιοθήκη)</div>` : ''}
             <div style="font-size:11.5px;color:var(--ink-soft);margin-top:2px;">${t.num_days} ημέρες · σειρά ${t.sort_order||0} · ${t.is_published ? `<span style="color:#7ef5a0;">ορατό στους πελάτες</span>` : `<span style="color:#ffcf9e;">μόνο στη βιβλιοθήκη</span>`}</div>
+            ${tplSummaryHtml(t)}
             <div style="font-size:10.5px;color:var(--ink-soft);margin-top:2px;">Δημιουργός: ${escHtml(t.created_by_email||'—')}${t.updated_by_email?` · Τελευταία επεξεργασία: ${escHtml(t.updated_by_email)}`:''}</div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -8362,6 +8394,7 @@ function renderTplLibProgramsView(){
         ${tplPhotoBlock(t.photo_url, 'ΦΩΤΟΓΡΑΦΙΑ ΠΡΟΓΡΑΜΜΑΤΟΣ')}
         <div class="pad">
           <div class="set-box" style="margin-bottom:8px;">${t.num_days} ΗΜΕΡΕΣ${(!t.is_published && auth.role==='owner') ? ' · <span style="color:#ffcf9e;">ΠΡΟΣΧΕΔΙΟ</span>':''}</div>
+          ${tplSummaryHtml(t)}
           <h3 style="font-size:16px;margin-bottom:8px;">${escHtml(t.name)}</h3>
           ${t.description ? `<p style="font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin-bottom:12px;">${escNL(t.description)}</p>`:''}
           <button class="btn btn-primary" style="width:100%;justify-content:center;" data-tpllib-program="${escAttr(t.id)}">ΠΛΗΡΟΦΟΡΙΕΣ</button>
@@ -9249,29 +9282,45 @@ resolveAuthState();
   let saved = false; try{ saved = localStorage.getItem(KEY)==='1'; }catch(_){}
   set(saved);
   btn.addEventListener('click', ()=>set(!document.body.classList.contains('hand-mode')));
-  const INTERACTIVE = 'button, a, input, select, textarea, label, summary, video, iframe, [role=button], [contenteditable], [data-tpl-thumb], .role-btn, .kcal-btn, .navitem';
-  const scrollerOf = el=>{
-    for(let n = el; n && n !== document.body; n = n.parentElement){
-      const oy = getComputedStyle(n).overflowY;
-      if((oy==='auto' || oy==='scroll') && n.scrollHeight > n.clientHeight) return n;
-    }
-    return null;
+  // Πιάνει από ΠΑΝΤΟΥ (και πάνω σε κουμπιά/κάρτες): αν το ποντίκι κινηθεί > 4px είναι σύρσιμο και το κλικ ακυρώνεται,
+  // αλλιώς είναι κανονικό κλικ. Μόνο σε πεδία κειμένου/λίστες/βίντεο δεν πιάνει.
+  const NO_GRAB = 'select, video, iframe, input[type=file], input[type=range], #hand-mode-btn, #scroll-top-btn';
+  const TEXTY = 'input, textarea, [contenteditable]';
+  const canScroll = (n, dy)=>{
+    const oy = getComputedStyle(n).overflowY;
+    if(!(oy==='auto' || oy==='scroll') || n.scrollHeight - n.clientHeight < 4) return false;
+    return dy < 0 ? n.scrollTop + n.clientHeight < n.scrollHeight - 1 : n.scrollTop > 0;
   };
-  let drag = null;
+  const scrollBy = (start, dy)=>{   // dy = πόσο κινήθηκε το ποντίκι (θετικό = προς τα κάτω → η σελίδα πάει πάνω)
+    for(let n = start; n && n !== document.body && n !== document.documentElement; n = n.parentElement){
+      if(canScroll(n, dy)){ n.scrollTop -= dy; return; }
+    }
+    window.scrollBy(0, -dy);
+  };
+  let drag = null, swallowClick = false;
   document.addEventListener('mousedown', e=>{
-    if(e.button!==0 || !document.body.classList.contains('hand-mode') || e.target.closest(INTERACTIVE)) return;
-    drag = { y: e.clientY, x: e.clientX, el: scrollerOf(e.target), moved: false };
-    document.body.classList.add('hand-dragging');
-    e.preventDefault();
-  });
+    if(e.button!==0 || !document.body.classList.contains('hand-mode') || e.target.closest(NO_GRAB)) return;
+    drag = { y: e.clientY, startY: e.clientY, target: e.target, active: false };
+    e.preventDefault();   // όχι επιλογή κειμένου / σύρσιμο εικόνας
+  }, true);
   window.addEventListener('mousemove', e=>{
     if(!drag) return;
-    const dy = e.clientY - drag.y, dx = e.clientX - drag.x; drag.y = e.clientY; drag.x = e.clientX;
-    if(dy || dx) drag.moved = true;
-    if(drag.el){ drag.el.scrollTop -= dy; drag.el.scrollLeft -= dx; } else window.scrollBy(0, -dy);
-  });
-  const end = ()=>{ if(!drag) return; drag = null; document.body.classList.remove('hand-dragging'); };
-  window.addEventListener('mouseup', end); window.addEventListener('blur', end);
+    if(!drag.active){
+      if(Math.abs(e.clientY - drag.startY) < 4) return;
+      drag.active = true; document.body.classList.add('hand-dragging');
+    }
+    const dy = e.clientY - drag.y; drag.y = e.clientY;
+    if(dy) scrollBy(drag.target, dy);
+    e.preventDefault();
+  }, { passive:false });
+  const end = ()=>{
+    if(!drag) return;
+    if(drag.active){ swallowClick = true; setTimeout(()=>{ swallowClick = false; }, 0); }
+    else { const tx = drag.target.closest && drag.target.closest(TEXTY); if(tx && !/^(checkbox|radio|button|submit)$/.test(tx.type||'')) tx.focus(); }   // απλό κλικ σε πεδίο → γράφεις κανονικά
+    drag = null; document.body.classList.remove('hand-dragging');
+  };
+  window.addEventListener('mouseup', end, true); window.addEventListener('blur', end);
+  document.addEventListener('click', e=>{ if(swallowClick){ e.preventDefault(); e.stopPropagation(); swallowClick = false; } }, true);
 })();
 (function initScrollTopBtn(){
   const btn = document.getElementById('scroll-top-btn');
