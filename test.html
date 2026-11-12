@@ -1267,11 +1267,13 @@ const TPL_REST_OPTIONS = ['60sec','90sec','120sec','150sec','180sec','240sec'];
 const TPL_TEMPO_OPTIONS = ['0,5-1-0,5','1-1-1','1-2-1','2-2-2','2,5-2,5-2,5'];
 /* ---------- Διάρκεια προγράμματος ----------
    Χρόνος άσκησης (δείχνεται σε κάθε άσκηση) = Set × μέσος όρος επαναλήψεων × δευτ./επανάληψη.
-   Στο σύνολο της ημέρας κάθε άσκηση μετράει: χρόνος άσκησης + Set × (διάλειμμα × 2) + 10″ καθυστέρηση.
+   Στο σύνολο της ημέρας κάθε άσκηση μετράει: χρόνος άσκησης + (Set−1) × διάλειμμα + 10″ καθυστέρηση,
+   και από άσκηση σε άσκηση (αλλαγή μηχανήματος & ρύθμιση) σταθερά 2,5′ αντί για το διάλειμμα.
    Δευτ./επανάληψη = άθροισμα του tempo (π.χ. 0,5-1-0,5 = 2″ → 11 επαναλήψεις = 22″).
    Αερόβιο = τα λεπτά του. Χωρίς tempo (προγράμματα από το «Νέο Πρόγραμμα») → 1-1-1.          */
 const DEFAULT_TEMPO = '1-1-1';
 const EXERCISE_SETUP_SEC = 10;
+const MACHINE_CHANGE_SEC = 150;   // 2,5 λεπτά από μηχάνημα σε μηχάνημα
 function tempoSecPerRep(t){
   const p = String(t||DEFAULT_TEMPO).split('-').map(x=>parseFloat(String(x).replace(',','.'))).filter(n=>!isNaN(n));
   return p.length ? p.reduce((a,b)=>a+b, 0) : 3;
@@ -1289,9 +1291,9 @@ function exerciseWorkSec(it){
   const sets = parseInt(it && it.set) || 0;
   return sets ? Math.round(sets * repsAvg(it.rep) * tempoSecPerRep(it.tempo)) : 0;
 }
-function exerciseDurationSec(it){   // με διαλείμματα (×2) και καθυστέρηση — για το σύνολο
+function exerciseDurationSec(it){   // με τα διαλείμματα ανάμεσα στα set και την καθυστέρηση — για το σύνολο
   const sets = parseInt(it && it.set) || 0; if(!sets) return 0;
-  return exerciseWorkSec(it) + Math.round(sets * restSec(it.rest) * 2) + EXERCISE_SETUP_SEC;
+  return exerciseWorkSec(it) + Math.round((sets-1) * restSec(it.rest)) + EXERCISE_SETUP_SEC;
 }
 function cardioDurationSec(it){ return Math.round((parseFloat(String(it && it.minutes || '').replace(',','.')) || 0) * 60); }
 function itemDurationSec(it){ return it && it.type==='cardio' ? cardioDurationSec(it) : exerciseDurationSec(it); }
@@ -1301,8 +1303,10 @@ function fmtDur(sec){
   return ss ? `${mm}′${String(ss).padStart(2,'0')}″` : `${mm}′`;
 }
 function dayDurationHtml(items){
-  let w = 0, c = 0; (items||[]).forEach(it=>{ if(it.type==='cardio') c += cardioDurationSec(it); else if(it.type==='muscle' || it.exercise) w += exerciseDurationSec(it); });
+  let w = 0, c = 0, n = 0;
+  (items||[]).forEach(it=>{ const s = it.type==='cardio' ? cardioDurationSec(it) : exerciseDurationSec(it); if(!s) return; n++; if(it.type==='cardio') c += s; else w += s; });
   if(!w && !c) return '';
+  if(w && n > 1) w += (n-1) * MACHINE_CHANGE_SEC;   // αλλαγές μηχανήματος ανάμεσα στις ασκήσεις (όχι μετά την τελευταία)
   const parts = []; if(w) parts.push('Βάρη '+fmtDur(w)); if(c) parts.push('Αερόβιο '+fmtDur(c));
   return `<span class="dur-day">⏱ ${parts.join(' + ')}${(w && c) ? ` = <b>${fmtDur(w+c)}</b>` : ''}</span>`;
 }
