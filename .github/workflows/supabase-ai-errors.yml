@@ -17,7 +17,7 @@ jobs:
           T=$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]'); echo "::add-mask::$T"
           SQL="select timestamp, event_message from function_logs where event_message like '%Anthropic%' order by timestamp desc limit 6"
           START=$(date -u -d '-6 hours' +%Y-%m-%dT%H:%M:%SZ); END=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          curl -sS -G "https://api.supabase.com/v1/projects/$PROJECT_REF/analytics/endpoints/logs.all" \
+          curl -sS -G "https://api.supabase.com/v1/projects/$PROJECT_REF/analytics/endpoints/logs" \
             -H "Authorization: Bearer $T" --data-urlencode "sql=$SQL" \
             --data-urlencode "iso_timestamp_start=$START" --data-urlencode "iso_timestamp_end=$END" > out.json
           python3 - <<'PY'
