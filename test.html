@@ -661,6 +661,11 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .tpl-gender-switch button.active{border-color:var(--cyan);background:var(--cyan);box-shadow:0 0 18px rgba(61,216,255,.55);color:#04121c;}
 .tpl-gender-switch button.active span{background:rgba(4,18,28,.2);}
 .tpl-gender-switch button:not(.active){opacity:.75;}
+.tpl-group{margin:6px 0 18px;}
+.tpl-group-h{font-weight:800;font-size:13px;letter-spacing:.06em;color:#dffaff;padding:8px 2px;border-bottom:1px solid rgba(61,216,255,.25);margin-bottom:8px;}
+.tpl-group-h span, .tpl-sub-h span{display:inline-block;margin-left:6px;padding:0 8px;border-radius:999px;background:rgba(61,216,255,.15);font-size:11px;color:var(--cyan-soft);}
+.tpl-sub-h{font-weight:700;font-size:12px;color:var(--cyan-soft);margin:10px 2px 8px;padding-left:10px;border-left:3px solid var(--cyan);}
+.tpl-empty{font-size:12px;color:var(--ink-soft);font-style:italic;margin:0 0 10px 13px;}
 .tpl-flow{font-size:11.5px;color:#bdf3ff;margin:2px 0 4px;}
 .tpl-flow b{color:#fff;}
 .tpl-sum{display:flex;flex-direction:column;gap:2px;margin:4px 0 6px;font-size:11px;color:var(--cyan-soft);line-height:1.45;}
@@ -1405,7 +1410,9 @@ const TPL_CARDIO_MINUTES = CARDIO_MINUTES;   // 5, 10, 15 … 90 λεπτά
 const TPL_GENDERS = ['ΑΝΔΡΕΣ','ΓΥΝΑΙΚΕΣ'];
 /* Κατηγορίες/Υποκατηγορίες προγραμμάτων — από το φύλλο "ΚΑΤΗΓΟΡΙΕΣ ΠΡΟΓΡΑΜΜΑΤΩΝ" */
 // Υποκατηγορίες «Αύξηση μυϊκού ιστού» ανά φύλο (μέσω tplSubsFor)
-const TPL_MUSCLE_SUBS = { 'ΑΝΔΡΕΣ': ['ΓΕΝΙΚΟ','ΕΜΦΑΣΗ ΣΤΟ ΠΑΝΩ ΣΩΜΑ'], 'ΓΥΝΑΙΚΕΣ': ['ΓΕΝΙΚΟ','ΕΜΦΑΣΗ ΣΤΟ ΚΑΤΩ ΣΩΜΑ'] };
+const TPL_MUSCLE_SUBS = { 'ΑΝΔΡΕΣ': ['ΓΥΜΝΑΖΕΙ ΟΛΟ ΤΟ ΣΩΜΑ','ΜΕ ΕΜΦΑΣΗ ΣΤΟ ΠΑΝΩ ΜΕΡΟΣ ΤΟΥ ΣΩΜΑΤΟΣ'], 'ΓΥΝΑΙΚΕΣ': ['ΓΥΜΝΑΖΕΙ ΟΛΟ ΤΟ ΣΩΜΑ','ΜΕ ΕΜΦΑΣΗ ΣΤΟ ΚΑΤΩ ΜΕΡΟΣ ΤΟΥ ΣΩΜΑΤΟΣ'] };
+// παλιά ονόματα → νέα (ίδια κατηγορία)
+const TPL_SUB_RENAMES = { 'ΓΕΝΙΚΟ':'ΓΥΜΝΑΖΕΙ ΟΛΟ ΤΟ ΣΩΜΑ', 'ΕΜΦΑΣΗ ΣΤΟ ΠΑΝΩ ΣΩΜΑ':'ΜΕ ΕΜΦΑΣΗ ΣΤΟ ΠΑΝΩ ΜΕΡΟΣ ΤΟΥ ΣΩΜΑΤΟΣ', 'ΕΜΦΑΣΗ ΣΤΟ ΚΑΤΩ ΣΩΜΑ':'ΜΕ ΕΜΦΑΣΗ ΣΤΟ ΚΑΤΩ ΜΕΡΟΣ ΤΟΥ ΣΩΜΑΤΟΣ' };
 function tplSubsFor(top, gender){
   if(top==='ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ') return TPL_MUSCLE_SUBS[gender] || TPL_MUSCLE_SUBS['ΑΝΔΡΕΣ'];
   return TPL_CATEGORIES[top] || [];
@@ -2235,7 +2242,7 @@ async function loadTemplatePrograms(){
   await catsP;
   if(error){ console.error(error); return []; }
   // Παλιά «Αύξηση μυϊκού ιστού» χωρίς υποκατηγορία (π.χ. αποθηκευμένα από την παλιά έκδοση) → «ΓΕΝΙΚΟ»
-  (data||[]).forEach(t=>{ if(t.top_category==='ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ' && !t.sub_category) t.sub_category = 'ΓΕΝΙΚΟ'; });
+  (data||[]).forEach(t=>{ if(t.top_category==='ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ'){ if(!t.sub_category) t.sub_category = 'ΓΥΜΝΑΖΕΙ ΟΛΟ ΤΟ ΣΩΜΑ'; else if(TPL_SUB_RENAMES[t.sub_category]) t.sub_category = TPL_SUB_RENAMES[t.sub_category]; } });
   return data||[];
 }
 async function saveTemplateProgram(row){
@@ -3565,15 +3572,8 @@ async function submitTplProgram(){
   }
 }
 
-function renderTplListArea(){
-  const area = document.getElementById('tpl-list-area');
-  if(!area) return;
-  const gv = state.tplGenderView || 'ΑΝΔΡΕΣ';
-  const list = state.tplTemplates.filter(t=>t.gender===gv);
-  area.innerHTML = `
-    <div class="section-title"><span class="dot"></span>Αποθηκευμένα Έτοιμα Προγράμματα — ${escHtml(gv)} (${list.length})</div>
-    ${list.length===0 ? `<div class="empty" style="padding:20px 0;"><p>Δεν υπάρχουν ακόμα έτοιμα προγράμματα για ${gv==='ΓΥΝΑΙΚΕΣ'?'γυναίκες':'άνδρες'}. Φτιάξε το πρώτο από τη φόρμα παραπάνω.</p></div>` :
-      list.map(t=>`
+function tplListCardHtml(t){
+  return `
         <div class="tl-card ${state.tplHighlightId===t.id?'tpl-hl':''}" style="margin-bottom:10px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
           ${t.photo_url ? `<img class="tpl-thumb" src="${escAttr(t.photo_url)}" alt="" loading="lazy" data-tpl-thumb="${escAttr(t.photo_url)}" title="Μεγέθυνση">` : `<div class="tpl-thumb empty">χωρίς<br>φωτογραφία</div>`}
           <div style="flex:1;min-width:180px;">
@@ -3599,8 +3599,35 @@ function renderTplListArea(){
             <div style="display:flex;gap:8px;"><button class="btn btn-primary" id="tpl-dup-ok" style="padding:7px 12px;font-size:12px;">Δημιουργία αντιγράφου</button><button class="btn btn-outline" id="tpl-dup-cancel" style="padding:7px 12px;font-size:12px;">Ακύρωση</button></div>
           </div>`:''}
         </div>
-      `).join('')
-    }`;
+`;
+}
+// Λίστα ομαδοποιημένη ανά κατηγορία → υποκατηγορία (όπως τη βλέπει ο πελάτης), μαζί με τις άδειες
+function tplGroupedListHtml(gender, list){
+  const order = (a,b)=>(a.sort_order||0)-(b.sort_order||0) || String(a.created_at||'').localeCompare(String(b.created_at||''));
+  const known = new Set();
+  let html = Object.keys(TPL_CATEGORIES).map(top=>{
+    const subs = tplSubsFor(top, gender);
+    const groups = subs.length ? subs.map(sub=>({ sub, items: list.filter(t=>t.top_category===top && (t.sub_category||'')===sub) })) : [{ sub:'', items: list.filter(t=>t.top_category===top) }];
+    groups.forEach(g=>g.items.forEach(t=>known.add(t.id)));
+    const n = groups.reduce((s,g)=>s+g.items.length, 0);
+    return `<div class="tpl-group">
+      <div class="tpl-group-h">${escHtml(top)} <span>${n}</span></div>
+      ${groups.map(g=>`${g.sub ? `<div class="tpl-sub-h">${escHtml(g.sub)} <span>${g.items.length}</span></div>` : ''}
+        ${g.items.length ? g.items.sort(order).map(tplListCardHtml).join('') : `<div class="tpl-empty">Κανένα πρόγραμμα ακόμα σε αυτή την κατηγορία.</div>`}`).join('')}
+    </div>`;
+  }).join('');
+  const other = list.filter(t=>!known.has(t.id));
+  if(other.length) html += `<div class="tpl-group"><div class="tpl-group-h" style="color:#ff9f1a;">ΧΩΡΙΣ ΣΩΣΤΗ ΚΑΤΗΓΟΡΙΑ <span>${other.length}</span></div>${other.sort(order).map(tplListCardHtml).join('')}</div>`;
+  return html;
+}
+function renderTplListArea(){
+  const area = document.getElementById('tpl-list-area');
+  if(!area) return;
+  const gv = state.tplGenderView || 'ΑΝΔΡΕΣ';
+  const list = state.tplTemplates.filter(t=>t.gender===gv);
+  area.innerHTML = `
+    <div class="section-title"><span class="dot"></span>Αποθηκευμένα Έτοιμα Προγράμματα — ${escHtml(gv)} (${list.length})</div>
+    ${tplGroupedListHtml(gv, list)}`;
   document.querySelectorAll('[data-tpl-thumb]').forEach(el=>el.addEventListener('click', ()=>openLightbox('photo', el.getAttribute('data-tpl-thumb'))));
   document.querySelectorAll('[data-tpl-preview]').forEach(el=>el.addEventListener('click', ()=>{
     state.tplLibJump = el.getAttribute('data-tpl-preview');
