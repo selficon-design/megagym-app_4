@@ -770,6 +770,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .apply-all.done{background:#2bd96b;border-color:#2bd96b;color:#06210f;box-shadow:0 0 12px rgba(43,217,107,.55);}
 .apply-all.confirm{background:#ff9f1a;color:#111;}
 .dur-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(255,210,63,.14);color:#ffd23f;font-size:11px;font-weight:700;letter-spacing:0;text-transform:none;white-space:nowrap;}
+.dur-break{padding:6px 20px 0;font-size:10.5px;color:#cbb46a;}
+.dur-break b{color:#ffd23f;}
 .dur-day{display:inline-block;color:#ffd23f;font-size:11.5px;font-weight:600;letter-spacing:0;text-transform:none;}
 .dur-day b{color:#fff3b0;}
 .cardio-neon{border:2px solid #39ff14 !important;box-shadow:0 0 0 1px #39ff14, 0 0 16px rgba(57,255,20,.55), inset 0 0 10px rgba(57,255,20,.12) !important;}
@@ -1445,6 +1447,24 @@ function dayDurationParts(items){
   (items||[]).forEach(it=>{ const s = it.type==='cardio' ? cardioDurationSec(it) : exerciseDurationSec(it); if(!s) return; n++; if(it.type==='cardio') c += s; else w += s; });
   if(w && n > 1) w += (n-1) * MACHINE_CHANGE_SEC;   // αλλαγές μηχανήματος ανάμεσα στις ασκήσεις (όχι μετά την τελευταία)
   return { w, c };
+}
+// Ανάλυση χρόνου ημέρας (για έλεγχο): δουλειά · διαλείμματα · καθυστερήσεις · αλλαγές μηχανήματος · αερόβιο
+function dayDurationBreakdown(items){
+  let work = 0, rest = 0, delay = 0, cardio = 0, n = 0, ex = 0;
+  (items||[]).forEach(it=>{
+    if(it.type==='cardio'){ const s = cardioDurationSec(it); if(s){ cardio += s; n++; } return; }
+    const sets = parseInt(it.set)||0; if(!sets) return;
+    work += exerciseWorkSec(it); rest += Math.round((sets-1)*restSec(it.rest)); delay += EXERCISE_SETUP_SEC; n++; ex++;
+  });
+  const change = (ex && n>1) ? (n-1)*MACHINE_CHANGE_SEC : 0;
+  if(!work && !cardio) return '';
+  const p = [];
+  if(work) p.push(`set ${fmtDur(work)}`);
+  if(rest) p.push(`διαλείμματα ${fmtDur(rest)}`);
+  if(delay) p.push(`καθυστέρηση ${ex}×10″`);
+  if(change) p.push(`αλλαγές μηχανήματος ${n-1}×2,5′ = ${fmtDur(change)}`);
+  if(cardio) p.push(`αερόβιο ${fmtDur(cardio)}`);
+  return `<div class="dur-break">${p.join(' + ')} = <b>${fmtDur(work+rest+delay+change+cardio)}</b></div>`;
 }
 function dayDurationHtml(items){
   const { w, c } = dayDurationParts(items);
@@ -3247,6 +3267,7 @@ function renderTplDaysEditor(b){
             <div class="tag"><span class="tpl-day-caret">${closed?'▸':'▾'}</span><div class="day-num">${di+1}</div><h3>${escHtml(day.label)}</h3></div>
             <div class="count">${day.items.length} στοιχεία ${dayDurationHtml(day.items)}</div>
           </div>
+          ${dayDurationBreakdown(day.items)}
           ${closed ? `<div class="tpl-day-sum">${escHtml(day.items.map(it=>it.type==='cardio' ? '🏃 '+(it.equipment||'Αερόβιο') : tplLabelNow(it.groupLabel)).join(' · ') || 'Χωρίς ασκήσεις')}</div>` : `
           <div style="padding:16px 20px;">
             ${day.items.length===0 ? `<div style="color:var(--ink-soft);font-size:12.5px;margin-bottom:10px;">Δεν έχεις προσθέσει ακόμα τίποτα σε αυτή την ημέρα.</div>` :
