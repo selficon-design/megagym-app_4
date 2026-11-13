@@ -655,22 +655,19 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .eqm-n{font-size:13.5px;font-weight:600;color:#dffaff;}
 .eqm-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
 .eqm-act .btn{padding:6px 10px;font-size:11px;}
-.tpl-gender-switch{display:flex;gap:10px;margin:0 0 18px;}
-.tpl-gender-switch button{flex:1;max-width:240px;padding:12px 16px;border-radius:14px;border:2px solid var(--line-strong);background:rgba(13,31,48,.5);color:var(--ink);font-weight:800;font-size:14px;letter-spacing:.04em;cursor:pointer;}
-.tpl-gender-switch button span{display:inline-block;margin-left:6px;padding:0 8px;border-radius:999px;background:rgba(61,216,255,.15);font-size:12px;}
-.tpl-gender-switch button.active{border-color:var(--cyan);background:var(--cyan);box-shadow:0 0 18px rgba(61,216,255,.55);color:#04121c;}
+.tpl-gender-switch{display:flex;flex-direction:column;gap:10px;margin:0 0 18px;}
+.tpl-cat-row{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line-strong);border-radius:14px;background:rgba(13,31,48,.45);}
+.tpl-cat-g{font-weight:800;font-size:14px;letter-spacing:.05em;color:#dffaff;min-width:110px;padding-top:20px;}
+.tpl-cat-btns{display:flex;gap:16px;flex-wrap:wrap;flex:1;}
+.tpl-cat-toplbl{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--cyan-soft);margin-bottom:5px;}
+.tpl-cat-list{display:flex;gap:6px;flex-wrap:wrap;}
+.tpl-gender-switch button{padding:9px 12px;border-radius:12px;border:2px solid var(--line-strong);background:rgba(3,11,18,.5);color:var(--ink);font-weight:700;font-size:12px;cursor:pointer;opacity:.8;}
+.tpl-gender-switch button span{display:inline-block;margin-left:5px;padding:0 7px;border-radius:999px;background:rgba(61,216,255,.15);font-size:11px;}
+.tpl-gender-switch button.active{opacity:1;border-color:var(--cyan);background:var(--cyan);color:#04121c;box-shadow:0 0 16px rgba(61,216,255,.55);}
 .tpl-gender-switch button.active span{background:rgba(4,18,28,.2);}
-.tpl-gender-switch button:not(.active){opacity:.75;}
-.tpl-group{margin:6px 0 18px;}
-.tpl-group-h{font-weight:800;font-size:13px;letter-spacing:.06em;color:#dffaff;padding:8px 2px;border-bottom:1px solid rgba(61,216,255,.25);margin-bottom:8px;}
-.tpl-group-h span, .tpl-sub-h span{display:inline-block;margin-left:6px;padding:0 8px;border-radius:999px;background:rgba(61,216,255,.15);font-size:11px;color:var(--cyan-soft);}
-.tpl-sub-h{font-weight:700;font-size:12px;color:var(--cyan-soft);margin:10px 2px 8px;padding-left:10px;border-left:3px solid var(--cyan);}
-.tpl-empty{font-size:12px;color:var(--ink-soft);font-style:italic;margin:0 0 10px 13px;}
-.tpl-flow{font-size:11.5px;color:#bdf3ff;margin:2px 0 4px;}
-.tpl-flow b{color:#fff;}
-.tpl-sum{display:flex;flex-direction:column;gap:2px;margin:4px 0 6px;font-size:11px;color:var(--cyan-soft);line-height:1.45;}
-.tpl-sum .mono{letter-spacing:.02em;}
-.tpl-sum-dur{color:#ffd23f;font-weight:600;}
+.tpl-gender-switch button.orphan{border-color:#ff9f1a;color:#ffc465;}
+.tpl-gender-switch button.orphan.active{background:#ff9f1a;color:#111;}
+@media (max-width:640px){ .tpl-cat-g{padding-top:0;min-width:0;width:100%;} }
 .lbl-all{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
 .apply-all{border:1px solid rgba(255,159,26,.55);background:rgba(255,159,26,.1);color:#ffc465;border-radius:999px;padding:3px 10px;font-size:10.5px;font-weight:700;cursor:pointer;text-transform:none;letter-spacing:0;}
 .apply-all.done{background:#2bd96b;border-color:#2bd96b;color:#06210f;box-shadow:0 0 12px rgba(43,217,107,.55);}
@@ -1918,7 +1915,7 @@ function loadTemplateIntoBuilder(t){
     addForm: null, lastEdited: null,
   };
   state.tplHighlightId = t.id;   // πορτοκαλί πλαίσιο στο πρόγραμμα της λίστας που επεξεργάζεσαι
-  if(t.gender && state.tplGenderView !== t.gender){ state.tplGenderView = t.gender; renderTplGenderSwitch(); }
+  { const k = tplCatOf(t) || 'orphans'; if(state.tplCatView !== k){ state.tplCatView = k; state.tplGenderView = t.gender; renderTplGenderSwitch(); if(document.getElementById('tpl-list-area')) renderTplListArea(); } }
   renderTplFormArea();
   if(document.getElementById('tpl-list-area')) renderTplListArea();
   document.getElementById('tpl-form-area')?.scrollIntoView({behavior:'smooth', block:'start'});
@@ -3034,7 +3031,8 @@ async function renderTplBuilderTab(){
     <div id="tpl-form-area"></div>
     <div class="panel pad" id="tpl-list-area" style="margin-top:24px;">Φόρτωση αποθηκευμένων προγραμμάτων...</div>
   `;
-  if(!state.tplGenderView) state.tplGenderView = state.tplBuilder.gender || 'ΑΝΔΡΕΣ';
+  if(!state.tplCatView){ const c = tplAllCats()[0]; state.tplCatView = tplCatKey(c.g, c.top, c.sub); state.tplGenderView = c.g; }
+  { const b = state.tplBuilder; if(b && !b.id && !b.topCategory && state.tplCatView!=='orphans'){ const [g, top, sub] = state.tplCatView.split('|'); b.gender = g; b.topCategory = top; b.subCategory = sub || ''; } }
   renderTplGenderSwitch();
   renderTplFormArea();
   const list = await loadTemplatePrograms();
@@ -3043,22 +3041,63 @@ async function renderTplBuilderTab(){
   renderTplGenderSwitch();
   renderTplListArea();
 }
-// Κεντρικός διακόπτης Άνδρες / Γυναίκες: φιλτράρει τη λίστα και ορίζει το φύλο του νέου προγράμματος
+// Κεντρικά κουμπιά κατηγοριών (φύλο · κατηγορία · υποκατηγορία). Βγαίνουν από τη λίστα κατηγοριών,
+// άρα αν προστεθούν νέες (π.χ. 6 αντί για 4) εμφανίζονται μόνες τους.
+function tplCatKey(g, top, sub){ return [g, top, sub||''].join('|'); }
+function tplAllCats(){
+  const out = [];
+  TPL_GENDERS.forEach(g=>Object.keys(TPL_CATEGORIES).forEach(top=>{
+    const subs = tplSubsFor(top, g);
+    if(subs.length) subs.forEach(sub=>out.push({ g, top, sub })); else out.push({ g, top, sub:'' });
+  }));
+  return out;
+}
+function tplCatOf(t){
+  const subs = tplSubsFor(t.top_category, t.gender);
+  if(!Object.prototype.hasOwnProperty.call(TPL_CATEGORIES, t.top_category||'')) return null;
+  if(subs.length && !subs.includes(t.sub_category)) return null;
+  return tplCatKey(t.gender, t.top_category, subs.length ? t.sub_category : '');
+}
+function tplShortSub(top, sub){
+  if(!sub) return top;
+  return sub.replace(/^ΚΑΥΣΗ ΛΙΠΟΥΣ /,'').replace(/ ΤΟΥ ΣΩΜΑΤΟΣ$/,'');
+}
 function renderTplGenderSwitch(){
   const box = document.getElementById('tpl-gender-switch'); if(!box) return;
   const list = state.tplTemplates || [];
-  box.innerHTML = TPL_GENDERS.map(g=>{
-    const n = list.filter(t=>t.gender===g).length;
-    return `<button type="button" class="${state.tplGenderView===g?'active':''}" data-tpl-genderview="${g}">${g==='ΑΝΔΡΕΣ'?'♂':'♀'} ${g}${state.tplTemplatesLoaded?` <span>${n}</span>`:''}</button>`;
-  }).join('');
-  box.querySelectorAll('[data-tpl-genderview]').forEach(el=>el.addEventListener('click', ()=>setTplGenderView(el.getAttribute('data-tpl-genderview'))));
+  const count = {}; let orphans = 0;
+  list.forEach(t=>{ const k = tplCatOf(t); if(k) count[k] = (count[k]||0)+1; else orphans++; });
+  const cats = tplAllCats();
+  box.innerHTML = TPL_GENDERS.map(g=>`
+    <div class="tpl-cat-row">
+      <div class="tpl-cat-g">${g==='ΑΝΔΡΕΣ'?'♂':'♀'} ${g}</div>
+      <div class="tpl-cat-btns">
+        ${Object.keys(TPL_CATEGORIES).map(top=>{
+          const mine = cats.filter(c=>c.g===g && c.top===top);
+          return `<div class="tpl-cat-top"><div class="tpl-cat-toplbl">${escHtml(top)}</div><div class="tpl-cat-list">
+            ${mine.map(c=>{ const k = tplCatKey(c.g, c.top, c.sub);
+              return `<button type="button" class="${state.tplCatView===k?'active':''}" data-tpl-catview="${escAttr(k)}">${escHtml(tplShortSub(c.top, c.sub))}${state.tplTemplatesLoaded?` <span>${count[k]||0}</span>`:''}</button>`; }).join('')}
+          </div></div>`; }).join('')}
+      </div>
+    </div>`).join('') + (orphans ? `<div class="tpl-cat-row"><div class="tpl-cat-btns"><button type="button" class="orphan ${state.tplCatView==='orphans'?'active':''}" data-tpl-catview="orphans">⚠️ Χωρίς σωστή κατηγορία <span>${orphans}</span></button></div></div>` : '');
+  box.querySelectorAll('[data-tpl-catview]').forEach(el=>el.addEventListener('click', ()=>setTplCatView(el.getAttribute('data-tpl-catview'))));
 }
-function setTplGenderView(g){
-  state.tplGenderView = g;
-  const b = state.tplBuilder;
-  if(b && !b.id && b.gender !== g){ b.gender = g; renderTplFormArea(); }   // νέο πρόγραμμα → παίρνει το φύλο της προβολής
+function setTplCatView(k){
+  state.tplCatView = k;
+  if(k !== 'orphans'){
+    const [g, top, sub] = k.split('|');
+    state.tplGenderView = g;
+    const b = state.tplBuilder;
+    if(b && !b.id){ b.gender = g; b.topCategory = top; b.subCategory = sub || ''; renderTplFormArea(); }   // νέο πρόγραμμα → παίρνει αυτή την κατηγορία
+  }
   renderTplGenderSwitch();
   renderTplListArea();
+}
+function setTplGenderView(g){   // από το κουμπί φύλου μέσα στη φόρμα
+  const first = tplAllCats().find(c=>c.g===g);
+  const cur = (state.tplCatView||'').split('|');
+  const same = tplAllCats().find(c=>c.g===g && c.top===cur[1] && c.sub===cur[2]);
+  setTplCatView(tplCatKey(g, (same||first).top, (same||first).sub));
 }
 
 // Κλείνει τη φόρμα άσκησης και κρατά στην οθόνη την άσκηση που μόλις διορθώθηκε/προστέθηκε
@@ -3353,7 +3392,7 @@ function bindTplBuilderEvents(){
   const topcatSel = document.getElementById('tpl-topcat');
   if(topcatSel) topcatSel.addEventListener('change', ()=>{ b.topCategory = topcatSel.value; b.subCategory=''; renderTplFormArea(); });
   const subcatSel = document.getElementById('tpl-subcat');
-  if(subcatSel) subcatSel.addEventListener('change', ()=>{ b.subCategory = subcatSel.value; });
+  if(subcatSel) subcatSel.addEventListener('change', ()=>{ b.subCategory = subcatSel.value; if(!b.id){ state.tplCatView = tplCatKey(b.gender, b.topCategory, b.subCategory); renderTplGenderSwitch(); renderTplListArea(); } });
   bindText('tpl-topcatphoto','topCategoryPhoto');
   bindText('tpl-name','name'); bindText('tpl-photo','photo');
   bindLibUploadButtons((inputId, url)=>{ if(inputId==='tpl-photo'){ const pv = document.getElementById('tpl-photo-prev'); if(pv) pv.innerHTML = `<img src="${escAttr(url)}" alt="">`; } });
@@ -3623,11 +3662,15 @@ function tplGroupedListHtml(gender, list){
 function renderTplListArea(){
   const area = document.getElementById('tpl-list-area');
   if(!area) return;
-  const gv = state.tplGenderView || 'ΑΝΔΡΕΣ';
-  const list = state.tplTemplates.filter(t=>t.gender===gv);
+  const k = state.tplCatView || '';
+  const order = (a,b)=>(a.sort_order||0)-(b.sort_order||0) || String(a.created_at||'').localeCompare(String(b.created_at||''));
+  const list = state.tplTemplates.filter(t=> k==='orphans' ? !tplCatOf(t) : tplCatOf(t)===k).sort(order);
+  const [g, top, sub] = k.split('|');
+  const title = k==='orphans' ? 'Χωρίς σωστή κατηγορία' : `${g} · ${top}${sub?' · '+sub:''}`;
   area.innerHTML = `
-    <div class="section-title"><span class="dot"></span>Αποθηκευμένα Έτοιμα Προγράμματα — ${escHtml(gv)} (${list.length})</div>
-    ${tplGroupedListHtml(gv, list)}`;
+    <div class="section-title"><span class="dot"></span>Αποθηκευμένα Έτοιμα Προγράμματα (${list.length})</div>
+    <div class="tpl-sub-h" style="margin-top:0;">${escHtml(title)}</div>
+    ${list.length ? list.map(tplListCardHtml).join('') : `<div class="tpl-empty">Κανένα πρόγραμμα ακόμα σε αυτή την κατηγορία. Η φόρμα παραπάνω είναι ήδη ρυθμισμένη σε αυτήν — φτιάξε το πρώτο.</div>`}`;
   document.querySelectorAll('[data-tpl-thumb]').forEach(el=>el.addEventListener('click', ()=>openLightbox('photo', el.getAttribute('data-tpl-thumb'))));
   document.querySelectorAll('[data-tpl-preview]').forEach(el=>el.addEventListener('click', ()=>{
     state.tplLibJump = el.getAttribute('data-tpl-preview');
