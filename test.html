@@ -9828,7 +9828,8 @@ function tplQuickSave(){
   btn.addEventListener('click', ()=>set(!document.body.classList.contains('hand-mode')));
   // Πιάνει από ΠΑΝΤΟΥ (και πάνω σε κουμπιά/κάρτες): αν το ποντίκι κινηθεί > 4px είναι σύρσιμο και το κλικ ακυρώνεται,
   // αλλιώς είναι κανονικό κλικ. Μόνο σε πεδία κειμένου/λίστες/βίντεο δεν πιάνει.
-  const NO_GRAB = 'select, video, iframe, input[type=file], input[type=range], #hand-mode-btn, #scroll-top-btn';
+  // Σε πεδία κειμένου το χεράκι ΔΕΝ πιάνει: εκεί γράφεις κανονικά (κέρσορας, επιλογή κειμένου)
+  const NO_GRAB = 'select, video, iframe, input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]), textarea, [contenteditable], #hand-mode-btn, #scroll-top-btn, #quick-save-btn';
   const TEXTY = 'input, textarea, [contenteditable]';
   const canScroll = (n, dy)=>{
     const oy = getComputedStyle(n).overflowY;
