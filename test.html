@@ -749,6 +749,32 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .flow-edit-btns .btn{padding:7px 12px;font-size:12px;}
 .flow-legend{display:flex;gap:18px;flex-wrap:wrap;padding:7px 14px;font-size:11px;color:var(--ink-soft);border-top:1px solid var(--line-strong);background:rgba(3,11,18,.85);}
 .flow-legend i{display:inline-block;width:28px;vertical-align:middle;margin-right:6px;}
+.pcheck{margin-bottom:18px;border-color:rgba(43,217,107,.45);}
+.pc-lbl{display:block;font-size:11px;font-weight:700;color:var(--cyan-soft);margin-bottom:4px;}
+.pc-lbl span{font-weight:400;color:var(--ink-soft);}
+.pcheck textarea{width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);font-family:inherit;}
+.pc-verdict{font-weight:800;font-size:14px;padding:8px 12px;border-radius:10px;margin-bottom:8px;}
+.pc-verdict.ok{background:rgba(43,217,107,.15);color:#6fe3a8;}
+.pc-verdict.imp{background:rgba(255,210,63,.13);color:#ffd23f;}
+.pc-verdict.bad{background:rgba(255,90,100,.15);color:#ff9a9a;}
+.pc-summary{font-size:13px;line-height:1.5;margin-bottom:8px;}
+.pc-find{list-style:none;padding:0;margin:0 0 8px;font-size:12.5px;}
+.pc-find li{display:flex;gap:8px;padding:4px 0;border-bottom:1px solid rgba(61,216,255,.08);}
+.pc-find li span{flex-shrink:0;width:18px;}
+.pc-find li.good span{color:#6fe3a8;} .pc-find li.warning span{color:#ff9f1a;} .pc-find li.change span{color:#ffd23f;}
+.pc-sugg{border:1.5px solid rgba(255,210,63,.4);border-radius:12px;padding:10px 12px;margin:10px 0;background:rgba(255,210,63,.05);}
+.pc-sugg.yes{border-color:#2bd96b;background:rgba(43,217,107,.07);}
+.pc-sugg.no{border-color:rgba(61,216,255,.35);background:rgba(61,216,255,.04);opacity:.85;}
+.pc-sugg-exp{font-size:12.5px;line-height:1.5;}
+.pc-sugg-ch{font-size:11.5px;margin:6px 0;color:var(--ink-soft);}
+.pc-sugg-ch del{color:#ff8b90;} .pc-sugg-ch ins{color:#6fe3a8;text-decoration:none;font-weight:700;}
+.pc-sugg-q{font-weight:700;font-size:12.5px;color:#ffd23f;margin:6px 0 8px;}
+.pc-sugg-btns{display:flex;gap:8px;flex-wrap:wrap;}
+.pc-sugg-btns .btn{padding:7px 12px;font-size:12px;}
+.pc-sub{font-weight:700;font-size:12px;color:var(--cyan-soft);margin:10px 0 6px;}
+.pc-day{border:1px solid rgba(61,216,255,.18);border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:12px;}
+.pc-day ol{margin:6px 0 0;padding-left:20px;}
+.pc-day li{margin:2px 0;} .pc-day li small{color:var(--ink-soft);} .pc-day li.cardio{color:#7dff5c;}
 .mine-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(43,217,107,.18);color:#6fe3a8;font-size:10px;font-weight:800;letter-spacing:.04em;vertical-align:middle;}
 .tpl-pos{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;}
 .tpl-pos b{font-size:15px;color:#ffd23f;min-width:22px;text-align:center;}
@@ -7343,7 +7369,7 @@ function bindAiTrainEvents(){
    (ή το ΠΡΟΧΕΙΡΟ για τους δοκιμαστικούς πελάτες).
    =================================================================== */
 const AI_APP = 'forma';
-const AI_BUTTONS = { program_renewal: 'Θέλω ανανέωση προγράμματος' };
+const AI_BUTTONS = { program_renewal: 'Θέλω ανανέωση προγράμματος', program_check: 'Έλεγχος προγράμματος (δικό μου πρόγραμμα)' };
 const AI_KINDS = [
   { key:'general',   label:'Γενικός κανόνας', icon:'📘', hint:'Ισχύει πάντα: ποιος είναι ο βοηθός, πώς μιλάει, τι πιστεύει η TRANSFORMATION.' },
   { key:'button',    label:'Κουμπί',          icon:'🔘', hint:'Τι κάνει το AI όταν ο πελάτης πατήσει ένα συγκεκριμένο κουμπί.' },
@@ -7372,7 +7398,9 @@ function aiCatalog(){
   return {
     groups, setrep: SETREP, fatburn_fixed: FATBURN_WEIGHTS_FIXED, day_labels: DAY_LABELS_EXTENDED,
     nutrition_muscle, fatburn_kcal_options: FATBURN_KCAL_OPTIONS, fatburn_text: FATBURN_NUTRITION_TEXT_WEIGHTS,
-    failure_options: FAILURE_OPTIONS
+    failure_options: FAILURE_OPTIONS,
+    // επιλογές του builder (για τον «Έλεγχο προγράμματος»)
+    options: { set: TPL_SET_OPTIONS, rep: TPL_REP_OPTIONS, rest: TPL_REST_OPTIONS, tempo: TPL_TEMPO_OPTIONS, minutes: TPL_CARDIO_MINUTES, cardio_equipment: TPL_CARDIO_EQUIPMENT }
   };
 }
 async function callAiAssistant(body){
@@ -7550,7 +7578,7 @@ function renderAirTest(){
   return `<div class="panel pad">
     <div class="food-note" style="margin:0 0 12px;">Τρέχει το ίδιο αίτημα με τη <b>δημοσιευμένη</b> έκδοση και με το <b>πρόχειρο</b>, για να δεις τη διαφορά δίπλα-δίπλα. <b>Δεν</b> αποθηκεύεται τίποτα και δεν το βλέπει κανένας πελάτης.</div>
     <div class="fdb-form">
-      <div class="full"><label>Κουμπί</label><select id="air-t-btn">${Object.entries(AI_BUTTONS).map(([k,l])=>`<option value="${k}">${escHtml(l)}</option>`).join('')}</select></div>
+      <div class="full"><label>Κουμπί</label><select id="air-t-btn">${Object.entries(AI_BUTTONS).filter(([k])=>k!=='program_check').map(([k,l])=>`<option value="${k}">${escHtml(l)}</option>`).join('')}</select></div>
       <div class="full"><label>Πελάτης (για να δει το ιστορικό του)</label><select id="air-t-cust">
         <option value="">— Χωρίς ιστορικό (νέος πελάτης) —</option>
         ${(state.customers||[]).map(c=>`<option value="${escAttr(c.code)}" ${t.customer===c.code?'selected':''}>${escHtml((c.name||'')+' '+(c.surname||''))} · ${escHtml(c.code)}</option>`).join('')}
@@ -8344,6 +8372,7 @@ function renderClientMain(){
   }
   content.innerHTML = html;
   bindClientNavEvents();
+  if(nav.view==='days' && nav.programId){ const pp = state.selectedCustomerPrograms.find(x=>x.id===nav.programId); if(pp && pp.record.fromClientBuilder) bindProgramCheck(pp, pp.record); }
   if(nav.view==='programs' || !nav.programId){
     bindAiClientEvents();
     if(auth.user && aiClient.loadedFor !== auth.user.id){
@@ -8378,6 +8407,93 @@ function renderClientProgramsListView(){
     </div>`;
 }
 
+/* ---------- «Έλεγχος προγράμματος» (μόνο στα προγράμματα «Φτιάχνω δικό μου») ----------
+   Το AI ελέγχει με τους κανόνες (κάρτα «Έλεγχος προγράμματος» στο Κέντρο Κανόνων AI, αλλιώς
+   οι βασικοί κανόνες TRANSFORMATION) και κάνει προτάσεις. Για κάθε πρόταση ο αθλούμενος απαντά
+   «Ναι, άλλαξέ το» ή «Συνεχίζω με το δικό μου». Οι αλλαγές που δέχεται μπαίνουν στο ίδιο πρόγραμμα. */
+const pcheck = { programId:null, open:false, note:'', busy:false, result:null, error:'', saving:false, answers:{} };
+const PC_FIELD = { set:'Set', rep:'Επαναλήψεις', rest:'Διάλειμμα', tempo:'Tempo', failure:'Until failure', minutes:'Λεπτά' };
+function renderProgramCheckPanel(p, record){
+  if(pcheck.programId !== p.id){ Object.assign(pcheck, { programId:p.id, open:false, note:'', busy:false, result:null, error:'', saving:false, answers:{} }); }
+  const r = pcheck.result;
+  const V = { ok:['✅','Το πρόγραμμά σου είναι εντάξει','ok'], improve:['✎','Έχω μερικές προτάσεις','imp'], unsafe:['⚠️','Μίλησε πρώτα με τον προπονητή σου','bad'] };
+  const sugg = (r && r.suggestions) || [];
+  const answered = sugg.filter((s,i)=>pcheck.answers[i]).length;
+  const yes = sugg.filter((s,i)=>pcheck.answers[i]==='yes').length;
+  return `<div class="panel pad pcheck" id="pcheck-panel">
+    <div class="section-title" style="margin-bottom:8px;"><span class="dot"></span>🤖 Έλεγχος προγράμματος</div>
+    ${!pcheck.open && !r ? `<div class="food-note" style="margin:0 0 10px;">Ο ψηφιακός προπονητής ελέγχει το πρόγραμμα που έφτιαξες με τους κανόνες του TRANSFORMATION και σου προτείνει αλλαγές. Εσύ αποφασίζεις για κάθε μία.</div>
+      <button class="btn btn-primary" id="pc-open" style="width:100%;justify-content:center;">🤖 Έλεγχος προγράμματος</button>` : ''}
+    ${pcheck.open && !r ? `
+      <label class="pc-lbl">Θέλεις να πεις κάτι στον προπονητή; <span>(προαιρετικό)</span></label>
+      <textarea id="pc-note" rows="2" placeholder="π.χ. θέλω περισσότερο πάνω σώμα · έχω μόνο 45 λεπτά · πονάει ο ώμος μου">${escHtml(pcheck.note)}</textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-primary" id="pc-run" style="flex:1;justify-content:center;" ${pcheck.busy?'disabled':''}>${pcheck.busy ? '⏳ Ελέγχω το πρόγραμμά σου…' : '🤖 Ξεκίνα τον έλεγχο'}</button>
+        <button class="btn btn-outline" id="pc-cancel" ${pcheck.busy?'disabled':''}>Άκυρο</button>
+      </div>` : ''}
+    ${pcheck.error ? `<div class="cat-warn" style="margin-top:10px;">❌ ${escHtml(pcheck.error)}</div>` : ''}
+    ${r ? `
+      <div class="pc-verdict ${V[r.verdict]?V[r.verdict][2]:'imp'}">${V[r.verdict]?V[r.verdict][0]+' '+V[r.verdict][1]:''}</div>
+      ${r.summary ? `<div class="pc-summary">${escHtml(r.summary)}</div>` : ''}
+      ${(r.good||[]).length ? `<ul class="pc-find">${r.good.map(g=>`<li class="good"><span>✓</span>${escHtml(g)}</li>`).join('')}</ul>` : ''}
+      ${sugg.map((s,i)=>{ const a = pcheck.answers[i];
+        return `<div class="pc-sugg ${a||''}">
+          <div class="pc-sugg-exp">${escHtml(s.explanation)}</div>
+          <div class="pc-sugg-ch">${s.apply.map(x=>`<div>Ημέρα ${x.day+1} · ${escHtml(x.name||'')} — ${escHtml(PC_FIELD[x.field]||x.field)}: <del>${escHtml(x.from||'—')}</del> → <ins>${escHtml(x.value)}</ins></div>`).join('')}</div>
+          <div class="pc-sugg-q">${escHtml(s.question)}</div>
+          <div class="pc-sugg-btns">
+            <button type="button" class="btn ${a==='yes'?'btn-primary':'btn-outline'}" data-pc-ans="${i}:yes">✅ Ναι, άλλαξέ το</button>
+            <button type="button" class="btn ${a==='no'?'btn-info':'btn-outline'}" data-pc-ans="${i}:no">Συνεχίζω με το δικό μου</button>
+          </div>
+        </div>`; }).join('')}
+      ${sugg.length ? `
+        <button class="btn btn-critical" id="pc-apply" style="width:100%;justify-content:center;margin-top:12px;" ${pcheck.saving||answered<sugg.length?'disabled':''}>${pcheck.saving?'Αποθήκευση…':(answered<sugg.length?`Απάντησε σε όλες τις προτάσεις (${answered}/${sugg.length})`:(yes?`💾 Αποθήκευση ${yes} ${yes===1?'αλλαγής':'αλλαγών'} στο πρόγραμμα`:'✓ Τέλος — κρατάω το πρόγραμμά μου όπως είναι'))}</button>` : `
+        <button class="btn btn-outline" id="pc-again" style="width:100%;justify-content:center;margin-top:12px;">🔄 Νέος έλεγχος</button>`}
+    ` : ''}
+  </div>`;
+}
+function bindProgramCheck(p, record){
+  const $ = id=>document.getElementById(id);
+  const redraw = ()=>{ renderClientMain(); };
+  $('pc-open')?.addEventListener('click', ()=>{ pcheck.open = true; redraw(); setTimeout(()=>$('pc-note')?.focus(), 30); });
+  $('pc-cancel')?.addEventListener('click', ()=>{ pcheck.open = false; redraw(); });
+  $('pc-note')?.addEventListener('input', e=>{ pcheck.note = e.target.value; });
+  $('pc-again')?.addEventListener('click', ()=>{ pcheck.result = null; pcheck.open = true; redraw(); });
+  document.querySelectorAll('[data-pc-ans]').forEach(el=>el.addEventListener('click', ()=>{
+    const [i, a] = el.getAttribute('data-pc-ans').split(':'); pcheck.answers[i] = a;
+    const y = window.scrollY; redraw(); window.scrollTo(0, y);
+  }));
+  $('pc-run')?.addEventListener('click', async ()=>{
+    pcheck.busy = true; pcheck.error = ''; redraw();
+    try{ pcheck.result = await callAiAssistant({ action:'review', button_key:'program_check', program_id: p.id, note: pcheck.note }); pcheck.open = false; pcheck.answers = {}; }
+    catch(err){ pcheck.error = err.message || 'Ο έλεγχος δεν έγινε. Δοκίμασε ξανά.'; }
+    pcheck.busy = false; redraw();
+  });
+  $('pc-apply')?.addEventListener('click', async ()=>{
+    const r = pcheck.result; if(!r || pcheck.saving) return;
+    const chosen = (r.suggestions||[]).filter((s,i)=>pcheck.answers[i]==='yes').flatMap(s=>s.apply);
+    if(!chosen.length){ pcheck.result = null; redraw(); toast('Κράτησες το πρόγραμμά σου όπως είναι.'); return; }
+    pcheck.saving = true; redraw();
+    const rec = JSON.parse(JSON.stringify(record));
+    // ίδια σειρά στοιχείων με αυτή που ελέγχθηκε (daySegments)
+    chosen.forEach(x=>{
+      const d = rec.days && rec.days[x.day]; if(!d) return;
+      const items = daySegments(d).flatMap(sg=>sg.list.map(o=>({ t: sg.t, o })));
+      const target = items[x.item]; if(!target) return;
+      const val = (x.field==='set' || x.field==='failure') ? Number(x.value) : x.value;
+      // βρες το ίδιο αντικείμενο μέσα στο rec (daySegments επιστρέφει αναφορές του d)
+      target.o[x.field] = val;
+    });
+    rec.aiChecked = true; rec.modifiedAt = new Date().toISOString();
+    const ok = await updateProgram(p.id, rec);
+    pcheck.saving = false;
+    if(!ok){ toast('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.'); redraw(); return; }
+    p.record = normalizeStoredProgram(rec);
+    pcheck.result = null; pcheck.answers = {};
+    toast(`Έγιναν ${chosen.length} ${chosen.length===1?'αλλαγή':'αλλαγές'} στο πρόγραμμά σου!`);
+    redraw();
+  });
+}
 function renderClientDaysListView(p, record){
   const days = record.days || [];
   return `
@@ -8393,6 +8509,7 @@ function renderClientDaysListView(p, record){
         <button class="btn btn-outline" data-client-pdf="${escAttr(p.id)}">${ICON.pdf}PDF</button>
       </div>
     </div>
+    ${record.fromClientBuilder ? renderProgramCheckPanel(p, record) : ''}
     <div style="display:flex;flex-direction:column;gap:10px;">
       ${days.map((d,i)=>{
         const groupNames = (d.groups||[]).map(g=>g.groupLabel).join(', ');

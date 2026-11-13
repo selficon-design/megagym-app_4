@@ -7,6 +7,10 @@
 //   "request"  — πελάτης: { button_key: "program_renewal", note, catalog }
 //   "simulate" — owner:   { button_key, note, catalog, version: "draft"|"published", customer_code? }
 //                (δοκιμή: ΔΕΝ γράφει τίποτα στη βάση)
+//   "review"   — πελάτης: { button_key: "program_check", program_id, note, catalog }
+//                «Έλεγχος προγράμματος»: ελέγχει ένα πρόγραμμα που έφτιαξε ο ίδιος ο αθλούμενος
+//                («Φτιάχνω δικό μου πρόγραμμα») και επιστρέφει σχόλια + βελτιωμένη εκδοχή.
+//                ΔΕΝ γράφει πρόγραμμα: την αλλαγή την αποθηκεύει ο αθλούμενος αν τη θέλει.
 //
 // Ασφάλεια:
 //   - Το πρόγραμμα που προτείνει το AI ελέγχεται εδώ: μόνο ασκήσεις της λίστας,
@@ -34,7 +38,151 @@ const OWNER_DAILY_LIMIT = 200;
 // Τα κουμπιά της εφαρμογής που μπορούν να συνδεθούν με κάρτες
 const BUTTONS: Record<string, { label: string; scope: string }> = {
   program_renewal: { label: "Θέλω ανανέωση προγράμματος", scope: "program" },
+  program_check: { label: "Έλεγχος προγράμματος", scope: "program" },
 };
+
+// Βασικοί κανόνες «Ελέγχου προγράμματος» — ισχύουν όσο ο owner δεν έχει γράψει δική του κάρτα
+// για το κουμπί «Έλεγχος προγράμματος» στο Κέντρο Κανόνων AI.
+const DEFAULT_CHECK_RULES = `
+1. ΔΙΑΛΕΙΜΜΑ (Αύξηση μυϊκού ιστού): το διάλειμμα πρέπει να είναι από 90 δευτερόλεπτα και πάνω.
+   - 90sec → εντάξει, δεν προτείνεις τίποτα.
+   - 120sec και πάνω → πρότεινε ότι θα μπορούσε να ξεκινήσει από 90sec. Ερώτηση: «Θέλεις να το αλλάξω σε 90 δευτερόλεπτα ή να συνεχίσεις με τον χρόνο διαλείμματος που έχεις βάλει;»
+   - κάτω από 90sec (π.χ. 60sec) → πρότεινε 90sec.
+2. ΕΠΑΝΑΛΗΨΕΙΣ: αν είναι «13 έως 15», πες ότι καλύτερο θα ήταν «10 έως 12» ή «8 έως 10». Ερώτηση: «Θέλεις να το αλλάξω σε 10 έως 12 ή να συνεχίσεις με 13 έως 15;»
+3. UNTIL FAILURE:
+   - -3 ή -2 → εντάξει.
+   - -1 ή 0 → πες ότι αυτό δεν είναι πρόγραμμα TRANSFORMATION: δεν μπορείς σε όλα τα set να πηγαίνεις until failure. Πιο ασφαλές θα ήταν until failure -3, ή μόνο στο 1-2 τελευταίο set until failure -1 ή 0. Το until failure δίνει τα μέγιστα αποτελέσματα όταν ακολουθείται το πρωτόκολλο TRANSFORMATION. Πρότεινε αλλαγή σε -3.
+- Όταν το ίδιο θέμα υπάρχει σε πολλές ασκήσεις, κάνε ΜΙΑ πρόταση που τις περιλαμβάνει όλες (πολλά apply).
+- Αν δεν βρεις κάτι από τα παραπάνω, πες ότι το πρόγραμμα είναι εντάξει.
+- Πόνος, τραυματισμός, εγκυμοσύνη ή ιατρικό θέμα στο σημείωμα → sensitive = true και σύσταση να μιλήσει με τον προπονητή.`;
+
+const REVIEW_TOOL = {
+  name: "review_program",
+  description: "Αποτέλεσμα ελέγχου του προγράμματος του αθλούμενου, με προτάσεις που ο αθλούμενος δέχεται ή απορρίπτει μία-μία.",
+  input_schema: {
+    type: "object",
+    properties: {
+      verdict: { type: "string", enum: ["ok", "improve", "unsafe"], description: "ok = καλό όπως είναι, improve = υπάρχουν προτάσεις, unsafe = χρειάζεται προπονητή" },
+      sensitive: { type: "boolean" },
+      sensitive_reason: { type: "string" },
+      summary: { type: "string", description: "Μήνυμα προς τον αθλούμενο, 1-3 προτάσεις, στον ενικό, φιλικό" },
+      good: { type: "array", items: { type: "string" }, description: "Τι είναι σωστό (σύντομα)" },
+      suggestions: {
+        type: "array",
+        description: "Μία πρόταση ανά θέμα. Ο αθλούμενος απαντά «άλλαξέ το» ή «συνεχίζω με το δικό μου».",
+        items: {
+          type: "object",
+          properties: {
+            explanation: { type: "string", description: "Γιατί (σύμφωνα με τους κανόνες), 1-3 προτάσεις" },
+            question: { type: "string", description: "Η ερώτηση προς τον αθλούμενο, π.χ. «Θέλεις να το αλλάξω σε 90 δευτερόλεπτα ή να συνεχίσεις με αυτό που έχεις βάλει;»" },
+            apply: {
+              type: "array",
+              description: "Οι αλλαγές αν πει ναι. day/item = αριθμοί όπως στη λίστα του προγράμματος (από 1).",
+              items: {
+                type: "object",
+                properties: {
+                  day: { type: "integer" }, item: { type: "integer" },
+                  field: { type: "string", enum: ["set", "rep", "rest", "tempo", "failure", "minutes"] },
+                  value: { type: "string", description: "Η νέα τιμή ΑΚΡΙΒΩΣ από τις επιτρεπτές (π.χ. 90sec, 10 έως 12, -3, 1-2-1)" },
+                },
+                required: ["day", "item", "field", "value"],
+              },
+            },
+          },
+          required: ["explanation", "question", "apply"],
+        },
+      },
+    },
+    required: ["verdict", "sensitive", "summary", "suggestions"],
+  },
+};
+
+type Opts = { set: number[]; rep: string[]; rest: string[]; tempo: string[]; minutes: number[]; cardio_equipment: string[] };
+// deno-lint-ignore no-explicit-any
+function readOpts(c: any): Opts {
+  const o = c?.options ?? {};
+  const arr = (v: unknown, n = 60) => (Array.isArray(v) ? v.slice(0, n) : []);
+  return {
+    set: arr(o.set).map(Number).filter((x: number) => x > 0 && x <= 12),
+    rep: arr(o.rep).map(String), rest: arr(o.rest).map(String), tempo: arr(o.tempo).map(String),
+    minutes: arr(o.minutes, 40).map(Number).filter((x: number) => x > 0 && x <= 180),
+    cardio_equipment: arr(o.cardio_equipment).map(String),
+  };
+}
+// Ετικέτα ομάδας του προγράμματος (π.χ. «CHEST - ΣΤΗΘΟΣ») → κλειδί της λίστας (π.χ. «ΣΤΗΘΟΣ»)
+function groupKeyOf(label: string, cat: Catalog): string | null {
+  const s = String(label ?? "");
+  const part = squash(s.includes(" - ") ? s.split(" - ").pop()! : s).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  for (const [k, g] of Object.entries(cat.groups)) {
+    const kk = squash(k).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/_/g, " ");
+    if (kk === part || squash(g.label) === squash(s)) return k;
+  }
+  return null;
+}
+// deno-lint-ignore no-explicit-any
+function describeProgram(r: any, cat: Catalog): string {
+  const goal = r?.category === "fatburn" ? `Καύση λίπους (${r?.subtype ?? ""})` : "Αύξηση μυϊκού ιστού";
+  const lines = [`Στόχος: ${goal}`, `Όνομα: ${r?.customName || r?.templateName || "-"}`];
+  if (r?.instructions) lines.push(`Σημειώσεις αθλούμενου: ${String(r.instructions).slice(0, 500)}`);
+  // deno-lint-ignore no-explicit-any
+  (Array.isArray(r?.days) ? r.days : []).forEach((d: any, di: number) => {
+    lines.push(`\nΗμέρα ${di + 1} (${d.label ?? ""}):`);
+    const g = Array.isArray(d.groups) ? d.groups : [], c = Array.isArray(d.cardioSlots) ? d.cardioSlots : [];
+    const order: string[] = Array.isArray(d.order) ? d.order : [...g.map(() => "w"), ...c.map(() => "c")];
+    let wi = 0, ci = 0, n = 0;
+    for (const k of order) {
+      if (k === "c" && ci < c.length) { const x = c[ci++]; lines.push(`  ${++n}. [cardio] ${x.equipment} ${x.minutes ?? "?"}′`); }
+      else if (k === "w" && wi < g.length) {
+        const x = g[wi++];
+        lines.push(`  ${++n}. [muscle] group_key=${groupKeyOf(x.groupLabel, cat) ?? "?"} | ${x.exercise} | ${x.set}×${x.rep} | διάλειμμα ${x.rest} | tempo ${x.tempo || "-"} | failure ${x.failure ?? 0}`);
+      }
+    }
+  });
+  return lines.join("\n");
+}
+// Ελέγχει τις αλλαγές του AI: σωστή ημέρα/άσκηση και τιμές ΜΟΝΟ από τις επιτρεπτές
+// deno-lint-ignore no-explicit-any
+function validateSuggestions(list: any, record: any, cat: Catalog, o: Opts) {
+  const failOpts = (cat.failure_options?.length ? cat.failure_options : [0, -1, -2, -3]).map(String);
+  // deno-lint-ignore no-explicit-any
+  const days: any[] = Array.isArray(record?.days) ? record.days : [];
+  // στοιχεία ημέρας με τη σειρά που τα βλέπει ο αθλούμενος
+  const itemAt = (di: number, ii: number) => {
+    const d = days[di]; if (!d) return null;
+    const g = Array.isArray(d.groups) ? d.groups : [], c = Array.isArray(d.cardioSlots) ? d.cardioSlots : [];
+    const order: string[] = Array.isArray(d.order) ? d.order : [...g.map(() => "w"), ...c.map(() => "c")];
+    let wi = 0, ci = 0, n = 0;
+    for (const k of order) {
+      if (k === "c" && ci < c.length) { if (n++ === ii) return { type: "cardio", x: c[ci] }; ci++; }
+      else if (k === "w" && wi < g.length) { if (n++ === ii) return { type: "muscle", x: g[wi] }; wi++; }
+    }
+    return null;
+  };
+  const allowed: Record<string, string[]> = {
+    set: o.set.map(String), rep: o.rep, rest: o.rest, tempo: o.tempo, failure: failOpts, minutes: o.minutes.map(String),
+  };
+  // deno-lint-ignore no-explicit-any
+  const out: any[] = [];
+  // deno-lint-ignore no-explicit-any
+  (Array.isArray(list) ? list.slice(0, 12) : []).forEach((sg: any) => {
+    // deno-lint-ignore no-explicit-any
+    const apply: any[] = [];
+    // deno-lint-ignore no-explicit-any
+    (Array.isArray(sg?.apply) ? sg.apply.slice(0, 80) : []).forEach((a: any) => {
+      const di = Number(a?.day) - 1, ii = Number(a?.item) - 1, field = String(a?.field ?? "");
+      const it = itemAt(di, ii); if (!it || !allowed[field]) return;
+      if (field === "minutes" ? it.type !== "cardio" : it.type !== "muscle") return;
+      const opts = allowed[field];
+      const val = opts.length ? opts.find((v) => squash(v) === squash(String(a?.value ?? ""))) : String(a?.value ?? "");
+      if (val === undefined || val === "") return;
+      const from = String(it.x[field] ?? "");
+      if (squash(from) === squash(val)) return;
+      apply.push({ day: di, item: ii, field, value: val, from, name: it.type === "cardio" ? it.x.equipment : it.x.exercise });
+    });
+    if (apply.length) out.push({ explanation: String(sg?.explanation ?? "").slice(0, 800), question: String(sg?.question ?? "").slice(0, 400), apply });
+  });
+  return out;
+}
 
 function serverKey(): string {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -295,6 +443,103 @@ async function customerContext(admin: any, code: string) {
 }
 
 // ---------------------------------------------------------------------
+// «Έλεγχος προγράμματος» (action = review)
+// ---------------------------------------------------------------------
+// deno-lint-ignore no-explicit-any
+async function handleReview(admin: any, user: any, isOwner: boolean, body: any, cat: Catalog, note: string) {
+  const { data: cust } = await admin.from("customers").select("code").eq("claimed_by", user.id).maybeSingle();
+  if (!cust?.code) return fail(403, "no_customer", "Ο λογαριασμός σου δεν είναι συνδεδεμένος με πελάτη.");
+  const programId = String(body?.program_id ?? "");
+  const { data: prog } = await admin.from("programs").select("id, days, customer_code").eq("id", programId).maybeSingle();
+  if (!prog || prog.customer_code !== cust.code) return fail(404, "no_program", "Το πρόγραμμα δεν βρέθηκε.");
+  const record = prog.days ?? {};
+  if (!record.fromClientBuilder) return fail(400, "not_own", "Ο έλεγχος γίνεται στα προγράμματα που έφτιαξες μόνος σου.");
+
+  const { data: settings } = await admin.from("ai_settings").select("daily_limit").eq("app", APP).maybeSingle();
+  const limit = isOwner ? OWNER_DAILY_LIMIT : Number(settings?.daily_limit ?? 3);
+  const { count } = await admin.from("ai_usage").select("id", { count: "exact", head: true })
+    .eq("user_id", user.id).gte("created_at", new Date(Date.now() - 864e5).toISOString());
+  if ((count ?? 0) >= limit) return fail(429, "rate_limited", `Έφτασες το όριο των ${limit} αιτημάτων AI για σήμερα. Δοκίμασε ξανά αύριο.`);
+
+  // Κάρτες: η δημοσιευμένη έκδοση (αλλιώς το πρόχειρο). Αν δεν υπάρχει κάρτα για το κουμπί → βασικοί κανόνες.
+  const { data: versions } = await admin.from("ai_rule_versions").select("id, version_no, status").eq("app", APP).in("status", ["draft", "published"]);
+  // deno-lint-ignore no-explicit-any
+  const version = (versions ?? []).find((v: any) => v.status === "published") ?? (versions ?? []).find((v: any) => v.status === "draft");
+  let cards: Card[] = [];
+  if (version) {
+    const { data: cr } = await admin.from("ai_rule_cards").select("kind, title, body, button_key, scope")
+      .eq("version_id", version.id).eq("active", true).order("sort");
+    cards = ((cr ?? []) as Card[]).filter((c) => c.scope === "all" || c.scope === "program");
+  }
+  const order = ["general", "forbidden", "sensitive", "knowledge", "button"];
+  const parts: string[] = [
+    "Είσαι ο ψηφιακός προπονητής της εφαρμογής ΦΟΡΜΑ (TRANSFORMATION, MEGA GYM).",
+    "Ο αθλούμενος έφτιαξε ΜΟΝΟΣ του ένα πρόγραμμα και ζητά «Έλεγχο προγράμματος». Ελέγχεις με τους κανόνες, εξηγείς απλά και για κάθε θέμα κάνεις πρόταση με ερώτηση «να το αλλάξω ή συνεχίζεις;».",
+  ];
+  for (const k of order) {
+    const list = cards.filter((c) => c.kind === k && (k !== "button" || c.button_key === "program_check"));
+    if (!list.length) continue;
+    parts.push(`\n## ${KIND_TITLE[k]}`);
+    for (const c of list) parts.push(`### ${c.title}\n${c.body.trim()}`);
+  }
+  if (!cards.some((c) => c.kind === "button" && c.button_key === "program_check")) parts.push(`\n## ΚΑΝΟΝΕΣ ΕΛΕΓΧΟΥ ΠΡΟΓΡΑΜΜΑΤΟΣ\n${DEFAULT_CHECK_RULES}`);
+  const o = readOpts(body?.catalog);
+  const groups = Object.entries(cat.groups).map(([k, g]) => `- ${k} (${g.label}): ${g.exercises.join(" | ")}`).join("\n");
+  parts.push(`
+## ΤΕΧΝΙΚΟΙ ΚΑΝΟΝΕΣ
+- Ασκήσεις ΜΟΝΟ από τη λίστα, γραμμένες ΑΚΡΙΒΩΣ έτσι (group_key: ασκήσεις):
+${groups}
+- Επιτρεπτά: σετ ${o.set.join(", ") || "3-6"} · επαναλήψεις ${o.rep.join(" / ")} · διάλειμμα ${o.rest.join(" / ")} · tempo ${o.tempo.join(" / ")} · failure ${(cat.failure_options || [0, -1, -2, -3]).join(", ")}
+- Αερόβιο: μηχάνημα από ${o.cardio_equipment.join(" / ")}, λεπτά ${o.minutes.join(", ")}.
+- Οι προτάσεις αλλάζουν ΜΟΝΟ πεδία υπαρχουσών ασκήσεων (set, rep, rest, tempo, failure, minutes) με τιμές από τις επιτρεπτές· day/item όπως στην αρίθμηση του προγράμματος.
+- Αν όλα είναι εντάξει: verdict = ok και καμία πρόταση.
+- Κάλεσε ΠΑΝΤΑ το εργαλείο review_program, μία φορά.`);
+
+  const ctx = await customerContext(admin, cust.code);
+  const userText = [
+    "Πατήθηκε το κουμπί: «Έλεγχος προγράμματος».",
+    note ? `Ο αθλούμενος έγραψε: «${note}»` : "Ο αθλούμενος δεν έγραψε κάτι.",
+    `ΤΟ ΠΡΟΓΡΑΜΜΑ ΠΡΟΣ ΕΛΕΓΧΟ:\n${describeProgram(record, cat)}`,
+    `Ιστορικό αθλούμενου (JSON):\n${JSON.stringify(ctx).slice(0, 30_000)}`,
+  ].join("\n\n");
+
+  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!apiKey) return fail(500, "server_config", "Λείπει το ANTHROPIC_API_KEY στον διακομιστή.");
+  let aiRes: Response;
+  try {
+    aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({
+        model: MODEL, max_tokens: 6000, system: parts.join("\n"),
+        tools: [REVIEW_TOOL], tool_choice: { type: "tool", name: "review_program" },
+        messages: [{ role: "user", content: userText }],
+      }),
+    });
+  } catch (e) {
+    console.error("Anthropic fetch failed", e);
+    return fail(502, "ai_unreachable", "Η υπηρεσία AI δεν απαντά. Δοκίμασε ξανά.");
+  }
+  if (!aiRes.ok) { console.error("Anthropic error", aiRes.status, await aiRes.text()); return fail(502, "ai_error", "Το AI δεν μπόρεσε να απαντήσει. Δοκίμασε ξανά σε λίγο."); }
+  const ai = await aiRes.json();
+  // deno-lint-ignore no-explicit-any
+  const out = (ai.content ?? []).find((c: any) => c.type === "tool_use")?.input;
+  if (!out) return fail(502, "ai_error", "Το AI δεν επέστρεψε αποτέλεσμα. Δοκίμασε ξανά.");
+  await admin.from("ai_usage").insert({ user_id: user.id, kind: "program_check" });
+
+  const sensitive = out.sensitive === true || out.verdict === "unsafe";
+  const suggestions = sensitive ? [] : validateSuggestions(out.suggestions, record, cat, o);
+  const good = (Array.isArray(out.good) ? out.good : []).slice(0, 8).map((g: unknown) => String(g ?? "").slice(0, 300)).filter(Boolean);
+  return json({
+    verdict: sensitive ? "unsafe" : (suggestions.length ? "improve" : "ok"),
+    sensitive, sensitive_reason: String(out.sensitive_reason ?? "").slice(0, 500),
+    summary: String(out.summary ?? "").slice(0, 1500), good, suggestions,
+    rules: cards.some((c) => c.kind === "button" && c.button_key === "program_check") ? "cards" : "default",
+    rules_version: version?.version_no ?? null,
+  });
+}
+
+// ---------------------------------------------------------------------
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return fail(405, "method_not_allowed", "Μη επιτρεπτή μέθοδος.");
@@ -318,6 +563,7 @@ Deno.serve(async (req) => {
 
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).maybeSingle();
   const isOwner = profile?.role === "owner";
+  if (action === "review") return await handleReview(admin, user, isOwner, body, cat, note);
   const isSim = action === "simulate";
   if (isSim && !isOwner) return fail(403, "forbidden", "Μόνο ο owner κάνει δοκιμές.");
   if (!isSim && action !== "request") return fail(400, "bad_action", "Άγνωστη ενέργεια.");
