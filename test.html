@@ -3237,7 +3237,8 @@ function renderTplDaysEditor(b){
         <div class="section-title" style="margin:0;"><span class="dot"></span>Ημέρες & Ασκήσεις</div>
         <div class="tpl-days-btns">
           <button type="button" class="btn btn-outline" data-tpl-days-all="open">▾ Άνοιγμα όλων</button>
-          <button type="button" class="btn btn-outline" data-tpl-days-all="last">▸ Κλείσιμο — μόνο η τελευταία</button>
+          <button type="button" class="btn btn-outline" data-tpl-days-all="close">▸ Κλείσιμο όλων</button>
+          <button type="button" class="btn btn-outline" data-tpl-days-all="last">▸ Μόνο η τελευταία</button>
         </div>
       </div>
       ${b.days.map((day,di)=>{ const closed = tplDayClosed(b, di); return `
@@ -3555,6 +3556,7 @@ function bindTplBuilderEvents(){
     const mode = el.getAttribute('data-tpl-days-all');
     b.closedDays = {};
     if(mode==='last') b.days.forEach((d,i)=>{ if(i < b.days.length-1) b.closedDays[i] = true; });
+    if(mode==='close') b.days.forEach((d,i)=>{ b.closedDays[i] = true; });
     renderTplFormArea();
     if(mode==='last') document.querySelectorAll('.tpl-day-head')[b.days.length-1]?.scrollIntoView({ behavior:'smooth', block:'start' });
   }));
