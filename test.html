@@ -7425,7 +7425,7 @@ async function aiLoadAll(){
   ]);
   if(v.error){ console.error('ai versions', v.error); return false; }
   aiRules.versions = v.data || [];
-  aiRules.settings = s.data || { app:AI_APP, approval_program:true, approval_nutrition:true, test_customer_codes:[], daily_limit:3 };
+  aiRules.settings = s.data || { app:AI_APP, approval_program:true, approval_nutrition:true, test_customer_codes:[], daily_limit:10 };
   aiRules.proposals = p.data || [];
   const draft = aiRules.versions.find(x=>x.status==='draft'), pub = aiRules.versions.find(x=>x.status==='published');
   if(!aiRules.viewVersionId || !aiRules.versions.some(x=>x.id===aiRules.viewVersionId)) aiRules.viewVersionId = (draft||pub||aiRules.versions[0]||{}).id || null;
