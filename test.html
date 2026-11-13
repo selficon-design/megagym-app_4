@@ -749,6 +749,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .flow-edit-btns .btn{padding:7px 12px;font-size:12px;}
 .flow-legend{display:flex;gap:18px;flex-wrap:wrap;padding:7px 14px;font-size:11px;color:var(--ink-soft);border-top:1px solid var(--line-strong);background:rgba(3,11,18,.85);}
 .flow-legend i{display:inline-block;width:28px;vertical-align:middle;margin-right:6px;}
+.mine-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(43,217,107,.18);color:#6fe3a8;font-size:10px;font-weight:800;letter-spacing:.04em;vertical-align:middle;}
 .tpl-pos{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;}
 .tpl-pos b{font-size:15px;color:#ffd23f;min-width:22px;text-align:center;}
 .tpl-new-btn{width:100%;justify-content:center;padding:14px;font-size:15px;margin-bottom:6px;background:linear-gradient(145deg,#2bd96b,#14a34a);border:1.5px solid #6dffa3;color:#04210f;font-weight:800;box-shadow:0 0 18px rgba(43,217,107,.45);}
@@ -2316,7 +2317,9 @@ function normalizeStoredProgram(stored){
     modifiedByEmail: stored.modifiedByEmail || '',
     modifiedAt: stored.modifiedAt || null,
     fromAI: !!stored.fromAI,
-    aiVersion: stored.aiVersion || null
+    aiVersion: stored.aiVersion || null,
+    fromClientBuilder: !!stored.fromClientBuilder,   // «Φτιάχνω δικό μου πρόγραμμα»
+    customName: stored.customName || ''
   };
 }
 async function loadProgramsFor(code){
@@ -6340,6 +6343,7 @@ function loadRecordIntoCustomBuilder(record, programId, mode){
     : 'Το πρόγραμμα φορτώθηκε στον Builder — κάνε τις αλλαγές σου και πάτησε Αποθήκευση για νέα καταχώρηση.');
 }
 function getProgramNameForRecord(record){
+  if(record && record.fromClientBuilder && (record.customName || record.templateName)) return record.customName || record.templateName;
   if(record && record.fromTemplate && record.templateName) return record.templateName;
   return record ? categoryBadgeLabel(record) : '';
 }
@@ -8358,12 +8362,13 @@ function renderClientProgramsListView(){
       ${progs.length===0 ? `<div class="empty" style="padding:30px 0;"><div class="icon">🗂️</div><p>Δεν υπάρχουν ακόμα αποθηκευμένα προγράμματα.</p></div>` :
         progs.map((p,i)=>{
           const d = new Date(p.createdAt);
-          const fromTpl = p.record && p.record.fromTemplate;
+          const mine = p.record && p.record.fromClientBuilder;            // «Φτιάχνω δικό μου πρόγραμμα»
+          const fromTpl = p.record && p.record.fromTemplate && !mine;
           const fromAI = p.record && p.record.fromAI;
           return `<div class="client-card" data-open-program="${escAttr(p.id)}" ${fromTpl?'style="border-color:var(--accent);box-shadow:0 0 18px rgba(255,159,26,.35);"':''}>
             <div class="client-avatar">${progs.length-i}</div>
             <div class="client-meta">
-              <div class="name">${escHtml(categoryBadgeLabel(p.record))}${fromTpl?' <span style="color:var(--accent);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· Έτοιμο</span>':''}${fromAI?' <span style="color:var(--cyan);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· ✨ AI</span>':''}</div>
+              <div class="name">${mine ? `${escHtml(p.record.customName || p.record.templateName || 'Το πρόγραμμά μου')} <span class="mine-badge">🛠 ΔΙΚΟ ΜΟΥ</span>` : ''}${mine ? '' : escHtml(fromTpl && p.record.templateName ? p.record.templateName : categoryBadgeLabel(p.record))}${(fromTpl)?' <span style="color:var(--accent);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· Έτοιμο</span>':''}${fromAI?' <span style="color:var(--cyan);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· ✨ AI</span>':''}</div>
               <div class="sub">${d.toLocaleDateString('el-GR')} · ${d.toLocaleTimeString('el-GR',{hour:'2-digit',minute:'2-digit'})}</div>
             </div>
           </div>`;
@@ -8711,13 +8716,16 @@ async function submitClientProgram(){
   if(b.addForm){ toast('Αποθήκευσε ή κλείσε πρώτα την άσκηση που επεξεργάζεσαι.'); return; }
   const btn = document.getElementById('tpl-save-btn'); if(btn){ btn.disabled = true; btn.textContent = 'Αποθήκευση...'; }
   const record = mapTemplateToCustomRecord({ name, top_category:'ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ', description: b.description||'', data:{ days: b.days } });
-  record.fromClientBuilder = true;
+  record.fromClientBuilder = true; record.fromTemplate = false; record.customName = name;
   const ok = await insertProgram(auth.customer.code, record);
   if(btn){ btn.disabled = false; }
   if(!ok){ toast('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.'); renderTplFormArea(); return; }
   toast('Το πρόγραμμα «'+name+'» μπήκε στα Προγράμματά μου!');
   state.clientBuilder = freshClientBuilder(); state.clientBuilder.ownerCode = auth.customer.code;
   try{ localStorage.removeItem(cbDraftKey()); }catch(_){}
+  // ξαναφόρτωση της λίστας, ώστε το νέο πρόγραμμα να φαίνεται αμέσως (πρώτο, ως το πιο πρόσφατο)
+  state.selectedCustomerPrograms = (await loadProgramsFor(auth.customer.code)).sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
+  state.clientNav = { ...(state.clientNav||{}), view:'programs', programId:null };
   document.getElementById('client-mode-mine')?.click();
 }
 async function saveTemplateToMyPrograms(templateId){
