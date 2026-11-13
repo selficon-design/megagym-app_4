@@ -747,6 +747,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .flow-edit-btns .btn{padding:7px 12px;font-size:12px;}
 .flow-legend{display:flex;gap:18px;flex-wrap:wrap;padding:7px 14px;font-size:11px;color:var(--ink-soft);border-top:1px solid var(--line-strong);background:rgba(3,11,18,.85);}
 .flow-legend i{display:inline-block;width:28px;vertical-align:middle;margin-right:6px;}
+.tpl-new-btn{width:100%;justify-content:center;padding:14px;font-size:15px;margin-bottom:6px;}
 .tpl-days-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
 .tpl-days-btns{display:flex;gap:8px;flex-wrap:wrap;}
 .tpl-days-btns .btn{padding:6px 11px;font-size:11.5px;}
@@ -2033,6 +2034,7 @@ function loadTemplateIntoBuilder(t){
     addForm: null, lastEdited: null,
   };
   state.tplHighlightId = t.id;   // πορτοκαλί πλαίσιο στο πρόγραμμα της λίστας που επεξεργάζεσαι
+  state.tplFormOpen = true;
   { const k = tplCatOf(t) || 'orphans'; if(state.tplCatView !== k){ state.tplCatView = k; state.tplGenderView = t.gender; renderTplGenderSwitch(); if(document.getElementById('tpl-list-area')) renderTplListArea(); } }
   renderTplFormArea();
   if(document.getElementById('tpl-list-area')) renderTplListArea();
@@ -3143,6 +3145,7 @@ function renderWorkoutLogHtml(logs){
 
 async function renderTplBuilderTab(){
   if(!state.tplBuilder) state.tplBuilder = freshTplBuilder();
+  state.tplFormOpen = !!state.tplFormOpenNext; state.tplFormOpenNext = false;
   const main = document.getElementById('main');
   main.innerHTML = `
     <div class="topbar"><div><h1>Έτοιμα Προγράμματα</h1><div class="sub">Δημιούργησε πρότυπα προγράμματα που θα βλέπουν και θα «τρέχουν» οι πελάτες</div></div></div>
@@ -3235,6 +3238,18 @@ function renderTplFormArea(){
   const area = document.getElementById('tpl-form-area');
   if(!area) return;
   const b = state.tplBuilder;
+  if(!state.tplFormOpen){   // στην αρχή: μόνο τα έτοιμα προγράμματα + κουμπί δημιουργίας
+    area.innerHTML = `<button class="btn btn-critical tpl-new-btn" id="tpl-new-btn">＋ Δημιουργία νέου προγράμματος</button>`;
+    document.getElementById('tpl-new-btn').addEventListener('click', ()=>{
+      const nb = freshTplBuilder();
+      const k = state.tplCatView;
+      if(k && k!=='orphans'){ const [g, top, sub] = k.split('|'); nb.gender = g; nb.topCategory = top; nb.subCategory = sub || ''; }
+      state.tplBuilder = nb; state.tplFormOpen = true; state.tplHighlightId = null;
+      renderTplFormArea(); renderTplListArea();
+      document.getElementById('tpl-form-area')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    });
+    return;
+  }
   const scroller = document.scrollingElement || document.documentElement, keepY = scroller.scrollTop; // η οθόνη μένει εκεί που είναι
   area.innerHTML = `
     ${renderGymSelector()}
@@ -3243,7 +3258,7 @@ function renderTplFormArea(){
     ${renderTplDaysEditor(b)}
     <div class="panel pad" style="margin-top:20px;">
       <button class="btn btn-critical" style="width:100%;justify-content:center;" id="tpl-save-btn">${ICON.save}${b.id?'Αποθήκευση Αλλαγών':'Αποθήκευση Προγράμματος στη Βιβλιοθήκη'}<span class="kbd">Ctrl + S</span></button>
-      ${b.id ? `<button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;" id="tpl-cancel-edit">Ακύρωση Επεξεργασίας — Νέο Πρόγραμμα</button>`:''}
+      <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;" id="tpl-cancel-edit">${b.id ? '✕ Κλείσιμο επεξεργασίας (χωρίς αποθήκευση)' : '✕ Ακύρωση νέου προγράμματος'}</button>
     </div>
   `;
   scroller.scrollTop = keepY;
@@ -3694,6 +3709,7 @@ function bindTplBuilderEvents(){
   const cancelEditBtn = document.getElementById('tpl-cancel-edit');
   if(cancelEditBtn) cancelEditBtn.addEventListener('click', ()=>{
     state.tplBuilder = freshTplBuilder();
+    state.tplFormOpen = false;
     state.tplHighlightId = null;
     renderTplListArea();
     renderTplFormArea();
@@ -3749,6 +3765,7 @@ async function submitTplProgram(){
   if(ok){
     toast(wasEdit ? 'Οι αλλαγές αποθηκεύτηκαν!' : 'Το πρόγραμμα αποθηκεύτηκε στη βιβλιοθήκη!');
     state.tplBuilder = freshTplBuilder();
+    state.tplFormOpen = false;
     renderTplFormArea();
     state.tplTemplates = await loadTemplatePrograms();
     renderTplListArea();
@@ -8551,6 +8568,7 @@ function openTplEditor(id){
   const t = state.tplTemplates.find(x=>x.id===id); if(!t) return;
   const sameOpen = state.tplBuilder && state.tplBuilder.id===id;   // κρατά ό,τι δεν έχει αποθηκευτεί ακόμα
   state.tab = 'tplbuilder';
+  state.tplFormOpenNext = true;
   render();
   if(!sameOpen) loadTemplateIntoBuilder(t);
   else document.getElementById('tpl-form-area')?.scrollIntoView({ behavior:'smooth', block:'start' });
