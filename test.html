@@ -747,7 +747,9 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .flow-edit-btns .btn{padding:7px 12px;font-size:12px;}
 .flow-legend{display:flex;gap:18px;flex-wrap:wrap;padding:7px 14px;font-size:11px;color:var(--ink-soft);border-top:1px solid var(--line-strong);background:rgba(3,11,18,.85);}
 .flow-legend i{display:inline-block;width:28px;vertical-align:middle;margin-right:6px;}
-.tpl-new-btn{width:100%;justify-content:center;padding:14px;font-size:15px;margin-bottom:6px;}
+.tpl-new-btn{width:100%;justify-content:center;padding:14px;font-size:15px;margin-bottom:6px;background:linear-gradient(145deg,#2bd96b,#14a34a);border:1.5px solid #6dffa3;color:#04210f;font-weight:800;box-shadow:0 0 18px rgba(43,217,107,.45);}
+.tpl-new-btn:hover{filter:brightness(1.08);}
+.tpl-back-btn{position:sticky;top:8px;z-index:6;margin-bottom:12px;padding:9px 14px;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.45);background:#071623;}
 .tpl-days-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
 .tpl-days-btns{display:flex;gap:8px;flex-wrap:wrap;}
 .tpl-days-btns .btn{padding:6px 11px;font-size:11.5px;}
@@ -3239,7 +3241,7 @@ function renderTplFormArea(){
   if(!area) return;
   const b = state.tplBuilder;
   if(!state.tplFormOpen){   // στην αρχή: μόνο τα έτοιμα προγράμματα + κουμπί δημιουργίας
-    area.innerHTML = `<button class="btn btn-critical tpl-new-btn" id="tpl-new-btn">＋ Δημιουργία νέου προγράμματος</button>`;
+    area.innerHTML = `<button class="btn tpl-new-btn" id="tpl-new-btn">＋ Δημιουργία νέου προγράμματος</button>`;
     document.getElementById('tpl-new-btn').addEventListener('click', ()=>{
       const nb = freshTplBuilder();
       const k = state.tplCatView;
@@ -3252,6 +3254,7 @@ function renderTplFormArea(){
   }
   const scroller = document.scrollingElement || document.documentElement, keepY = scroller.scrollTop; // η οθόνη μένει εκεί που είναι
   area.innerHTML = `
+    <button class="btn btn-outline tpl-back-btn" id="tpl-back-btn">← Πίσω στα έτοιμα προγράμματα</button>
     ${renderGymSelector()}
     ${b.id ? `<div class="calc-type-box" style="text-align:center;">✎ ΕΠΕΞΕΡΓΑΣΙΑ ΥΠΑΡΧΟΝΤΟΣ ΠΡΟΓΡΑΜΜΑΤΟΣ — «${escHtml(b.name)}»</div>`:''}
     ${renderTplMetaForm(b)}
@@ -3707,6 +3710,7 @@ function bindTplBuilderEvents(){
   const saveBtn = document.getElementById('tpl-save-btn');
   if(saveBtn) saveBtn.addEventListener('click', submitTplProgram);
   const cancelEditBtn = document.getElementById('tpl-cancel-edit');
+  document.getElementById('tpl-back-btn')?.addEventListener('click', ()=>cancelEditBtn && cancelEditBtn.click());
   if(cancelEditBtn) cancelEditBtn.addEventListener('click', ()=>{
     state.tplBuilder = freshTplBuilder();
     state.tplFormOpen = false;
