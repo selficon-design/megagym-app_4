@@ -456,7 +456,7 @@ async function handleReview(admin: any, user: any, isOwner: boolean, body: any, 
   if (!record.fromClientBuilder) return fail(400, "not_own", "Ο έλεγχος γίνεται στα προγράμματα που έφτιαξες μόνος σου.");
 
   const { data: settings } = await admin.from("ai_settings").select("daily_limit").eq("app", APP).maybeSingle();
-  const limit = isOwner ? OWNER_DAILY_LIMIT : Number(settings?.daily_limit ?? 3);
+  const limit = isOwner ? OWNER_DAILY_LIMIT : Number(settings?.daily_limit ?? 10);
   const { count } = await admin.from("ai_usage").select("id", { count: "exact", head: true })
     .eq("user_id", user.id).gte("created_at", new Date(Date.now() - 864e5).toISOString());
   if ((count ?? 0) >= limit) return fail(429, "rate_limited", `Έφτασες το όριο των ${limit} αιτημάτων AI για σήμερα. Δοκίμασε ξανά αύριο.`);
@@ -581,7 +581,7 @@ Deno.serve(async (req) => {
   if (!isSim && action !== "request") return fail(400, "bad_action", "Άγνωστη ενέργεια.");
 
   const { data: settings } = await admin.from("ai_settings").select("*").eq("app", APP).maybeSingle();
-  const s = settings ?? { approval_program: true, test_customer_codes: [], daily_limit: 3 };
+  const s = settings ?? { approval_program: true, test_customer_codes: [], daily_limit: 10 };
 
   // --- Ποιος πελάτης
   let customerCode: string | null = null;
@@ -598,7 +598,7 @@ Deno.serve(async (req) => {
   }
 
   // --- Όριο χρήσης
-  const limit = isOwner ? OWNER_DAILY_LIMIT : Number(s.daily_limit ?? 3);
+  const limit = isOwner ? OWNER_DAILY_LIMIT : Number(s.daily_limit ?? 10);
   const { count } = await admin.from("ai_usage").select("id", { count: "exact", head: true })
     .eq("user_id", user.id).gte("created_at", new Date(Date.now() - 864e5).toISOString());
   if ((count ?? 0) >= limit) return fail(429, "rate_limited", `Έφτασες το όριο των ${limit} αιτημάτων για σήμερα. Δοκίμασε ξανά αύριο.`);
