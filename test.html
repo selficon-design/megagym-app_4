@@ -556,6 +556,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .auth-tabs button{flex:1;padding:9px;border-radius:8px;font-size:12.5px;font-weight:700;background:transparent;color:var(--ink-soft);border:none;}
 .auth-tabs button.active{background:rgba(61,216,255,.16);color:#fff;box-shadow:inset 0 0 0 1px rgba(61,216,255,.4);}
 .auth-tabs.client-tabs{display:grid;grid-template-columns:1fr 1fr;}
+.auth-tabs.client-tabs #client-mode-build{grid-column:1 / -1;background:linear-gradient(145deg,rgba(43,217,107,.18),rgba(43,217,107,.05));border-color:rgba(43,217,107,.5);}
+.auth-tabs.client-tabs #client-mode-build.active{background:linear-gradient(145deg,#2bd96b,#14a34a);color:#04210f;}
 /* ============ ΔΙΑΤΡΟΦΗ (client) ============ */
 .food-date{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;}
 .food-date .lbl{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;letter-spacing:.04em;text-align:center;flex:1;}
@@ -2446,6 +2448,7 @@ function rebuildClientDashboardShell(){
         <button id="client-mode-library" class="${state.clientViewMode==='library'?'active':''}">Έτοιμα Προγράμματα TRANSFORMATION</button>
         <button id="client-mode-log" class="${state.clientViewMode==='log'?'active':''}">Ημερολόγιο</button>
         <button id="client-mode-food" class="${state.clientViewMode==='food'?'active':''}">Διατροφή</button>
+        <button id="client-mode-build" class="${state.clientViewMode==='build'?'active':''}">🛠 Φτιάχνω δικό μου πρόγραμμα</button>
       </div>
       <div id="client-content"></div>
     </div>
@@ -2454,6 +2457,7 @@ function rebuildClientDashboardShell(){
   if(state.clientViewMode==='library') renderTplLibMain();
   else if(state.clientViewMode==='log') renderClientWorkoutLog();
   else if(state.clientViewMode==='food') renderClientNutrition();
+  else if(state.clientViewMode==='build') renderClientBuilder();
   else renderClientMain();
 }
 function bindClientModeToggle(){
@@ -2461,10 +2465,11 @@ function bindClientModeToggle(){
   const libBtn = document.getElementById('client-mode-library');
   const logBtn = document.getElementById('client-mode-log');
   const foodBtn = document.getElementById('client-mode-food');
+  const buildBtn = document.getElementById('client-mode-build');
   const setActive = (mode)=>{
     state.clientViewMode = mode;
-    [mineBtn,libBtn,logBtn,foodBtn].forEach(b=>b && b.classList.remove('active'));
-    const activeBtn = {mine:mineBtn, library:libBtn, log:logBtn, food:foodBtn}[mode];
+    [mineBtn,libBtn,logBtn,foodBtn,buildBtn].forEach(b=>b && b.classList.remove('active'));
+    const activeBtn = {mine:mineBtn, library:libBtn, log:logBtn, food:foodBtn, build:buildBtn}[mode];
     if(activeBtn) activeBtn.classList.add('active');
     const ap = document.getElementById('client-announce-panel');
     if(ap) ap.style.display = (mode==='mine' && ap.innerHTML.trim()) ? 'block' : 'none';
@@ -2482,6 +2487,7 @@ function bindClientModeToggle(){
   });
   logBtn.addEventListener('click', ()=>{ setActive('log'); renderClientWorkoutLog(); });
   if(foodBtn) foodBtn.addEventListener('click', ()=>{ setActive('food'); renderClientNutrition(); });
+  if(buildBtn) buildBtn.addEventListener('click', ()=>{ setActive('build'); renderClientBuilder(); });
 }
 function returnFromWorkoutTplLib(){
   if(state.tplLibShellContext === 'client') rebuildClientDashboardShell();
@@ -3244,7 +3250,8 @@ function renderTplFormArea(){
   const area = document.getElementById('tpl-form-area');
   if(!area) return;
   const b = state.tplBuilder;
-  if(!state.tplFormOpen){   // στην αρχή: μόνο τα έτοιμα προγράμματα + κουμπί δημιουργίας
+  const clientMode = !!(b && b.mode==='client');   // «Φτιάχνω δικό μου πρόγραμμα» (αθλούμενος)
+  if(!state.tplFormOpen && !clientMode){   // στην αρχή: μόνο τα έτοιμα προγράμματα + κουμπί δημιουργίας
     area.innerHTML = `<button class="btn tpl-new-btn" id="tpl-new-btn">＋ Δημιουργία νέου προγράμματος</button>`;
     document.getElementById('tpl-new-btn').addEventListener('click', ()=>{
       const nb = freshTplBuilder();
@@ -3258,18 +3265,22 @@ function renderTplFormArea(){
   }
   const scroller = document.scrollingElement || document.documentElement, keepY = scroller.scrollTop; // η οθόνη μένει εκεί που είναι
   area.innerHTML = `
-    <button class="btn btn-outline tpl-back-btn" id="tpl-back-btn">← Πίσω στα έτοιμα προγράμματα</button>
+    ${clientMode ? '' : `<button class="btn btn-outline tpl-back-btn" id="tpl-back-btn">← Πίσω στα έτοιμα προγράμματα</button>`}
     ${renderGymSelector()}
     ${b.id ? `<div class="calc-type-box" style="text-align:center;">✎ ΕΠΕΞΕΡΓΑΣΙΑ ΥΠΑΡΧΟΝΤΟΣ ΠΡΟΓΡΑΜΜΑΤΟΣ — «${escHtml(b.name)}»</div>`:''}
-    ${renderTplMetaForm(b)}
+    ${clientMode ? renderClientBuilderMeta(b) : renderTplMetaForm(b)}
     ${renderTplDaysEditor(b)}
-    <div class="panel pad" style="margin-top:20px;">
+    ${clientMode ? `<div class="panel pad" style="margin-top:20px;">
+      <button class="btn btn-critical" style="width:100%;justify-content:center;" id="tpl-save-btn">${ICON.save}Αποθήκευση στα Προγράμματά μου<span class="kbd">Ctrl + S</span></button>
+      <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;" id="cb-reset">${state.cbResetConfirm ? 'Σίγουρα; Πάτα ξανά — θα σβηστούν όλα' : '✕ Καθαρισμός — ξεκινάω από την αρχή'}</button>
+    </div>` : `<div class="panel pad" style="margin-top:20px;">
       <button class="btn btn-critical" style="width:100%;justify-content:center;" id="tpl-save-btn">${ICON.save}${b.id?'Αποθήκευση Αλλαγών':'Αποθήκευση Προγράμματος στη Βιβλιοθήκη'}<span class="kbd">Ctrl + S</span></button>
       <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;" id="tpl-cancel-edit">${b.id ? '✕ Κλείσιμο επεξεργασίας (χωρίς αποθήκευση)' : '✕ Ακύρωση νέου προγράμματος'}</button>
-    </div>
+    </div>`}
   `;
   scroller.scrollTop = keepY;
   bindTplBuilderEvents();
+  if(clientMode) cbSaveDraft();
 }
 
 function renderTplDaysEditor(b){
@@ -3541,7 +3552,7 @@ function bindTplBuilderEvents(){
   });
   const bindText = (id, field)=>{
     const el = document.getElementById(id);
-    if(el) el.addEventListener('input', ()=>{ b[field] = el.value; });
+    if(el) el.addEventListener('input', ()=>{ b[field] = el.value; if(b.mode==='client') cbSaveDraft(); });
   };
   const topcatSel = document.getElementById('tpl-topcat');
   if(topcatSel) topcatSel.addEventListener('change', ()=>{ b.topCategory = topcatSel.value; b.subCategory=''; renderTplFormArea(); });
@@ -3712,7 +3723,12 @@ function bindTplBuilderEvents(){
   }
 
   const saveBtn = document.getElementById('tpl-save-btn');
-  if(saveBtn) saveBtn.addEventListener('click', submitTplProgram);
+  if(saveBtn) saveBtn.addEventListener('click', b.mode==='client' ? submitClientProgram : submitTplProgram);
+  document.getElementById('cb-reset')?.addEventListener('click', ()=>{
+    if(!state.cbResetConfirm){ state.cbResetConfirm = true; renderTplFormArea(); return; }
+    state.cbResetConfirm = false; state.clientBuilder = freshClientBuilder(); state.tplBuilder = state.clientBuilder; cbSaveDraft();
+    renderTplFormArea(); toast('Ξεκινάς από την αρχή.');
+  });
   const cancelEditBtn = document.getElementById('tpl-cancel-edit');
   document.getElementById('tpl-back-btn')?.addEventListener('click', ()=>cancelEditBtn && cancelEditBtn.click());
   if(cancelEditBtn) cancelEditBtn.addEventListener('click', ()=>{
@@ -8260,6 +8276,7 @@ async function renderAppClient(){
         <button id="client-mode-library">Έτοιμα Προγράμματα TRANSFORMATION</button>
         <button id="client-mode-log">Ημερολόγιο</button>
         <button id="client-mode-food">Διατροφή</button>
+        <button id="client-mode-build">🛠 Φτιάχνω δικό μου πρόγραμμα</button>
       </div>
       <div id="client-content"></div>
     </div>
@@ -8636,6 +8653,72 @@ function mapTemplateToCustomRecord(t){
     record.days = mappedDays.filter(d=> d.groups.length>0 || (d.cardioSlots && d.cardioSlots.length>0));
   }
   return record;
+}
+/* ===================================================================
+   «ΦΤΙΑΧΝΩ ΔΙΚΟ ΜΟΥ ΠΡΟΓΡΑΜΜΑ» — ο αθλούμενος φτιάχνει μόνος του πρόγραμμα με τον ίδιο builder
+   των Έτοιμων Προγραμμάτων (ημέρες, ασκήσεις, αερόβιο, set/rep/διάλειμμα/tempo/ένταση, εξοπλισμός, χρόνοι).
+   Το πρόχειρο κρατιέται στη συσκευή (localStorage) μέχρι να το αποθηκεύσει στα «Προγράμματά μου».
+   =================================================================== */
+function freshClientBuilder(){
+  const b = freshTplBuilder();
+  b.mode = 'client'; b.numDays = 3; b.days = tplBuildDays(3);
+  b.gender = (auth.customer && auth.customer.gender) || 'ΑΝΔΡΕΣ';
+  b.topCategory = 'ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ';
+  return b;
+}
+function cbDraftKey(){ return 'forma_my_builder_' + ((auth.customer && auth.customer.code) || 'x'); }
+function cbSaveDraft(){
+  try{ const b = state.clientBuilder; if(!b) return;
+    localStorage.setItem(cbDraftKey(), JSON.stringify({ name:b.name, numDays:b.numDays, days:b.days, description:b.description })); }catch(_){}
+}
+function cbLoadDraft(){
+  try{ const d = JSON.parse(localStorage.getItem(cbDraftKey()) || 'null'); if(!d || !Array.isArray(d.days)) return null;
+    const b = freshClientBuilder(); Object.assign(b, { name:d.name||'', numDays:d.numDays||d.days.length, days:d.days, description:d.description||'' }); return b; }catch(_){ return null; }
+}
+function renderClientBuilderMeta(b){
+  return `
+    <div class="panel pad" style="margin-bottom:18px;">
+      <div class="section-title"><span class="dot"></span>Το πρόγραμμά μου</div>
+      <div class="field"><label>Όνομα προγράμματος</label><input type="text" id="tpl-name" value="${escAttr(b.name)}" placeholder="π.χ. Το πρόγραμμά μου — 3 ημέρες" maxlength="80"></div>
+      <div class="field">
+        <label>Πόσες ημέρες την εβδομάδα;</label>
+        <div class="chip-row">${[1,2,3,4,5,6,7].map(n=>`<button class="plate-btn ${b.numDays===n?'active':''}" data-tpl-days="${n}" style="--size:36px;font-size:12px;">${n}</button>`).join('')}</div>
+      </div>
+      <div class="field" style="margin-bottom:0;"><label>Σημειώσεις (προαιρετικά)</label><textarea id="tpl-description" rows="2" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);" placeholder="π.χ. στόχος, πώς νιώθω, τι θέλω να βελτιώσω">${escHtml(b.description||'')}</textarea></div>
+    </div>`;
+}
+function renderClientBuilder(){
+  const box = document.getElementById('client-content'); if(!box) return;
+  if(!state.clientBuilder || state.clientBuilder.ownerCode !== (auth.customer && auth.customer.code)){
+    state.clientBuilder = cbLoadDraft() || freshClientBuilder();
+    state.clientBuilder.ownerCode = auth.customer && auth.customer.code;
+  }
+  state.tplBuilder = state.clientBuilder;
+  box.innerHTML = `
+    <div class="topbar"><div><h1 style="font-size:20px;">🛠 Φτιάχνω δικό μου πρόγραμμα</h1>
+      <div class="sub">Διάλεξε ημέρες, πρόσθεσε ασκήσεις και αερόβιο, και όρισε set, επαναλήψεις, διάλειμμα και tempo. Βλέπεις αμέσως πόση ώρα θα κρατήσει κάθε προπόνηση. Όταν τελειώσεις, πάτα «Αποθήκευση στα Προγράμματά μου».</div></div></div>
+    <div id="tpl-form-area"></div>`;
+  renderTplFormArea();
+}
+async function submitClientProgram(){
+  const b = state.clientBuilder; if(!b || !auth.customer) return;
+  const name = (b.name||'').trim();
+  if(!name){ toast('Δώσε ένα όνομα στο πρόγραμμά σου.'); document.getElementById('tpl-name')?.focus(); return; }
+  const filled = b.days.filter(d=>d.items.length);
+  if(!filled.length){ toast('Πρόσθεσε τουλάχιστον μία άσκηση.'); return; }
+  const noTime = []; b.days.forEach(d=>d.items.forEach(it=>{ if(it.type==='cardio' && !it.minutes) noTime.push(d.label); }));
+  if(noTime.length){ toast('Λείπει ο χρόνος στο αερόβιο ('+noTime.join(', ')+').'); return; }
+  if(b.addForm){ toast('Αποθήκευσε ή κλείσε πρώτα την άσκηση που επεξεργάζεσαι.'); return; }
+  const btn = document.getElementById('tpl-save-btn'); if(btn){ btn.disabled = true; btn.textContent = 'Αποθήκευση...'; }
+  const record = mapTemplateToCustomRecord({ name, top_category:'ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ', description: b.description||'', data:{ days: b.days } });
+  record.fromClientBuilder = true;
+  const ok = await insertProgram(auth.customer.code, record);
+  if(btn){ btn.disabled = false; }
+  if(!ok){ toast('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.'); renderTplFormArea(); return; }
+  toast('Το πρόγραμμα «'+name+'» μπήκε στα Προγράμματά μου!');
+  state.clientBuilder = freshClientBuilder(); state.clientBuilder.ownerCode = auth.customer.code;
+  try{ localStorage.removeItem(cbDraftKey()); }catch(_){}
+  document.getElementById('client-mode-mine')?.click();
 }
 async function saveTemplateToMyPrograms(templateId){
   const t = state.tplTemplates.find(x=>x.id===templateId);
@@ -9867,7 +9950,8 @@ resolveAuthState();
 // Γρήγορη αποθήκευση στα Έτοιμα Προγράμματα: Ctrl+S (⌘S σε Mac) ή το κόκκινο 💾 κάτω δεξιά.
 // Αν είναι ανοιχτή φόρμα άσκησης/αερόβιου, αποθηκεύει πρώτα αυτήν· αλλιώς ολόκληρο το πρόγραμμα.
 function tplQuickSave(){
-  if(state.tab!=='tplbuilder') return false;
+  const inClient = auth.role==='client' && state.clientViewMode==='build';
+  if(state.tab!=='tplbuilder' && !inClient) return false;
   const form = document.getElementById('tpl-af-submit') || document.getElementById('tpl-af-csubmit');
   if(form){ form.click(); return true; }
   const save = document.getElementById('tpl-save-btn');
@@ -9877,11 +9961,11 @@ function tplQuickSave(){
 (function initQuickSave(){
   document.addEventListener('keydown', e=>{
     if((e.ctrlKey || e.metaKey) && !e.altKey && (e.key==='s' || e.key==='S' || e.key==='σ' || e.code==='KeyS')){
-      if(state.tab==='tplbuilder'){ e.preventDefault(); tplQuickSave(); }
+      if(state.tab==='tplbuilder' || (auth.role==='client' && state.clientViewMode==='build')){ e.preventDefault(); tplQuickSave(); }
     }
   });
   document.getElementById('quick-save-btn')?.addEventListener('click', tplQuickSave);
-  setInterval(()=>document.body.classList.toggle('tab-tplbuilder', state.tab==='tplbuilder' && auth.role==='owner'), 400);
+  setInterval(()=>document.body.classList.toggle('tab-tplbuilder', (state.tab==='tplbuilder' && auth.role==='owner') || (auth.role==='client' && state.clientViewMode==='build' && !!document.getElementById('tpl-save-btn'))), 400);
 })();
 (function initHandMode(){
   const btn = document.getElementById('hand-mode-btn'); if(!btn) return;
