@@ -668,6 +668,45 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .tpl-gender-switch button.orphan{border-color:#ff9f1a;color:#ffc465;}
 .tpl-gender-switch button.orphan.active{background:#ff9f1a;color:#111;}
 @media (max-width:640px){ .tpl-cat-g{padding-top:0;min-width:0;width:100%;} }
+.tplc-pages{display:flex;gap:10px;margin-bottom:12px;}
+.tplc-pages button{flex:1;max-width:220px;padding:11px 14px;border-radius:14px;border:2px solid var(--line-strong);background:rgba(13,31,48,.5);color:var(--ink);font-weight:800;cursor:pointer;opacity:.8;}
+.tplc-pages button.active{opacity:1;background:var(--cyan);border-color:var(--cyan);color:#04121c;box-shadow:0 0 16px rgba(61,216,255,.5);}
+.tplc-pages button span{display:inline-block;margin-left:6px;padding:0 8px;border-radius:999px;background:rgba(61,216,255,.18);font-size:11px;}
+.tplc-banner{border:1.5px solid #ffd23f;background:rgba(255,210,63,.1);border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:13px;}
+.tplc-banner-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.tplc-banner-btns .btn, .tplc-acts .btn{padding:5px 10px;font-size:11px;}
+.tplc-wrap{position:relative;overflow:auto;border:1px solid var(--line-strong);border-radius:16px;background:rgba(3,11,18,.45);padding:16px;max-height:75vh;}
+.tplc-svg{position:absolute;left:0;top:0;pointer-events:none;z-index:1;overflow:visible;}
+.tplc-lanes{display:flex;gap:56px;align-items:flex-start;position:relative;width:max-content;}
+.tplc-lane{width:210px;display:flex;flex-direction:column;gap:34px;}
+.tplc-lane-h{padding:8px 10px;border-radius:10px;background:rgba(61,216,255,.12);border:1px solid rgba(61,216,255,.35);text-align:center;margin-bottom:-14px;}
+.tplc-lane.orphan .tplc-lane-h{background:rgba(255,159,26,.12);border-color:#ff9f1a;}
+.tplc-lane-top{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--cyan-soft);}
+.tplc-lane-sub{font-size:12px;font-weight:800;color:#dffaff;margin-top:2px;}
+.tplc-box{position:relative;z-index:2;border:2px solid var(--line-strong);border-radius:14px;background:#081826;padding:10px;box-shadow:0 4px 14px rgba(0,0,0,.4);}
+.tplc-box img{width:100%;height:70px;object-fit:cover;border-radius:8px;margin-bottom:6px;}
+.tplc-box.draft{border-style:dashed;}
+.tplc-box.src{border-color:#ffd23f;box-shadow:0 0 0 2px #ffd23f, 0 0 20px rgba(255,210,63,.45);}
+.tplc-box.target{cursor:pointer;border-color:#3dd8ff;}
+.tplc-box.target:hover{box-shadow:0 0 0 2px #3dd8ff, 0 0 18px rgba(61,216,255,.5);}
+.tplc-name{font-weight:800;font-size:13px;color:#fff;}
+.tplc-meta{font-size:11px;color:var(--ink-soft);margin-top:2px;}
+.tplc-next{font-size:11px;color:#bdf3ff;margin-top:6px;}
+.tplc-next small{color:var(--ink-soft);}
+.tplc-acts{display:flex;gap:6px;margin-top:8px;}
+.tplc-empty{font-size:11.5px;color:var(--ink-soft);font-style:italic;text-align:center;padding:14px 6px;border:1px dashed var(--line-strong);border-radius:12px;}
+.tplc-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;font-size:11.5px;color:var(--ink-soft);}
+.tplc-legend i{display:inline-block;width:28px;vertical-align:middle;margin-right:6px;}
+.tpl-group{margin:6px 0 18px;}
+.tpl-group-h{font-weight:800;font-size:13px;letter-spacing:.06em;color:#dffaff;padding:8px 2px;border-bottom:1px solid rgba(61,216,255,.25);margin-bottom:8px;}
+.tpl-group-h span, .tpl-sub-h span{display:inline-block;margin-left:6px;padding:0 8px;border-radius:999px;background:rgba(61,216,255,.15);font-size:11px;color:var(--cyan-soft);}
+.tpl-sub-h{font-weight:700;font-size:12px;color:var(--cyan-soft);margin:10px 2px 8px;padding-left:10px;border-left:3px solid var(--cyan);}
+.tpl-empty{font-size:12px;color:var(--ink-soft);font-style:italic;margin:0 0 10px 13px;}
+.tpl-flow{font-size:11.5px;color:#bdf3ff;margin:2px 0 4px;}
+.tpl-flow b{color:#fff;}
+.tpl-sum{display:flex;flex-direction:column;gap:2px;margin:4px 0 6px;font-size:11px;color:var(--cyan-soft);line-height:1.45;}
+.tpl-sum .mono{letter-spacing:.02em;}
+.tpl-sum-dur{color:#ffd23f;font-weight:600;}
 .lbl-all{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
 .apply-all{border:1px solid rgba(255,159,26,.55);background:rgba(255,159,26,.1);color:#ffc465;border-radius:999px;padding:3px 10px;font-size:10.5px;font-weight:700;cursor:pointer;text-transform:none;letter-spacing:0;}
 .apply-all.done{background:#2bd96b;border-color:#2bd96b;color:#06210f;box-shadow:0 0 12px rgba(43,217,107,.55);}
@@ -3949,6 +3988,7 @@ function renderNav(){
   items.push({id:'tplpreview', label:'Βιβλιοθήκη Έτοιμων Προγραμμάτων TRANSFORMATION', icon:ICON.history});
   if(auth.role === 'owner'){
     items.push({id:'tplbuilder', label:'Έτοιμα Προγράμματα TRANSFORMATION', icon:ICON.key});
+    items.push({id:'tplchart', label:'Οργανόγραμμα Προγραμμάτων', icon:ICON.plan});
     items.push({id:'libcats', label:'Κατηγορίες Βιβλιοθήκης', icon:ICON.plan});
     items.push({id:'excelcat', label:'Κατάλογος Ασκήσεων (Excel)', icon:ICON.plan});
     items.push({id:'eqmedia', label:'Φωτογραφίες & Βίντεο Ασκήσεων', icon:ICON.plan});
@@ -9321,6 +9361,132 @@ function bindCatalogEvents(){
   }));
 }
 
+
+/* ===================================================================
+   ΟΡΓΑΝΟΓΡΑΜΜΑ ΠΡΟΓΡΑΜΜΑΤΩΝ (owner)
+   Μία σελίδα ανά φύλο. Στήλες = κατηγορίες/υποκατηγορίες, κουτάκια = προγράμματα (με τη σειρά τους),
+   βέλη = «επόμενο πρόγραμμα» (συνεχές = ορισμένο από σένα, διακεκομμένο = αυτόματο από τη σειρά).
+   Οι συνδέσεις αποθηκεύονται στο data.next κάθε προγράμματος — από εκεί θα τις διαβάζει και το AI.
+   =================================================================== */
+const tplChart = { gender:'ΑΝΔΡΕΣ', connectFrom:null, saving:false };
+async function renderTplChartTab(){
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <h1 style="margin-bottom:2px;">Οργανόγραμμα Προγραμμάτων</h1>
+    <div class="sub" style="margin-bottom:14px;">Κάθε κουτάκι είναι ένα έτοιμο πρόγραμμα. Τα βέλη δείχνουν σε ποιο πρόγραμμα συνεχίζει ο αθλούμενος. Πάτα <b>«➜ Σύνδεση»</b> σε ένα κουτάκι και μετά το πρόγραμμα που ακολουθεί.</div>
+    <div id="tplc-root"><div style="color:var(--ink-soft);">Φόρτωση...</div></div>`;
+  state.tplTemplates = await loadTemplatePrograms();
+  state.tplTemplatesLoaded = true;
+  if(state.tab==='tplchart') renderTplChart();
+}
+function renderTplChart(){
+  const root = document.getElementById('tplc-root'); if(!root) return;
+  const g = tplChart.gender, all = state.tplTemplates || [];
+  const order = (a,b)=>(a.sort_order||0)-(b.sort_order||0) || String(a.created_at||'').localeCompare(String(b.created_at||''));
+  const lanes = [];
+  Object.keys(TPL_CATEGORIES).forEach(top=>{
+    const subs = tplSubsFor(top, g);
+    (subs.length ? subs : ['']).forEach(sub=>lanes.push({ top, sub, items: all.filter(t=>t.gender===g && tplCatOf(t)===tplCatKey(g, top, sub)).sort(order) }));
+  });
+  const orphans = all.filter(t=>t.gender===g && !tplCatOf(t));
+  if(orphans.length) lanes.push({ top:'⚠️ ΧΩΡΙΣ ΣΩΣΤΗ ΚΑΤΗΓΟΡΙΑ', sub:'', items: orphans.sort(order), orphan:true });
+  const from = tplChart.connectFrom && all.find(t=>t.id===tplChart.connectFrom);
+  const box = t=>{
+    const nx = tplNextOf(t), n = t.data && t.data.next, manual = n && n!=='auto';
+    const s = t.data && t.data.sessions;
+    const other = nx && nx.gender!==t.gender;
+    return `<div class="tplc-box ${!t.is_published?'draft':''} ${from&&from.id===t.id?'src':''} ${from&&from.id!==t.id?'target':''}" data-tplc-id="${escAttr(t.id)}">
+      ${t.photo_url ? `<img src="${escAttr(t.photo_url)}" alt="" loading="lazy">` : ''}
+      <div class="tplc-name">${escHtml(t.name)}</div>
+      <div class="tplc-meta">${t.num_days||'?'} ημέρες${s?` · ${s} προπονήσεις`:''}${!t.is_published?' · <span style="color:#ffcf9e;">ΠΡΟΣΧΕΔΙΟ</span>':''}</div>
+      <div class="tplc-next">${nx ? `➜ ${escHtml(nx.name)}${other?` <small>(${escHtml(nx.gender)})</small>`:''} <small>${manual?'· ορισμένο':'· αυτόματο'}</small>` : (n==='none' ? '■ τελευταίο πρόγραμμα' : '<span style="color:#ff9f1a;">⚠️ χωρίς επόμενο</span>')}</div>
+      <div class="tplc-acts">
+        <button type="button" class="btn btn-outline" data-tplc-connect="${escAttr(t.id)}">➜ Σύνδεση</button>
+        <button type="button" class="btn btn-outline" data-tplc-edit="${escAttr(t.id)}">✎</button>
+      </div>
+    </div>`;
+  };
+  root.innerHTML = `
+    <div class="tplc-pages">${TPL_GENDERS.map(x=>`<button type="button" class="${g===x?'active':''}" data-tplc-gender="${x}">${x==='ΑΝΔΡΕΣ'?'♂':'♀'} ${x} <span>${all.filter(t=>t.gender===x).length}</span></button>`).join('')}</div>
+    ${from ? `<div class="tplc-banner">Σε ποιο πρόγραμμα συνεχίζει το <b>«${escHtml(from.name)}»</b>; Πάτα το κουτάκι του.
+      <div class="tplc-banner-btns">
+        <button type="button" class="btn btn-outline" data-tplc-set="auto">Αυτόματα (το επόμενο της στήλης)</button>
+        <button type="button" class="btn btn-outline" data-tplc-set="none">■ Είναι το τελευταίο</button>
+        ${TPL_GENDERS.filter(x=>x!==g).map(x=>`<button type="button" class="btn btn-outline" data-tplc-gender="${x}">Πρόγραμμα από ${x}…</button>`).join('')}
+        <button type="button" class="btn btn-outline" data-tplc-cancel>Ακύρωση</button>
+      </div></div>` : ''}
+    <div class="tplc-wrap" id="tplc-wrap">
+      <svg class="tplc-svg" id="tplc-svg"><defs>
+        <marker id="tplc-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ffd23f"/></marker>
+        <marker id="tplc-ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3dd8ff"/></marker>
+      </defs></svg>
+      <div class="tplc-lanes">
+        ${lanes.map(l=>`<div class="tplc-lane ${l.orphan?'orphan':''}">
+          <div class="tplc-lane-h"><div class="tplc-lane-top">${escHtml(l.top)}</div>${l.sub?`<div class="tplc-lane-sub">${escHtml(l.sub)}</div>`:''}</div>
+          ${l.items.length ? l.items.map(box).join('') : `<div class="tplc-empty">Κανένα πρόγραμμα ακόμα</div>`}
+        </div>`).join('')}
+      </div>
+    </div>
+    <div class="tplc-legend"><span><i style="border-top:2px solid #ffd23f;"></i> ορισμένη σύνδεση</span><span><i style="border-top:2px dashed #3dd8ff;"></i> αυτόματη (επόμενο της στήλης)</span></div>`;
+  bindTplChart();
+  requestAnimationFrame(drawTplChartArrows);
+}
+function drawTplChartArrows(){
+  const wrap = document.getElementById('tplc-wrap'), svg = document.getElementById('tplc-svg'); if(!wrap || !svg) return;
+  svg.querySelectorAll('path.tplc-a').forEach(p=>p.remove());
+  const W = wrap.scrollWidth, H = wrap.scrollHeight;
+  svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const wr = wrap.getBoundingClientRect();
+  const rectOf = id=>{ const el = wrap.querySelector(`[data-tplc-id="${CSS.escape(id)}"]`); if(!el) return null; const r = el.getBoundingClientRect();
+    return { x: r.left - wr.left + wrap.scrollLeft, y: r.top - wr.top + wrap.scrollTop, w: r.width, h: r.height }; };
+  (state.tplTemplates||[]).filter(t=>t.gender===tplChart.gender).forEach(t=>{
+    const nx = tplNextOf(t); if(!nx) return;
+    const a = rectOf(t.id), b = rectOf(nx.id); if(!a || !b) return;
+    const manual = t.data && t.data.next && t.data.next!=='auto';
+    let d;
+    if(Math.abs(a.x - b.x) < 5){            // ίδια στήλη: από κάτω προς τα πάνω του επόμενου
+      const x = a.x + a.w/2;
+      if(b.y > a.y) d = `M${x},${a.y+a.h} L${x},${b.y-2}`;
+      else { const off = a.x + a.w + 18; d = `M${a.x+a.w},${a.y+a.h/2} C${off},${a.y+a.h/2} ${off},${b.y+b.h/2} ${b.x+b.w+2},${b.y+b.h/2}`; }
+    } else {                                 // άλλη στήλη: από το πλάι
+      const right = b.x > a.x, x1 = right ? a.x + a.w : a.x, x2 = right ? b.x - 2 : b.x + b.w + 2;
+      const y1 = a.y + a.h/2, y2 = b.y + b.h/2, mx = (x1 + x2)/2;
+      d = `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
+    }
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', d); p.setAttribute('class', 'tplc-a');
+    p.setAttribute('stroke', manual ? '#ffd23f' : '#3dd8ff'); p.setAttribute('stroke-width', '2.2'); p.setAttribute('fill', 'none');
+    if(!manual) p.setAttribute('stroke-dasharray', '6 5');
+    p.setAttribute('marker-end', manual ? 'url(#tplc-ah)' : 'url(#tplc-ah2)');
+    svg.appendChild(p);
+  });
+}
+async function tplChartSetNext(id, next){
+  const t = (state.tplTemplates||[]).find(x=>x.id===id); if(!t || tplChart.saving) return;
+  if(next===id) return toast('Ένα πρόγραμμα δεν μπορεί να συνεχίζει στον εαυτό του.');
+  tplChart.saving = true;
+  const data = { ...(t.data||{}), next };
+  const ok = await updateTemplateProgram(id, { data, updated_by: auth.user.id, updated_by_email: auth.email, updated_at: new Date().toISOString() });
+  tplChart.saving = false;
+  if(!ok) return toast('Η σύνδεση δεν αποθηκεύτηκε. Δοκίμασε ξανά.');
+  t.data = data;
+  if(state.tplBuilder && state.tplBuilder.id===id) state.tplBuilder.next = next;
+  tplChart.connectFrom = null;
+  if(tplChart.gender !== t.gender) tplChart.gender = t.gender;
+  const nx = tplNextOf(t);
+  toast(next==='none' ? `«${t.name}»: τελευταίο πρόγραμμα.` : `«${t.name}» ➜ ${nx ? '«'+nx.name+'»' : '—'}`);
+  renderTplChart();
+}
+function bindTplChart(){
+  document.querySelectorAll('[data-tplc-gender]').forEach(el=>el.addEventListener('click', ()=>{ tplChart.gender = el.getAttribute('data-tplc-gender'); renderTplChart(); }));
+  document.querySelectorAll('[data-tplc-connect]').forEach(el=>el.addEventListener('click', e=>{ e.stopPropagation(); const id = el.getAttribute('data-tplc-connect'); tplChart.connectFrom = tplChart.connectFrom===id ? null : id; renderTplChart(); }));
+  document.querySelectorAll('[data-tplc-edit]').forEach(el=>el.addEventListener('click', e=>{ e.stopPropagation(); openTplEditor(el.getAttribute('data-tplc-edit')); }));
+  document.querySelectorAll('[data-tplc-set]').forEach(el=>el.addEventListener('click', ()=>tplChartSetNext(tplChart.connectFrom, el.getAttribute('data-tplc-set'))));
+  document.querySelector('[data-tplc-cancel]')?.addEventListener('click', ()=>{ tplChart.connectFrom = null; renderTplChart(); });
+  document.querySelectorAll('.tplc-box.target').forEach(el=>el.addEventListener('click', ()=>tplChartSetNext(tplChart.connectFrom, el.getAttribute('data-tplc-id'))));
+}
+window.addEventListener('resize', ()=>{ if(state.tab==='tplchart') drawTplChartArrows(); });
+
 function render(skipNav){
   if(!skipNav) renderNav(); else { /* still refresh active states */ 
     document.querySelectorAll('.navitem').forEach(el=>el.classList.toggle('active', el.getAttribute('data-tab')===state.tab));
@@ -9335,6 +9501,8 @@ function render(skipNav){
     renderAnnouncementsTab();
   } else if(state.tab==='tplbuilder'){
     renderTplBuilderTab();
+  } else if(state.tab==='tplchart' && auth.role==='owner'){
+    renderTplChartTab();
   } else if(state.tab==='tplpreview'){
     renderTplPreviewTab();
   } else if(state.tab==='aitrain' && auth.role==='owner'){
