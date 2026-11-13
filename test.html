@@ -762,6 +762,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .pc-find li{display:flex;gap:8px;padding:4px 0;border-bottom:1px solid rgba(61,216,255,.08);}
 .pc-find li span{flex-shrink:0;width:18px;}
 .pc-find li.good span{color:#6fe3a8;} .pc-find li.warning span{color:#ff9f1a;} .pc-find li.change span{color:#ffd23f;}
+.pc-act.on{border-color:#2bd96b;color:#6fe3a8;}
 .pc-sugg{border:1.5px solid rgba(255,210,63,.4);border-radius:12px;padding:10px 12px;margin:10px 0;background:rgba(255,210,63,.05);}
 .pc-sugg.yes{border-color:#2bd96b;background:rgba(43,217,107,.07);}
 .pc-sugg.no{border-color:rgba(61,216,255,.35);background:rgba(61,216,255,.04);opacity:.85;}
@@ -3300,8 +3301,9 @@ function renderTplFormArea(){
     ${clientMode ? renderClientBuilderMeta(b) : renderTplMetaForm(b)}
     ${renderTplDaysEditor(b)}
     ${clientMode ? `<div class="panel pad" style="margin-top:20px;">
-      <button class="btn btn-critical" style="width:100%;justify-content:center;" id="tpl-save-btn">${ICON.save}Αποθήκευση στα Προγράμματά μου<span class="kbd">Ctrl + S</span></button>
-      <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;" id="cb-reset">${state.cbResetConfirm ? 'Σίγουρα; Πάτα ξανά — θα σβηστούν όλα' : '✕ Καθαρισμός — ξεκινάω από την αρχή'}</button>
+      <button class="btn btn-critical" style="width:100%;justify-content:center;" id="tpl-save-btn">${ICON.save}${b.editProgramId ? 'Αποθήκευση διορθώσεων' : 'Αποθήκευση στα Προγράμματά μου'}<span class="kbd">Ctrl + S</span></button>
+      ${b.editProgramId ? `<button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;" id="cb-cancel-edit">✕ Ακύρωση διόρθωσης</button>`
+        : `<button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;" id="cb-reset">${state.cbResetConfirm ? 'Σίγουρα; Πάτα ξανά — θα σβηστούν όλα' : '✕ Καθαρισμός — ξεκινάω από την αρχή'}</button>`}
     </div>` : `<div class="panel pad" style="margin-top:20px;">
       <button class="btn btn-critical" style="width:100%;justify-content:center;" id="tpl-save-btn">${ICON.save}${b.id?'Αποθήκευση Αλλαγών':'Αποθήκευση Προγράμματος στη Βιβλιοθήκη'}<span class="kbd">Ctrl + S</span></button>
       <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;" id="tpl-cancel-edit">${b.id ? '✕ Κλείσιμο επεξεργασίας (χωρίς αποθήκευση)' : '✕ Ακύρωση νέου προγράμματος'}</button>
@@ -3754,6 +3756,7 @@ function bindTplBuilderEvents(){
   const saveBtn = document.getElementById('tpl-save-btn');
   if(saveBtn) saveBtn.addEventListener('click', b.mode==='client' ? submitClientProgram : submitTplProgram);
   document.querySelectorAll('[data-cb-goal]').forEach(el=>el.addEventListener('click', ()=>{ b.topCategory = el.getAttribute('data-cb-goal'); renderTplFormArea(); }));
+  document.getElementById('cb-cancel-edit')?.addEventListener('click', ()=>cbLeaveEdit(true));
   document.getElementById('cb-reset')?.addEventListener('click', ()=>{
     if(!state.cbResetConfirm){ state.cbResetConfirm = true; renderTplFormArea(); return; }
     state.cbResetConfirm = false; state.clientBuilder = freshClientBuilder(); state.tplBuilder = state.clientBuilder; cbSaveDraft();
@@ -8372,7 +8375,9 @@ function renderClientMain(){
   }
   content.innerHTML = html;
   bindClientNavEvents();
-  if(nav.view==='days' && nav.programId){ const pp = state.selectedCustomerPrograms.find(x=>x.id===nav.programId); if(pp && pp.record.fromClientBuilder) bindProgramCheck(pp, pp.record); }
+  if(nav.programId && (nav.view==='days' || (nav.view==='items' && (state.selectedCustomerPrograms.find(x=>x.id===nav.programId)||{record:{}}).record.subtype==='cardio'))){
+    const pp = state.selectedCustomerPrograms.find(x=>x.id===nav.programId); if(pp) bindProgramCheck(pp, pp.record);
+  } else { pcheck.programId = null; state.cbCopyConfirm = null; }   // έξω από το πρόγραμμα: ο έλεγχος κλείνει
   if(nav.view==='programs' || !nav.programId){
     bindAiClientEvents();
     if(auth.user && aiClient.loadedFor !== auth.user.id){
@@ -8416,20 +8421,20 @@ const PC_FIELD = { set:'Set', rep:'Επαναλήψεις', rest:'Διάλειμ
 function renderProgramCheckPanel(p, record){
   if(pcheck.programId !== p.id){ Object.assign(pcheck, { programId:p.id, open:false, note:'', busy:false, result:null, error:'', saving:false, answers:{} }); }
   const r = pcheck.result;
+  if(!pcheck.open && !r && !pcheck.busy) return '';   // ανοίγει μόνο με το κουμπί
   const V = { ok:['✅','Το πρόγραμμά σου είναι εντάξει','ok'], improve:['✎','Έχω μερικές προτάσεις','imp'], unsafe:['⚠️','Μίλησε πρώτα με τον προπονητή σου','bad'] };
   const sugg = (r && r.suggestions) || [];
   const answered = sugg.filter((s,i)=>pcheck.answers[i]).length;
   const yes = sugg.filter((s,i)=>pcheck.answers[i]==='yes').length;
   return `<div class="panel pad pcheck" id="pcheck-panel">
     <div class="section-title" style="margin-bottom:8px;"><span class="dot"></span>🤖 Έλεγχος προγράμματος</div>
-    ${!pcheck.open && !r ? `<div class="food-note" style="margin:0 0 10px;">Ο ψηφιακός προπονητής ελέγχει το πρόγραμμα που έφτιαξες με τους κανόνες του TRANSFORMATION και σου προτείνει αλλαγές. Εσύ αποφασίζεις για κάθε μία.</div>
-      <button class="btn btn-primary" id="pc-open" style="width:100%;justify-content:center;">🤖 Έλεγχος προγράμματος</button>` : ''}
+    ${pcheck.open && !r ? `<div class="food-note" style="margin:0 0 10px;">Ο ψηφιακός προπονητής ελέγχει το πρόγραμμα που έφτιαξες με τους κανόνες του TRANSFORMATION και σου προτείνει αλλαγές. Εσύ αποφασίζεις για κάθε μία.</div>` : ''}
     ${pcheck.open && !r ? `
       <label class="pc-lbl">Θέλεις να πεις κάτι στον προπονητή; <span>(προαιρετικό)</span></label>
       <textarea id="pc-note" rows="2" placeholder="π.χ. θέλω περισσότερο πάνω σώμα · έχω μόνο 45 λεπτά · πονάει ο ώμος μου">${escHtml(pcheck.note)}</textarea>
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="btn btn-primary" id="pc-run" style="flex:1;justify-content:center;" ${pcheck.busy?'disabled':''}>${pcheck.busy ? '⏳ Ελέγχω το πρόγραμμά σου…' : '🤖 Ξεκίνα τον έλεγχο'}</button>
-        <button class="btn btn-outline" id="pc-cancel" ${pcheck.busy?'disabled':''}>Άκυρο</button>
+        <button class="btn btn-outline" id="pc-cancel" ${pcheck.busy?'disabled':''}>Κλείσιμο</button>
       </div>` : ''}
     ${pcheck.error ? `<div class="cat-warn" style="margin-top:10px;">❌ ${escHtml(pcheck.error)}</div>` : ''}
     ${r ? `
@@ -8448,15 +8453,73 @@ function renderProgramCheckPanel(p, record){
         </div>`; }).join('')}
       ${sugg.length ? `
         <button class="btn btn-critical" id="pc-apply" style="width:100%;justify-content:center;margin-top:12px;" ${pcheck.saving||answered<sugg.length?'disabled':''}>${pcheck.saving?'Αποθήκευση…':(answered<sugg.length?`Απάντησε σε όλες τις προτάσεις (${answered}/${sugg.length})`:(yes?`💾 Αποθήκευση ${yes} ${yes===1?'αλλαγής':'αλλαγών'} στο πρόγραμμα`:'✓ Τέλος — κρατάω το πρόγραμμά μου όπως είναι'))}</button>` : `
-        <button class="btn btn-outline" id="pc-again" style="width:100%;justify-content:center;margin-top:12px;">🔄 Νέος έλεγχος</button>`}
+        <div style="display:flex;gap:8px;margin-top:12px;"><button class="btn btn-outline" id="pc-again" style="flex:1;justify-content:center;">🔄 Νέος έλεγχος</button><button class="btn btn-outline" id="pc-close">Κλείσιμο</button></div>`}
     ` : ''}
   </div>`;
 }
+function clientProgramActionsHtml(p, record){
+  const mine = !!record.fromClientBuilder;
+  return `<div class="action-bar">
+        <button class="btn btn-outline" data-client-print="${escAttr(p.id)}">${ICON.print}Εκτύπωση</button>
+        <button class="btn btn-outline" data-client-pdf="${escAttr(p.id)}">${ICON.pdf}PDF</button>
+        ${mine ? `<button class="btn btn-outline pc-act ${pcheck.programId===p.id && (pcheck.open||pcheck.result)?'on':''}" id="pc-open">🤖 Έλεγχος προγράμματος</button>` : ''}
+        ${mine ? `<button class="btn btn-outline" id="cb-edit">✎ Διόρθωση προγράμματος</button>` : ''}
+        <button class="btn btn-outline" id="cb-copy">${state.cbCopyConfirm===p.id ? 'Σίγουρα; Θα αντικατασταθεί το πρόχειρό σου' : '⧉ Αντιγραφή προγράμματος'}</button>
+      </div>
+      ${mine ? renderProgramCheckPanel(p, record) : ''}`;
+}
+// Πρόγραμμα (όπως αποθηκεύεται) → ημέρες του builder «Φτιάχνω δικό μου πρόγραμμα»
+function recordToBuilderDays(record){
+  const toW = g=>{ const k = catalogGroupKeyOfLabel(g.groupLabel||'');
+    return { type:'muscle', groupLabel: CATALOG_TPL_LABEL[k] || tplLabelNow(g.groupLabel) || g.groupLabel, exercise: g.exercise,
+      set: g.set, rep: g.rep, rest: g.rest, tempo: g.tempo || DEFAULT_TEMPO, failure: g.failure || 0, equipment: (g.equipment||[]).map(e=>({...e})) }; };
+  const toC = c=>({ type:'cardio', ...c });
+  if(record.subtype==='cardio' && Array.isArray(record.cardioSlots)){
+    return [{ label: DAY_LABELS_EXTENDED[0] || 'DAY 1', items: dayCardioList({ cardioSlots: record.cardioSlots }).map(toC) }];
+  }
+  return (record.days||[]).map((d,i)=>({ label: d.label || DAY_LABELS_EXTENDED[i] || ('DAY '+(i+1)),
+    items: daySegments(d).flatMap(sg=> sg.t==='w' ? sg.list.map(toW) : sg.list.map(toC)) }));
+}
+function openClientBuilderWith(record, opts){
+  const b = freshClientBuilder();
+  const days = recordToBuilderDays(record);
+  const tplDays = tplBuildDays(Math.max(1, Math.min(7, days.length || 1)));
+  tplDays.forEach((d,i)=>{ if(days[i]) d.items = days[i].items; });
+  Object.assign(b, {
+    name: opts.name, numDays: tplDays.length, days: tplDays,
+    description: record.instructions || '',
+    topCategory: record.category==='fatburn' ? 'ΚΑΥΣΗΣ ΛΙΠΟΥΣ' : 'ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ',
+    editProgramId: opts.editId || null, ownerCode: auth.customer && auth.customer.code
+  });
+  if(!b.editProgramId) state.cbSavedDraft = null;
+  else state.cbSavedDraft = state.clientBuilder;   // το πρόχειρο νέου προγράμματος μένει στην άκρη
+  state.clientBuilder = b;
+  if(!b.editProgramId) cbSaveDraft();
+  pcheck.programId = null;
+  document.getElementById('client-mode-build')?.click();
+}
 function bindProgramCheck(p, record){
+  document.getElementById('pc-open')?.addEventListener('click', ()=>{
+    if(pcheck.programId !== p.id) pcheck.programId = null;
+    renderProgramCheckPanel(p, record);   // αρχικοποίηση για αυτό το πρόγραμμα
+    if(pcheck.open || pcheck.result){ pcheck.open = false; pcheck.result = null; } else pcheck.open = true;
+    renderClientMain();
+    if(pcheck.open) setTimeout(()=>{ document.getElementById('pcheck-panel')?.scrollIntoView({ behavior:'smooth', block:'nearest' }); document.getElementById('pc-note')?.focus(); }, 40);
+  });
+  document.getElementById('cb-edit')?.addEventListener('click', ()=>{
+    openClientBuilderWith(record, { name: record.customName || record.templateName || 'Το πρόγραμμά μου', editId: p.id });
+  });
+  document.getElementById('cb-copy')?.addEventListener('click', ()=>{
+    const draft = state.clientBuilder && !state.clientBuilder.editProgramId && state.clientBuilder.days.some(d=>d.items.length);
+    if(draft && state.cbCopyConfirm !== p.id){ state.cbCopyConfirm = p.id; renderClientMain(); return; }
+    state.cbCopyConfirm = null;
+    openClientBuilderWith(record, { name: (record.customName || getProgramNameForRecord(record) || 'Πρόγραμμα') + ' (αντίγραφο)' });
+    toast('Το αντίγραφο άνοιξε στο «Φτιάχνω δικό μου πρόγραμμα» — άλλαξε ό,τι θέλεις και αποθήκευσέ το.');
+  });
   const $ = id=>document.getElementById(id);
   const redraw = ()=>{ renderClientMain(); };
-  $('pc-open')?.addEventListener('click', ()=>{ pcheck.open = true; redraw(); setTimeout(()=>$('pc-note')?.focus(), 30); });
-  $('pc-cancel')?.addEventListener('click', ()=>{ pcheck.open = false; redraw(); });
+  $('pc-cancel')?.addEventListener('click', ()=>{ pcheck.open = false; pcheck.error = ''; redraw(); });
+  $('pc-close')?.addEventListener('click', ()=>{ pcheck.open = false; pcheck.result = null; redraw(); });
   $('pc-note')?.addEventListener('input', e=>{ pcheck.note = e.target.value; });
   $('pc-again')?.addEventListener('click', ()=>{ pcheck.result = null; pcheck.open = true; redraw(); });
   document.querySelectorAll('[data-pc-ans]').forEach(el=>el.addEventListener('click', ()=>{
@@ -8504,12 +8567,8 @@ function renderClientDaysListView(p, record){
       ${record.nutrition ? `<div style="margin-top:12px;font-size:12.5px;"><b style="color:var(--cyan-soft);">Διατροφή:</b> ${escHtml(record.nutrition.kcal)}</div>`:''}
       ${record.instructions ? `<div style="margin-top:6px;font-size:12.5px;"><b style="color:var(--cyan-soft);">Οδηγίες:</b> ${escHtml(record.instructions)}</div>`:''}
       ${record.notes ? `<div style="margin-top:6px;font-size:12.5px;"><b style="color:var(--cyan-soft);">Παρατηρήσεις:</b> ${escHtml(record.notes)}</div>`:''}
-      <div class="action-bar">
-        <button class="btn btn-outline" data-client-print="${escAttr(p.id)}">${ICON.print}Εκτύπωση</button>
-        <button class="btn btn-outline" data-client-pdf="${escAttr(p.id)}">${ICON.pdf}PDF</button>
-      </div>
+      ${clientProgramActionsHtml(p, record)}
     </div>
-    ${record.fromClientBuilder ? renderProgramCheckPanel(p, record) : ''}
     <div style="display:flex;flex-direction:column;gap:10px;">
       ${days.map((d,i)=>{
         const groupNames = (d.groups||[]).map(g=>g.groupLabel).join(', ');
@@ -8532,6 +8591,7 @@ function renderClientItemsListView(p, record, dayIndex){
   return `
     <div class="auth-back" data-client-back="${backTarget}">${ICON.back}${escHtml(backLabel)}</div>
     <div class="topbar"><div><h1 style="font-size:20px;">${escHtml(dayLabel)}</h1><div style="margin-top:4px;">${dayDurationHtml(items)}</div></div></div>
+    ${isCardioOnly ? `<div class="panel pad" style="margin-bottom:14px;">${clientProgramActionsHtml(p, record)}</div>` : ''}
     <div style="display:flex;flex-direction:column;gap:10px;">
       ${items.length===0 ? `<div class="panel pad empty"><p>Δεν υπάρχουν ασκήσεις εδώ.</p></div>` :
         items.map((item,i)=>{
@@ -8790,8 +8850,15 @@ function freshClientBuilder(){
   return b;
 }
 function cbDraftKey(){ return 'forma_my_builder_' + ((auth.customer && auth.customer.code) || 'x'); }
+// Έξοδος από τη «Διόρθωση»: επιστρέφει το πρόχειρο νέου προγράμματος
+function cbLeaveEdit(goToPrograms){
+  state.clientBuilder = state.cbSavedDraft || cbLoadDraft() || freshClientBuilder();
+  state.clientBuilder.ownerCode = auth.customer && auth.customer.code;
+  state.cbSavedDraft = null;
+  if(goToPrograms) document.getElementById('client-mode-mine')?.click();
+}
 function cbSaveDraft(){
-  try{ const b = state.clientBuilder; if(!b) return;
+  try{ const b = state.clientBuilder; if(!b || b.editProgramId) return;   // η διόρθωση δεν πειράζει το πρόχειρο
     localStorage.setItem(cbDraftKey(), JSON.stringify({ name:b.name, numDays:b.numDays, days:b.days, description:b.description, topCategory:b.topCategory })); }catch(_){}
 }
 function cbLoadDraft(){
@@ -8800,6 +8867,7 @@ function cbLoadDraft(){
 }
 function renderClientBuilderMeta(b){
   return `
+    ${b.editProgramId ? `<div class="calc-type-box" style="text-align:center;">✎ ΔΙΟΡΘΩΣΗ ΠΡΟΓΡΑΜΜΑΤΟΣ — «${escHtml(b.name)}»</div>` : ''}
     <div class="panel pad" style="margin-bottom:18px;">
       <div class="section-title"><span class="dot"></span>Το πρόγραμμά μου</div>
       <div class="field"><label>Όνομα προγράμματος</label><input type="text" id="tpl-name" value="${escAttr(b.name)}" placeholder="π.χ. Το πρόγραμμά μου — 3 ημέρες" maxlength="80"></div>
@@ -8846,15 +8914,18 @@ async function submitClientProgram(){
   const sub = top==='ΚΑΥΣΗΣ ΛΙΠΟΥΣ' ? (hasW && hasC ? 'ΚΑΥΣΗ ΛΙΠΟΥΣ ΜΕ ΒΑΡΗ ΚΑΙ ΑΕΡΟΒΙΟ' : (hasC ? 'ΚΑΥΣΗ ΛΙΠΟΥΣ ΜΕ ΑΕΡΟΒΙΟ' : 'ΚΑΥΣΗ ΛΙΠΟΥΣ ΜΕ ΒΑΡΗ')) : '';
   const record = mapTemplateToCustomRecord({ name, top_category: top, sub_category: sub, description: b.description||'', data:{ days: b.days } });
   record.fromClientBuilder = true; record.fromTemplate = false; record.customName = name;
-  const ok = await insertProgram(auth.customer.code, record);
+  const editId = b.editProgramId;
+  if(editId){ const prev = state.selectedCustomerPrograms.find(x=>x.id===editId); if(prev && prev.record.aiChecked) record.aiChecked = true; record.modifiedAt = new Date().toISOString(); }
+  const ok = editId ? await updateProgram(editId, record) : await insertProgram(auth.customer.code, record);
   if(btn){ btn.disabled = false; }
   if(!ok){ toast('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.'); renderTplFormArea(); return; }
-  toast('Το πρόγραμμα «'+name+'» μπήκε στα Προγράμματά μου!');
-  state.clientBuilder = freshClientBuilder(); state.clientBuilder.ownerCode = auth.customer.code;
-  try{ localStorage.removeItem(cbDraftKey()); }catch(_){}
+  toast(editId ? 'Οι διορθώσεις στο «'+name+'» αποθηκεύτηκαν!' : 'Το πρόγραμμα «'+name+'» μπήκε στα Προγράμματά μου!');
+  if(editId){ cbLeaveEdit(false); }
+  else { state.clientBuilder = freshClientBuilder(); state.clientBuilder.ownerCode = auth.customer.code; try{ localStorage.removeItem(cbDraftKey()); }catch(_){} }
   // ξαναφόρτωση της λίστας, ώστε το νέο πρόγραμμα να φαίνεται αμέσως (πρώτο, ως το πιο πρόσφατο)
   state.selectedCustomerPrograms = (await loadProgramsFor(auth.customer.code)).sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
-  state.clientNav = { ...(state.clientNav||{}), view:'programs', programId:null };
+  state.clientNav = editId ? { view:'days', programId: editId, dayIndex:0, itemIndex:null } : { ...(state.clientNav||{}), view:'programs', programId:null };
+  pcheck.programId = null;
   document.getElementById('client-mode-mine')?.click();
 }
 async function saveTemplateToMyPrograms(templateId){
