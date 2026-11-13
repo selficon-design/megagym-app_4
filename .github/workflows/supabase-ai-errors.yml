@@ -16,8 +16,8 @@ jobs:
         run: |
           T=$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]'); echo "::add-mask::$T"
           START=$(date -u -d '-6 hours' +%Y-%m-%dT%H:%M:%SZ); END=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          for TB in function_logs function_edge_logs edge_logs functions_logs; do
-            SQL="select timestamp, event_message from $TB where event_message like '%Anthropic%' order by timestamp desc limit 6"
+          for TB in all; do
+            SQL="SELECT timestamp, source_name, event_message FROM logs WHERE event_message LIKE '%Anthropic%' ORDER BY timestamp DESC LIMIT 6"
             curl -sS -G "https://api.supabase.com/v1/projects/$PROJECT_REF/analytics/endpoints/logs" \
               -H "Authorization: Bearer $T" --data-urlencode "sql=$SQL" \
               --data-urlencode "iso_timestamp_start=$START" --data-urlencode "iso_timestamp_end=$END" > out.json
