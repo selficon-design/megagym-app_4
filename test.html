@@ -747,6 +747,14 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .flow-edit-btns .btn{padding:7px 12px;font-size:12px;}
 .flow-legend{display:flex;gap:18px;flex-wrap:wrap;padding:7px 14px;font-size:11px;color:var(--ink-soft);border-top:1px solid var(--line-strong);background:rgba(3,11,18,.85);}
 .flow-legend i{display:inline-block;width:28px;vertical-align:middle;margin-right:6px;}
+.tpl-days-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.tpl-days-btns{display:flex;gap:8px;flex-wrap:wrap;}
+.tpl-days-btns .btn{padding:6px 11px;font-size:11.5px;}
+.tpl-day-head{cursor:pointer;user-select:none;}
+.tpl-day-head:hover{background:rgba(61,216,255,.06);}
+.tpl-day-caret{display:inline-block;width:16px;color:var(--cyan-soft);font-size:13px;margin-right:4px;}
+.tpl-day-sum{padding:8px 20px 12px;font-size:11.5px;color:var(--ink-soft);}
+.tpl-day-closed{opacity:.85;}
 .tpl-group{margin:6px 0 18px;}
 .tpl-group-h{font-weight:800;font-size:13px;letter-spacing:.06em;color:#dffaff;padding:8px 2px;border-bottom:1px solid rgba(61,216,255,.25);margin-bottom:8px;}
 .tpl-group-h span, .tpl-sub-h span{display:inline-block;margin-left:6px;padding:0 8px;border-radius:999px;background:rgba(61,216,255,.15);font-size:11px;color:var(--cyan-soft);}
@@ -3225,13 +3233,20 @@ function renderTplFormArea(){
 function renderTplDaysEditor(b){
   return `
     <div class="panel pad">
-      <div class="section-title"><span class="dot"></span>Ημέρες & Ασκήσεις</div>
-      ${b.days.map((day,di)=>`
-        <div class="day-card" style="margin-bottom:16px;">
-          <div class="day-head">
-            <div class="tag"><div class="day-num">${di+1}</div><h3>${escHtml(day.label)}</h3></div>
+      <div class="tpl-days-bar">
+        <div class="section-title" style="margin:0;"><span class="dot"></span>Ημέρες & Ασκήσεις</div>
+        <div class="tpl-days-btns">
+          <button type="button" class="btn btn-outline" data-tpl-days-all="open">▾ Άνοιγμα όλων</button>
+          <button type="button" class="btn btn-outline" data-tpl-days-all="last">▸ Κλείσιμο — μόνο η τελευταία</button>
+        </div>
+      </div>
+      ${b.days.map((day,di)=>{ const closed = tplDayClosed(b, di); return `
+        <div class="day-card ${closed?'tpl-day-closed':''}" style="margin-bottom:16px;">
+          <div class="day-head tpl-day-head" data-tpl-daytoggle="${di}" title="${closed?'Άνοιγμα ημέρας':'Κλείσιμο ημέρας'}">
+            <div class="tag"><span class="tpl-day-caret">${closed?'▸':'▾'}</span><div class="day-num">${di+1}</div><h3>${escHtml(day.label)}</h3></div>
             <div class="count">${day.items.length} στοιχεία ${dayDurationHtml(day.items)}</div>
           </div>
+          ${closed ? `<div class="tpl-day-sum">${escHtml(day.items.map(it=>it.type==='cardio' ? '🏃 '+(it.equipment||'Αερόβιο') : tplLabelNow(it.groupLabel)).join(' · ') || 'Χωρίς ασκήσεις')}</div>` : `
           <div style="padding:16px 20px;">
             ${day.items.length===0 ? `<div style="color:var(--ink-soft);font-size:12.5px;margin-bottom:10px;">Δεν έχεις προσθέσει ακόμα τίποτα σε αυτή την ημέρα.</div>` :
               day.items.map((it,ii)=> (b.addForm && b.addForm.dayIndex===di && b.addForm.editIndex===ii)
@@ -3244,10 +3259,14 @@ function renderTplDaysEditor(b){
                 <button class="btn btn-outline" data-tpl-addform="${di}" data-tpl-addtype="cardio">+ Αερόβιο</button>
               </div>`
             }
-          </div>
-        </div>
-      `).join('')}
+          </div>`}
+        </div>`; }).join('')}
     </div>`;
+}
+// Ημέρα κλειστή; (ανοιχτή πάντα αν δουλεύεις μέσα της)
+function tplDayClosed(b, di){
+  if(b.addForm && b.addForm.dayIndex===di) return false;
+  return !!(b.closedDays && b.closedDays[di]);
 }
 
 function renderTplMoveBtns(dayIndex, itemIndex, count){
@@ -3526,6 +3545,19 @@ function bindTplBuilderEvents(){
     });
   });
 
+  document.querySelectorAll('[data-tpl-daytoggle]').forEach(el=>el.addEventListener('click', ()=>{
+    const di = +el.getAttribute('data-tpl-daytoggle');
+    b.closedDays = b.closedDays || {};
+    if(tplDayClosed(b, di)) delete b.closedDays[di]; else if(!(b.addForm && b.addForm.dayIndex===di)) b.closedDays[di] = true;
+    renderTplFormArea();
+  }));
+  document.querySelectorAll('[data-tpl-days-all]').forEach(el=>el.addEventListener('click', ()=>{
+    const mode = el.getAttribute('data-tpl-days-all');
+    b.closedDays = {};
+    if(mode==='last') b.days.forEach((d,i)=>{ if(i < b.days.length-1) b.closedDays[i] = true; });
+    renderTplFormArea();
+    if(mode==='last') document.querySelectorAll('.tpl-day-head')[b.days.length-1]?.scrollIntoView({ behavior:'smooth', block:'start' });
+  }));
   document.querySelectorAll('[data-tpl-moveitem]').forEach(el=>{
     el.addEventListener('click', ()=>{
       const [di,ii,dir] = el.getAttribute('data-tpl-moveitem').split(':').map(Number);
