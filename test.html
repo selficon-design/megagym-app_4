@@ -2225,6 +2225,8 @@ async function loadTemplatePrograms(){
   const { data, error } = await sb.from('template_programs').select('*').order('sort_order', { ascending:true }).order('created_at', { ascending:false });
   await catsP;
   if(error){ console.error(error); return []; }
+  // Παλιά «Αύξηση μυϊκού ιστού» χωρίς υποκατηγορία (π.χ. αποθηκευμένα από την παλιά έκδοση) → «ΓΕΝΙΚΟ»
+  (data||[]).forEach(t=>{ if(t.top_category==='ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ' && !t.sub_category) t.sub_category = 'ΓΕΝΙΚΟ'; });
   return data||[];
 }
 async function saveTemplateProgram(row){
