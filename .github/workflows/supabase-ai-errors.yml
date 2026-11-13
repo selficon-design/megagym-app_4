@@ -15,17 +15,19 @@ jobs:
       - name: Logs
         run: |
           T=$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]'); echo "::add-mask::$T"
-          SQL="select timestamp, event_message from function_logs where event_message like '%Anthropic%' order by timestamp desc limit 6"
           START=$(date -u -d '-6 hours' +%Y-%m-%dT%H:%M:%SZ); END=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          curl -sS -G "https://api.supabase.com/v1/projects/$PROJECT_REF/analytics/endpoints/logs" \
-            -H "Authorization: Bearer $T" --data-urlencode "sql=$SQL" \
-            --data-urlencode "iso_timestamp_start=$START" --data-urlencode "iso_timestamp_end=$END" > out.json
-          python3 - <<'PY'
-          import json
-          d=json.load(open('out.json'))
+          for TB in function_logs function_edge_logs edge_logs functions_logs; do
+            SQL="select timestamp, event_message from $TB where event_message like '%Anthropic%' order by timestamp desc limit 6"
+            curl -sS -G "https://api.supabase.com/v1/projects/$PROJECT_REF/analytics/endpoints/logs" \
+              -H "Authorization: Bearer $T" --data-urlencode "sql=$SQL" \
+              --data-urlencode "iso_timestamp_start=$START" --data-urlencode "iso_timestamp_end=$END" > out.json
+            TB=$TB python3 - <<'PY'
+          import json, os
+          d=json.load(open('out.json')); tb=os.environ['TB']
           rows=d.get('result') or []
-          if not rows: print('::notice title=ai-errors::Κανένα σφάλμα ή', json.dumps(d)[:400])
+          if not rows: print(f'::notice title={tb}::Κανένα αποτέλεσμα ή', json.dumps(d)[:300])
           for r in rows:
               m=str(r.get('event_message',''))[:700].replace('%','%25').replace('\n','%0A')
-              print(f"::notice title=ai-errors::{r.get('timestamp')} {m}")
+              print(f"::notice title={tb}::{r.get('timestamp')} {m}")
           PY
+          done
