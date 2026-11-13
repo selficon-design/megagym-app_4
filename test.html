@@ -653,6 +653,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .tpl-gender-switch button.active{border-color:var(--cyan);background:var(--cyan);box-shadow:0 0 18px rgba(61,216,255,.55);color:#04121c;}
 .tpl-gender-switch button.active span{background:rgba(4,18,28,.2);}
 .tpl-gender-switch button:not(.active){opacity:.75;}
+.tpl-flow{font-size:11.5px;color:#bdf3ff;margin:2px 0 4px;}
+.tpl-flow b{color:#fff;}
 .tpl-sum{display:flex;flex-direction:column;gap:2px;margin:4px 0 6px;font-size:11px;color:var(--cyan-soft);line-height:1.45;}
 .tpl-sum .mono{letter-spacing:.02em;}
 .tpl-sum-dur{color:#ffd23f;font-weight:600;}
@@ -1343,6 +1345,27 @@ function dayDurationHtml(items){
   return `<span class="dur-day">⏱ ${parts.join(' + ')}${(w && c) ? ` = <b>${fmtDur(w+c)}</b>` : ''}</span>`;
 }
 // Συνολικός χρόνος άσκησης: set + διαλείμματα ανάμεσα στα set (όχι μετά το τελευταίο) + 10″
+// Επόμενο πρόγραμμα: ορισμένο από τον owner, αλλιώς το επόμενο της ίδιας λίστας (φύλο + κατηγορία + υποκατηγορία, κατά σειρά)
+function tplAutoNext(t){
+  const same = (state.tplTemplates||[]).filter(x=>x.gender===t.gender && x.top_category===t.top_category && (x.sub_category||'')===(t.sub_category||''))
+    .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0) || String(a.created_at||'').localeCompare(String(b.created_at||'')));
+  if(!t.id) return same.find(x=>(x.sort_order||0) > (t.sort_order||0)) || null;
+  const i = same.findIndex(x=>x.id===t.id);
+  return i>=0 ? (same[i+1] || null) : null;
+}
+function tplNextOf(t){
+  const n = t && t.data && t.data.next;
+  if(n==='none') return null;
+  if(n && n!=='auto') return (state.tplTemplates||[]).find(x=>x.id===n) || null;
+  return tplAutoNext(t);
+}
+function tplFlowHtml(t){
+  const s = t && t.data && t.data.sessions, nx = tplNextOf(t);
+  const parts = [];
+  if(s) parts.push(`🏋 ${s} προπονήσεις`);
+  parts.push(nx ? `➜ μετά: <b>${escHtml(nx.name)}</b>` : `<span style="color:#ff9f1a;">➜ χωρίς επόμενο πρόγραμμα</span>`);
+  return `<div class="tpl-flow">${parts.join(' · ')}</div>`;
+}
 // Σύνοψη έτοιμου προγράμματος: Set · Rep · Διάλειμμα · Tempo · Ένταση · διάρκεια ανά ημέρα
 function tplProgramSummary(t){
   const days = (t && t.data && t.data.days) || [];
@@ -1838,6 +1861,7 @@ function freshTplBuilder(){
     name: '', photo: '', numDays: 4,
     description: '', results: '', nutrition: '', notes: '',
     sortOrder: 0, isPublished: true,
+    sessions: '', next: 'auto',   // προπονήσεις μέχρι το επόμενο · επόμενο πρόγραμμα ('auto' = το επόμενο της λίστας, 'none', ή id)
     days: tplBuildDays(4),
     addForm: null, // {dayIndex, type:'muscle'|'cardio', ...}
   };
@@ -1867,6 +1891,7 @@ function loadTemplateIntoBuilder(t){
     notes: t.notes || '',
     sortOrder: t.sort_order || 0,
     isPublished: !!t.is_published,
+    sessions: (t.data && t.data.sessions) || '', next: (t.data && t.data.next) || 'auto',
     days: (t.data && t.data.days && t.data.days.length) ? t.data.days : tplBuildDays(t.num_days || 4),
     addForm: null, lastEdited: null,
   };
@@ -3251,6 +3276,17 @@ function renderTplMetaForm(b){
       <div class="field"><label>Διατροφή</label><textarea id="tpl-nutrition" rows="2" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);font-family:inherit;">${escHtml(b.nutrition)}</textarea></div>
       <div class="field"><label>Παρατηρήσεις</label><textarea id="tpl-notes" rows="2" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);font-family:inherit;">${escHtml(b.notes)}</textarea></div>
       <div class="field"><label>Σειρά Εμφάνισης (μικρότερος αριθμός = πρώτο)</label><input type="number" id="tpl-sortorder" value="${escAttr(b.sortOrder)}" style="max-width:120px;"></div>
+      <div class="field"><label>Προπονήσεις σε αυτό το πρόγραμμα <span style="text-transform:none;font-weight:400;color:var(--ink-soft);">(πόσες προπονήσεις πριν περάσει στο επόμενο)</span></label>
+        <input type="number" id="tpl-sessions" min="1" max="500" value="${escAttr(b.sessions||'')}" placeholder="π.χ. 24" style="max-width:120px;">
+        <div class="food-note" style="margin:4px 0 0;">Αργότερα μπορεί να προσαρμόζεται από το ιστορικό του αθλούμενου.</div></div>
+      <div class="field"><label>Επόμενο πρόγραμμα</label>
+        <select id="tpl-next" style="width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);">
+          ${(()=>{ const auto = tplAutoNext({ id:b.id, gender:b.gender, top_category:b.topCategory, sub_category:b.subCategory, sort_order:b.sortOrder });
+            const others = (state.tplTemplates||[]).filter(x=>x.id!==b.id && x.gender===b.gender);
+            return `<option value="auto" ${b.next==='auto'?'selected':''}>Αυτόματα: το επόμενο της λίστας${auto?` → ${escHtml(auto.name)}`:' (δεν υπάρχει)'}</option>
+              <option value="none" ${b.next==='none'?'selected':''}>Κανένα — είναι το τελευταίο</option>
+              ${others.map(x=>`<option value="${escAttr(x.id)}" ${b.next===x.id?'selected':''}>${escHtml(x.name)} · ${escHtml(x.sub_category||x.top_category)}</option>`).join('')}`; })()}
+        </select></div>
       <div class="field" style="margin-bottom:0;display:flex;align-items:center;gap:10px;">
         <button type="button" id="tpl-publish-toggle" class="plate-btn ${b.isPublished?'active':''}" style="--size:26px;border-radius:6px;font-size:11px;">${b.isPublished?'✓':''}</button>
         <label style="margin:0;text-transform:none;font-size:13px;letter-spacing:0;color:var(--ink);">Ορατό στους πελάτες (αν το απενεργοποιήσεις, μένει μόνο στη βιβλιοθήκη σου)</label>
@@ -3291,6 +3327,8 @@ function bindTplBuilderEvents(){
   bindText('tpl-description','description'); bindText('tpl-results','results'); bindText('tpl-nutrition','nutrition'); bindText('tpl-notes','notes');
   const sortEl = document.getElementById('tpl-sortorder');
   if(sortEl) sortEl.addEventListener('input', ()=>{ b.sortOrder = parseInt(sortEl.value)||0; });
+  document.getElementById('tpl-sessions')?.addEventListener('input', e=>{ b.sessions = e.target.value; });
+  document.getElementById('tpl-next')?.addEventListener('change', e=>{ b.next = e.target.value; });
   const pubToggle = document.getElementById('tpl-publish-toggle');
   if(pubToggle) pubToggle.addEventListener('click', ()=>{ b.isPublished = !b.isPublished; renderTplFormArea(); });
 
@@ -3475,7 +3513,7 @@ async function submitTplProgram(){
     notes: b.notes.trim() || null,
     sort_order: b.sortOrder || 0,
     is_published: !!b.isPublished,
-    data: { days: b.days }
+    data: { days: b.days, sessions: parseInt(b.sessions) || null, next: b.next || 'auto' }
   };
   let ok;
   if(b.id){
@@ -3518,6 +3556,7 @@ function renderTplListArea(){
             ${tplCategoryProblem(t) ? `<div style="font-size:11.5px;color:#ffb36b;font-weight:700;margin-top:3px;">⚠️ ${escHtml(tplCategoryProblem(t))} (δεν εμφανίζεται στη βιβλιοθήκη)</div>` : ''}
             <div style="font-size:11.5px;color:var(--ink-soft);margin-top:2px;">${t.num_days} ημέρες · σειρά ${t.sort_order||0} · ${t.is_published ? `<span style="color:#7ef5a0;">ορατό στους πελάτες</span>` : `<span style="color:#ffcf9e;">μόνο στη βιβλιοθήκη</span>`}</div>
             ${tplSummaryHtml(t)}
+            ${tplFlowHtml(t)}
             <div style="font-size:10.5px;color:var(--ink-soft);margin-top:2px;">Δημιουργός: ${escHtml(t.created_by_email||'—')}${t.updated_by_email?` · Τελευταία επεξεργασία: ${escHtml(t.updated_by_email)}`:''}</div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -8417,6 +8456,8 @@ function renderTplLibDetailView(){
       ${t.results ? `<div class="info-card"><div class="lbl">Αποτελέσματα</div><div class="txt">${escNL(t.results)}</div></div>`:''}
       ${t.nutrition ? `<div class="info-card"><div class="lbl">Διατροφή</div><div class="txt">${escNL(t.nutrition)}</div></div>`:''}
       ${t.notes ? `<div class="info-card"><div class="lbl">Παρατηρήσεις</div><div class="txt">${escNL(t.notes)}</div></div>`:''}
+      ${(()=>{ const s = t.data && t.data.sessions, nx = tplNextOf(t); if(!s && !nx) return '';
+        return `<div class="info-card"><div class="lbl">Πορεία</div><div class="txt">${s?`Το πρόγραμμα διαρκεί <b>${s} προπονήσεις</b>.`:''}${nx?` ${s?'Μετά':'Στη συνέχεια'} συνεχίζεις με: <b>${escHtml(nx.name)}</b>.`:''}</div></div>`; })()}
       <button class="btn btn-info" style="width:100%;justify-content:center;margin-top:10px;" data-tpllib-start="${escAttr(t.id)}">▶ ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ</button>
       ${isClient ? `<button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:10px;" id="tpllib-save-mine" data-tpl-id="${escAttr(t.id)}">${ICON.save}Αποθήκευση στα Προγράμματά μου</button>`:''}
       ${canCustomize ? `<button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:10px;" id="tpllib-duplicate-edit" data-tpl-id="${escAttr(t.id)}">${ICON.save}Αντιγραφή &amp; Προσαρμογή για Πελάτη</button>`:''}
