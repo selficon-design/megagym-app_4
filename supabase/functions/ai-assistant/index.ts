@@ -512,7 +512,7 @@ ${groups}
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
         model: MODEL, max_tokens: 6000, system: parts.join("\n"),
-        tools: [REVIEW_TOOL], tool_choice: { type: "tool", name: "review_program" },
+        tools: [REVIEW_TOOL], tool_choice: { type: "auto" },
         messages: [{ role: "user", content: userText }],
       }),
     });
@@ -521,9 +521,21 @@ ${groups}
     return fail(502, "ai_unreachable", "Η υπηρεσία AI δεν απαντά. Δοκίμασε ξανά.");
   }
   if (!aiRes.ok) { console.error("Anthropic error", aiRes.status, await aiRes.text()); return fail(502, "ai_error", "Το AI δεν μπόρεσε να απαντήσει. Δοκίμασε ξανά σε λίγο."); }
-  const ai = await aiRes.json();
+  let ai = await aiRes.json();
   // deno-lint-ignore no-explicit-any
-  const out = (ai.content ?? []).find((c: any) => c.type === "tool_use")?.input;
+  let out = (ai.content ?? []).find((c: any) => c.type === "tool_use")?.input;
+  if (!out) {   // το μοντέλο δεν κάλεσε το εργαλείο → μία ακόμη προσπάθεια με ρητή οδηγία
+    const retry = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({
+        model: MODEL, max_tokens: 6000, system: parts.join("\n"),
+        tools: [REVIEW_TOOL], tool_choice: { type: "auto" },
+        messages: [{ role: "user", content: userText + "\n\nΑπάντησε ΜΟΝΟ καλώντας το εργαλείο review_program." }],
+      }),
+    });
+    if (retry.ok) { ai = await retry.json(); /* deno-lint-ignore no-explicit-any */ out = (ai.content ?? []).find((c: any) => c.type === "tool_use")?.input; }
+  }
   if (!out) return fail(502, "ai_error", "Το AI δεν επέστρεψε αποτέλεσμα. Δοκίμασε ξανά.");
   await admin.from("ai_usage").insert({ user_id: user.id, kind: "program_check" });
 
@@ -642,7 +654,7 @@ Deno.serve(async (req) => {
         max_tokens: 6000,
         system: buildSystemPrompt(cards, buttonKey, cat),
         tools: [PROPOSE_TOOL],
-        tool_choice: { type: "tool", name: "propose_program" },
+        tool_choice: { type: "auto" },
         messages: [{ role: "user", content: userText }],
       }),
     });
