@@ -3727,6 +3727,7 @@ function bindTplBuilderEvents(){
 
   const saveBtn = document.getElementById('tpl-save-btn');
   if(saveBtn) saveBtn.addEventListener('click', b.mode==='client' ? submitClientProgram : submitTplProgram);
+  document.querySelectorAll('[data-cb-goal]').forEach(el=>el.addEventListener('click', ()=>{ b.topCategory = el.getAttribute('data-cb-goal'); renderTplFormArea(); }));
   document.getElementById('cb-reset')?.addEventListener('click', ()=>{
     if(!state.cbResetConfirm){ state.cbResetConfirm = true; renderTplFormArea(); return; }
     state.cbResetConfirm = false; state.clientBuilder = freshClientBuilder(); state.tplBuilder = state.clientBuilder; cbSaveDraft();
@@ -8368,7 +8369,7 @@ function renderClientProgramsListView(){
           return `<div class="client-card" data-open-program="${escAttr(p.id)}" ${fromTpl?'style="border-color:var(--accent);box-shadow:0 0 18px rgba(255,159,26,.35);"':''}>
             <div class="client-avatar">${progs.length-i}</div>
             <div class="client-meta">
-              <div class="name">${mine ? `${escHtml(p.record.customName || p.record.templateName || 'Το πρόγραμμά μου')} <span class="mine-badge">🛠 ΔΙΚΟ ΜΟΥ</span>` : ''}${mine ? '' : escHtml(fromTpl && p.record.templateName ? p.record.templateName : categoryBadgeLabel(p.record))}${(fromTpl)?' <span style="color:var(--accent);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· Έτοιμο</span>':''}${fromAI?' <span style="color:var(--cyan);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· ✨ AI</span>':''}</div>
+              <div class="name">${mine ? `${escHtml(p.record.customName || p.record.templateName || 'Το πρόγραμμά μου')} <span class="mine-badge">🛠 ΔΙΚΟ ΜΟΥ</span><div style="font-size:11px;font-weight:600;color:var(--cyan-soft);text-transform:none;letter-spacing:0;">${escHtml(categoryBadgeLabel(p.record))}</div>` : ''}${mine ? '' : escHtml(fromTpl && p.record.templateName ? p.record.templateName : categoryBadgeLabel(p.record))}${(fromTpl)?' <span style="color:var(--accent);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· Έτοιμο</span>':''}${fromAI?' <span style="color:var(--cyan);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· ✨ AI</span>':''}</div>
               <div class="sub">${d.toLocaleDateString('el-GR')} · ${d.toLocaleTimeString('el-GR',{hour:'2-digit',minute:'2-digit'})}</div>
             </div>
           </div>`;
@@ -8674,17 +8675,24 @@ function freshClientBuilder(){
 function cbDraftKey(){ return 'forma_my_builder_' + ((auth.customer && auth.customer.code) || 'x'); }
 function cbSaveDraft(){
   try{ const b = state.clientBuilder; if(!b) return;
-    localStorage.setItem(cbDraftKey(), JSON.stringify({ name:b.name, numDays:b.numDays, days:b.days, description:b.description })); }catch(_){}
+    localStorage.setItem(cbDraftKey(), JSON.stringify({ name:b.name, numDays:b.numDays, days:b.days, description:b.description, topCategory:b.topCategory })); }catch(_){}
 }
 function cbLoadDraft(){
   try{ const d = JSON.parse(localStorage.getItem(cbDraftKey()) || 'null'); if(!d || !Array.isArray(d.days)) return null;
-    const b = freshClientBuilder(); Object.assign(b, { name:d.name||'', numDays:d.numDays||d.days.length, days:d.days, description:d.description||'' }); return b; }catch(_){ return null; }
+    const b = freshClientBuilder(); Object.assign(b, { name:d.name||'', numDays:d.numDays||d.days.length, days:d.days, description:d.description||'', topCategory: d.topCategory || b.topCategory }); return b; }catch(_){ return null; }
 }
 function renderClientBuilderMeta(b){
   return `
     <div class="panel pad" style="margin-bottom:18px;">
       <div class="section-title"><span class="dot"></span>Το πρόγραμμά μου</div>
       <div class="field"><label>Όνομα προγράμματος</label><input type="text" id="tpl-name" value="${escAttr(b.name)}" placeholder="π.χ. Το πρόγραμμά μου — 3 ημέρες" maxlength="80"></div>
+      <div class="field">
+        <label>Στόχος</label>
+        <div class="calc-selector">
+          ${Object.keys(TPL_CATEGORIES).map(c=>`<button type="button" class="${b.topCategory===c?'active':''}" data-cb-goal="${escAttr(c)}">${c==='ΚΑΥΣΗΣ ΛΙΠΟΥΣ'?'🔥 Καύση λίπους':'💪 Αύξηση μυϊκού ιστού'}</button>`).join('')}
+        </div>
+        ${b.topCategory==='ΚΑΥΣΗΣ ΛΙΠΟΥΣ' ? `<div class="food-note" style="margin:6px 0 0;">Ο τύπος βγαίνει αυτόματα από τις ασκήσεις σου: μόνο βάρη, μόνο αερόβιο, ή βάρη και αερόβιο.</div>` : ''}
+      </div>
       <div class="field">
         <label>Πόσες ημέρες την εβδομάδα;</label>
         <div class="chip-row">${[1,2,3,4,5,6,7].map(n=>`<button class="plate-btn ${b.numDays===n?'active':''}" data-tpl-days="${n}" style="--size:36px;font-size:12px;">${n}</button>`).join('')}</div>
@@ -8715,7 +8723,11 @@ async function submitClientProgram(){
   if(noTime.length){ toast('Λείπει ο χρόνος στο αερόβιο ('+noTime.join(', ')+').'); return; }
   if(b.addForm){ toast('Αποθήκευσε ή κλείσε πρώτα την άσκηση που επεξεργάζεσαι.'); return; }
   const btn = document.getElementById('tpl-save-btn'); if(btn){ btn.disabled = true; btn.textContent = 'Αποθήκευση...'; }
-  const record = mapTemplateToCustomRecord({ name, top_category:'ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ', description: b.description||'', data:{ days: b.days } });
+  // Στόχος: Αύξηση μυϊκού ιστού ή Καύση λίπους (ο τύπος καύσης βγαίνει από τις ασκήσεις)
+  const top = b.topCategory==='ΚΑΥΣΗΣ ΛΙΠΟΥΣ' ? 'ΚΑΥΣΗΣ ΛΙΠΟΥΣ' : 'ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ';
+  const all = b.days.flatMap(d=>d.items), hasW = all.some(i=>i.type==='muscle'), hasC = all.some(i=>i.type==='cardio');
+  const sub = top==='ΚΑΥΣΗΣ ΛΙΠΟΥΣ' ? (hasW && hasC ? 'ΚΑΥΣΗ ΛΙΠΟΥΣ ΜΕ ΒΑΡΗ ΚΑΙ ΑΕΡΟΒΙΟ' : (hasC ? 'ΚΑΥΣΗ ΛΙΠΟΥΣ ΜΕ ΑΕΡΟΒΙΟ' : 'ΚΑΥΣΗ ΛΙΠΟΥΣ ΜΕ ΒΑΡΗ')) : '';
+  const record = mapTemplateToCustomRecord({ name, top_category: top, sub_category: sub, description: b.description||'', data:{ days: b.days } });
   record.fromClientBuilder = true; record.fromTemplate = false; record.customName = name;
   const ok = await insertProgram(auth.customer.code, record);
   if(btn){ btn.disabled = false; }
