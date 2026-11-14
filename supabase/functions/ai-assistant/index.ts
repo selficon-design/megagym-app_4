@@ -380,7 +380,7 @@ function toProgramRecord(p: any, cat: Catalog, versionNo: number) {
 // ---------------------------------------------------------------------
 // deno-lint-ignore no-explicit-any
 async function customerContext(admin: any, code: string) {
-  const [{ data: cust }, { data: progs }, { data: logs }, { data: props }] = await Promise.all([
+  const [{ data: cust }, { data: progs }, { data: logs }, { data: props }, { data: prof }, { data: weights }] = await Promise.all([
     admin.from("customers").select("name, dob, created_at").eq("code", code).maybeSingle(),
     admin.from("programs").select("created_at, days").eq("customer_code", code).order("created_at", { ascending: false }).limit(3),
     admin.from("workout_logs").select("created_at, exercise, kg, reps, set_number, failure_quality")
@@ -388,9 +388,11 @@ async function customerContext(admin: any, code: string) {
       .order("created_at", { ascending: false }).limit(1500),
     admin.from("ai_proposals").select("created_at, status, decision_note").eq("customer_code", code)
       .order("created_at", { ascending: false }).limit(3),
+    admin.from("client_profiles").select("gender, goal, age, height_cm, weight_kg, body_fat_pct").eq("customer_code", code).maybeSingle(),
+    admin.from("weight_logs").select("log_date, weight_kg").eq("customer_code", code).order("log_date", { ascending: false }).limit(10),
   ]);
-  let age: number | null = null;
-  if (cust?.dob) { const b = new Date(cust.dob); if (!isNaN(+b)) age = Math.floor((Date.now() - +b) / (365.25 * 864e5)); }
+  let age: number | null = prof?.age ?? null;
+  if (age == null && cust?.dob) { const b = new Date(cust.dob); if (!isNaN(+b)) age = Math.floor((Date.now() - +b) / (365.25 * 864e5)); }
 
   // deno-lint-ignore no-explicit-any
   const programs = (progs ?? []).map((p: any) => {
@@ -429,6 +431,11 @@ async function customerContext(admin: any, code: string) {
   return {
     first_name: cust?.name ?? null,
     age,
+    gender: prof?.gender ?? null,                       // ΑΝΔΡΑΣ | ΓΥΝΑΙΚΑ (όπως το δήλωσε ο αθλούμενος)
+    goal: prof?.goal ?? null,                           // ο στόχος με τα λόγια του αθλούμενου
+    height_cm: prof?.height_cm ?? null, weight_kg: prof?.weight_kg ?? null, body_fat_pct: prof?.body_fat_pct ?? null,
+    // deno-lint-ignore no-explicit-any
+    recent_weights: (weights ?? []).map((w: any) => `${w.log_date}: ${w.weight_kg} kg`),
     member_since: cust?.created_at ? String(cust.created_at).slice(0, 10) : null,
     last_programs: programs,
     training_last_8_weeks: {
@@ -568,6 +575,9 @@ Deno.serve(async (req) => {
   const action = body?.action;
   const buttonKey = String(body?.button_key ?? "");
   const note = String(body?.note ?? "").slice(0, 600);
+  // Η επιλογή από τη λίστα της ανανέωσης (π.χ. «Θέλω να πάω σε επόμενο επίπεδο») — προαιρετική
+  const choice = String(body?.choice ?? "").slice(0, 200);
+  const choiceKey = String(body?.choice_key ?? "").slice(0, 40);
   if (!BUTTONS[buttonKey]) return fail(400, "bad_button", "Άγνωστο κουμπί.");
   if (JSON.stringify(body?.catalog ?? {}).length > 300_000) return fail(413, "too_large", "Πολύ μεγάλο αίτημα.");
   const cat = checkCatalog(body?.catalog);
@@ -638,8 +648,15 @@ Deno.serve(async (req) => {
   const lastProg = (ctx as any).last_programs?.[0];
   const unsupported = lastProg && (lastProg.subtype === "cardio" || lastProg.subtype === "combo");
 
+  const CHOICE_HINT: Record<string, string> = {
+    next_level: "Ίδια κατηγορία και ίδιο μέρος του σώματος, με μεγαλύτερη δυσκολία (επόμενο επίπεδο).",
+    more_emphasis: "Περισσότερες ασκήσεις/σετ στο μέρος του σώματος που ζητά, χωρίς να παραμελείται το υπόλοιπο σώμα.",
+    much_more: "Η μεγάλη πλειονότητα των ασκήσεων στο μέρος του σώματος που ζητά· το υπόλοιπο σώμα μόνο για συντήρηση.",
+    only_part: "Αποκλειστικά ασκήσεις για το μέρος του σώματος που ζητά.",
+  };
   const userText = [
     `Πατήθηκε το κουμπί: «${BUTTONS[buttonKey].label}».`,
+    choice ? `Ο πελάτης επέλεξε από τη λίστα: «${choice}».${CHOICE_HINT[choiceKey] ? " Τι σημαίνει: " + CHOICE_HINT[choiceKey] : ""}` : "Ο πελάτης δεν επέλεξε κάτι από τη λίστα.",
     note ? `Ο πελάτης έγραψε: «${note}»` : "Ο πελάτης δεν έγραψε κάτι.",
     `Στοιχεία πελάτη (JSON):\n${JSON.stringify(ctx).slice(0, 40_000)}`,
   ].join("\n\n");
@@ -706,7 +723,7 @@ Deno.serve(async (req) => {
   const { data: prop, error: propErr } = await admin.from("ai_proposals").insert({
     app: APP, customer_code: customerCode, user_id: user.id, button_key: buttonKey, status,
     version_id: version.id, version_no: version.version_no, used_draft: usedDraft,
-    sensitive, sensitive_reason: sensitiveReason || null, request_note: note || null,
+    sensitive, sensitive_reason: sensitiveReason || null, request_note: [choice ? `[${choice}]` : "", note].filter(Boolean).join(" ") || null,
     message_to_client: message, reasoning: reasoning + (warnings.length ? `\n\nΈλεγχος εφαρμογής: ${warnings.join("; ")}` : ""),
     proposal: record, applied_program_id: programId,
     decided_at: status === "auto_applied" ? new Date().toISOString() : null,

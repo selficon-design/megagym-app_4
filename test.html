@@ -557,6 +557,10 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .auth-tabs button.active{background:rgba(61,216,255,.16);color:#fff;box-shadow:inset 0 0 0 1px rgba(61,216,255,.4);}
 .auth-tabs.client-tabs{display:grid;grid-template-columns:1fr 1fr;}
 .client-home-back{margin-bottom:12px;}
+.air-cl-q{font-size:13px;color:var(--ink-soft);margin:4px 0 8px;}
+.air-cl-opts{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+.air-cl-opt{text-align:left;padding:11px 13px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(3,11,18,.5);color:var(--ink);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;}
+.air-cl-opt.on{border-color:var(--cyan);background:rgba(61,216,255,.14);color:var(--cyan-soft);box-shadow:0 0 12px rgba(61,216,255,.3);}
 .pact-toggle{flex:0 0 auto;padding:7px 12px;font-size:12.5px;white-space:nowrap;}
 .pact-toggle.on{border-color:var(--cyan-soft);color:var(--cyan-soft);}
 .pact-bar{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08);}
@@ -7865,7 +7869,17 @@ function bindAiRulesEvents(){
 /* ===================================================================
    ΠΕΛΑΤΗΣ — κουμπί «Θέλω ανανέωση προγράμματος»
    =================================================================== */
-const aiClient = { latest:null, loadedFor:null, open:false, busy:false, note:'' };
+const aiClient = { latest:null, loadedFor:null, open:false, busy:false, note:'', choice:null };
+// Επιλογές ανανέωσης — εξαρτώνται από το φύλο (άνδρες: πάνω μέρος, γυναίκες: κάτω μέρος)
+function aiRenewalOptions(gender){
+  const part = gender==='ΓΥΝΑΙΚΑ' ? 'κάτω μέρος του σώματος' : 'πάνω μέρος του σώματος';
+  return [
+    { key:'next_level',    label:'Θέλω να πάω σε επόμενο επίπεδο' },
+    { key:'more_emphasis', label:`Θέλω περισσότερη έμφαση στο ${part}` },
+    { key:'much_more',     label:`Θέλω πολύ περισσότερη έμφαση στο ${part}` },
+    { key:'only_part',     label:`Θέλω να γυμνάσω μόνο το ${part}` },
+  ];
+}
 async function aiClientLoadLatest(){
   if(!auth.user) return;
   const uid = auth.user.id;
@@ -7888,9 +7902,14 @@ function renderAiClientPanel(){
     <div class="section-title" style="margin-bottom:8px;"><span class="dot"></span>✨ Ανανέωση προγράμματος</div>
     ${status}
     ${pending ? '' : aiClient.open ? `
-      <textarea id="ai-cl-note" rows="3" maxlength="600" placeholder="Θέλεις να μας πεις κάτι; (προαιρετικό) π.χ. «Θέλω περισσότερο πόδια» ή «Πονάει λίγο ο ώμος μου»" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);font-family:inherit;font-size:14px;">${escHtml(aiClient.note)}</textarea>
+      ${!cprofGender() ? `
+      <div class="air-cl-q">Για να σου δείξουμε τις σωστές επιλογές, πες μας πρώτα: είσαι</div>
+      <div class="chip-row" style="margin-bottom:12px;">${CPROF_GENDERS.map(g=>`<button type="button" class="kcal-btn" data-ai-gender="${g}">${g}</button>`).join('')}</div>` : `
+      <div class="air-cl-q">Τι θέλεις από το νέο σου πρόγραμμα;</div>
+      <div class="air-cl-opts">${aiRenewalOptions(cprofGender()).map(o=>`<button type="button" class="air-cl-opt ${aiClient.choice===o.key?'on':''}" data-ai-choice="${o.key}">${aiClient.choice===o.key?'●':'○'} ${escHtml(o.label)}</button>`).join('')}</div>`}
+      <textarea id="ai-cl-note" rows="3" maxlength="600" placeholder="Θέλεις να μας πεις κάτι ακόμα; (προαιρετικό) π.χ. «Πονάει λίγο ο ώμος μου»" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);font-family:inherit;font-size:14px;">${escHtml(aiClient.note)}</textarea>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:10px;">
-        <button class="btn btn-primary" id="ai-cl-send" style="justify-content:center;" ${aiClient.busy?'disabled':''}>${aiClient.busy?'Ετοιμάζεται… (έως 1 λεπτό)':'Στείλε αίτημα'}</button>
+        <button class="btn btn-primary" id="ai-cl-send" style="justify-content:center;" ${aiClient.busy||!aiClient.choice?'disabled':''}>${aiClient.busy?'Ετοιμάζεται… (έως 1 λεπτό)':'Στείλε αίτημα'}</button>
         <button class="btn btn-outline" id="ai-cl-cancel" style="justify-content:center;" ${aiClient.busy?'disabled':''}>Άκυρο</button>
       </div>`
     : `<button class="btn btn-primary" id="ai-cl-open" style="width:100%;justify-content:center;">${escHtml(AI_BUTTONS.program_renewal)}</button>`}
@@ -7902,11 +7921,19 @@ function bindAiClientEvents(){
   if($('ai-cl-open')) $('ai-cl-open').addEventListener('click', ()=>{ aiClient.open = true; refresh(); const n = $('ai-cl-note'); if(n) n.focus(); });
   if($('ai-cl-cancel')) $('ai-cl-cancel').addEventListener('click', ()=>{ aiClient.open = false; refresh(); });
   if($('ai-cl-note')) $('ai-cl-note').addEventListener('input', e=>{ aiClient.note = e.target.value; });
+  document.querySelectorAll('[data-ai-choice]').forEach(el=>el.addEventListener('click', ()=>{ aiClient.choice = el.getAttribute('data-ai-choice'); refresh(); }));
+  document.querySelectorAll('[data-ai-gender]').forEach(el=>el.addEventListener('click', async ()=>{
+    const ok = await cprofSave({ gender: el.getAttribute('data-ai-gender') });
+    if(!ok) return toast('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.');
+    refresh();
+  }));
   if($('ai-cl-send')) $('ai-cl-send').addEventListener('click', async ()=>{
+    const opt = aiRenewalOptions(cprofGender()).find(o=>o.key===aiClient.choice);
+    if(!opt) return toast('Διάλεξε πρώτα τι θέλεις από το νέο σου πρόγραμμα.');
     aiClient.busy = true; refresh();
     try{
-      const res = await callAiAssistant({ action:'request', button_key:'program_renewal', note: aiClient.note });
-      aiClient.open = false; aiClient.note = '';
+      const res = await callAiAssistant({ action:'request', button_key:'program_renewal', note: aiClient.note, choice: opt.label, choice_key: opt.key });
+      aiClient.open = false; aiClient.note = ''; aiClient.choice = null;
       if(res && res.status==='auto_applied'){
         state.selectedCustomerPrograms = (await loadProgramsFor(auth.customer.code)).sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
       }
@@ -8328,7 +8355,10 @@ function bindEqMediaEvents(){
    ΑΘΛΟΥΜΕΝΟΣ: ΑΡΧΙΚΗ ΟΘΟΝΗ · ΠΡΟΣΩΠΙΚΑ ΣΤΟΙΧΕΙΑ · ΖΥΓΟΛΟΓΙΟ
    Πίνακες client_profiles (στοιχεία + «Το πρόγραμμά μου») και weight_logs (ένα βάρος ανά ημέρα).
    =================================================================== */
-const cprof = { loadedFor:null, data:null, weights:null, view:'form', saving:false, editDate:null };
+const cprof = { loadedFor:null, data:null, weights:null, view:'form', saving:false, editDate:null, pendingGender:null };
+const CPROF_GENDERS = ['ΑΝΔΡΑΣ','ΓΥΝΑΙΚΑ'];
+const CPROF_GOALS = ['ΑΥΞΗΣΗ ΜΥΪΚΟΥ ΙΣΤΟΥ','ΚΑΥΣΗ ΛΙΠΟΥΣ'];
+function cprofGender(){ return cprof.data && cprof.data.gender || null; }
 function cprofMyProgramId(){ return cprof.data && cprof.data.my_program_id || null; }
 async function cprofLoad(){
   const code = auth.customer && auth.customer.code; if(!code) return;
@@ -8396,6 +8426,7 @@ function renderClientProfile(){
   if(cprof.view==='weights') return renderClientWeights();
   if(cprof.view==='fat') return renderClientFat();
   const d = cprof.data, c = auth.customer || {};
+  cprof.pendingGender = null;
   const v = (k, fb)=>escAttr(d[k]!=null && d[k]!=='' ? d[k] : (fb||''));
   const lastW = (cprof.weights||[])[0];
   box.innerHTML = `
@@ -8410,6 +8441,10 @@ function renderClientProfile(){
         <div class="field"><label>Ύψος (cm)</label><input type="text" inputmode="decimal" id="cp-height" value="${v('height_cm')}"></div>
         <div class="field"><label>Βάρος (kg)</label><input type="text" inputmode="decimal" id="cp-weight" value="${v('weight_kg', lastW ? lastW.weight_kg : '')}"></div>
         <div class="field"><label>Ποσοστό λίπους (%)</label><input type="text" inputmode="decimal" id="cp-fat" value="${v('body_fat_pct')}"></div>
+        <div class="field"><label>Φύλο</label><div class="chip-row">${CPROF_GENDERS.map(g=>`<button type="button" class="kcal-btn ${d.gender===g?'active':''}" data-cp-gender="${g}">${g}</button>`).join('')}</div></div>
+        <div class="field" style="grid-column:1 / -1;"><label>Στόχος</label>
+          <div class="chip-row" style="margin-bottom:6px;">${CPROF_GOALS.map(g=>`<button type="button" class="kcal-btn ${(d.goal||'')===g?'active':''}" data-cp-goal="${escAttr(g)}">${escHtml(g)}</button>`).join('')}</div>
+          <input type="text" id="cp-goal" maxlength="120" value="${v('goal')}" placeholder="ή γράψε τον στόχο σου με δικά σου λόγια"></div>
       </div>
       <button class="btn btn-critical" id="cp-save" style="width:100%;justify-content:center;margin-top:6px;" ${cprof.saving?'disabled':''}>${ICON.save}${cprof.saving?'Αποθήκευση…':'Αποθήκευση στοιχείων'}</button>
     </div>
@@ -8421,10 +8456,21 @@ function renderClientProfile(){
   $('cp-home').addEventListener('click', ()=>clientGo('home'));
   $('cp-weights').addEventListener('click', ()=>{ cprof.view = 'weights'; renderClientProfile(); });
   $('cp-fatbtn').addEventListener('click', ()=>{ cprof.view = 'fat'; renderClientProfile(); });
+  box.querySelectorAll('[data-cp-gender]').forEach(el=>el.addEventListener('click', ()=>{
+    const g = el.getAttribute('data-cp-gender');
+    box.querySelectorAll('[data-cp-gender]').forEach(x=>x.classList.toggle('active', x===el));
+    cprof.pendingGender = g;
+  }));
+  box.querySelectorAll('[data-cp-goal]').forEach(el=>el.addEventListener('click', ()=>{
+    $('cp-goal').value = el.getAttribute('data-cp-goal');
+    box.querySelectorAll('[data-cp-goal]').forEach(x=>x.classList.toggle('active', x===el));
+  }));
+  $('cp-goal').addEventListener('input', ()=>{ box.querySelectorAll('[data-cp-goal]').forEach(x=>x.classList.toggle('active', x.getAttribute('data-cp-goal')===$('cp-goal').value.trim())); });
   $('cp-save').addEventListener('click', async ()=>{
     const num = id=>{ const x = $(id).value.trim().replace(',', '.'); return x==='' ? null : Number(x); };
     const patch = { first_name: $('cp-first').value.trim() || null, last_name: $('cp-last').value.trim() || null, nickname: $('cp-nick').value.trim() || null,
-      age: num('cp-age'), height_cm: num('cp-height'), weight_kg: num('cp-weight'), body_fat_pct: num('cp-fat') };
+      age: num('cp-age'), height_cm: num('cp-height'), weight_kg: num('cp-weight'), body_fat_pct: num('cp-fat'),
+      gender: cprof.pendingGender || d.gender || null, goal: $('cp-goal').value.trim() || null };
     const bad = (k,lo,hi)=>patch[k]!=null && (!isFinite(patch[k]) || patch[k]<lo || patch[k]>hi);
     if(bad('age',5,120)) return toast('Η ηλικία δεν φαίνεται σωστή.');
     if(bad('height_cm',50,260)) return toast('Το ύψος δεν φαίνεται σωστό (σε εκατοστά).');
