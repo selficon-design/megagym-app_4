@@ -556,6 +556,30 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .auth-tabs button{flex:1;padding:9px;border-radius:8px;font-size:12.5px;font-weight:700;background:transparent;color:var(--ink-soft);border:none;}
 .auth-tabs button.active{background:rgba(61,216,255,.16);color:#fff;box-shadow:inset 0 0 0 1px rgba(61,216,255,.4);}
 .auth-tabs.client-tabs{display:grid;grid-template-columns:1fr 1fr;}
+.auth-tabs.client-tabs #client-mode-home{grid-column:1 / -1;}
+.home-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.home-tile{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:18px 16px;min-height:132px;border-radius:18px;border:1.5px solid var(--line-strong);background:linear-gradient(160deg,rgba(13,31,48,.85),rgba(3,11,18,.85));color:var(--ink);cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:transform .12s,border-color .12s;}
+.home-tile:hover{transform:translateY(-2px);border-color:var(--cyan);}
+.home-tile.star{border-color:rgba(255,210,63,.6);background:linear-gradient(160deg,rgba(60,48,8,.6),rgba(3,11,18,.85));}
+.home-ic{font-size:30px;line-height:1;}
+.home-t{font-weight:800;font-size:15px;color:#fff;}
+.home-s{font-size:11.5px;color:var(--ink-soft);}
+.myprog-badge{margin-left:auto;flex-shrink:0;padding:3px 9px;border-radius:999px;background:rgba(255,210,63,.18);color:#ffd23f;font-size:10.5px;font-weight:800;white-space:nowrap;}
+.cp-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
+.cp-more{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;}
+.wl-add{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;}
+.wl-add .btn{padding:11px 14px;}
+.wl-table{width:100%;border-collapse:collapse;font-size:13.5px;}
+.wl-table th{font-size:10.5px;letter-spacing:.06em;color:var(--cyan-soft);text-align:left;padding:6px 4px;border-bottom:1px solid var(--line-strong);}
+.wl-table td{padding:8px 4px;border-bottom:1px solid rgba(61,216,255,.08);vertical-align:middle;}
+.wl-box{display:inline-block;min-width:92px;text-align:center;padding:6px 10px;border-radius:10px;border:2px solid var(--line-strong);font-weight:800;cursor:pointer;}
+.wl-box.down{border-color:#2bd96b;background:rgba(43,217,107,.18);color:#7dffb0;}
+.wl-box.up{border-color:#ff9f1a;background:rgba(255,159,26,.18);color:#ffc465;}
+.wl-diff{font-size:10.5px;margin-top:2px;color:var(--ink-soft);}
+.wl-diff.down{color:#6fe3a8;} .wl-diff.up{color:#ffb347;}
+.wl-ok{color:#6fe3a8;font-weight:700;} .wl-up{color:#ffb347;font-weight:700;}
+.wl-del{width:28px;height:28px;border-radius:8px;border:1px solid rgba(255,107,107,.4);background:transparent;color:#ff9a9a;cursor:pointer;}
+@media (max-width:520px){ .cp-grid{grid-template-columns:1fr;} .wl-add{grid-template-columns:1fr 1fr;} .wl-add .btn{grid-column:1 / -1;} .home-tile{min-height:120px;padding:14px 12px;} .home-t{font-size:13.5px;} }
 .auth-tabs.client-tabs #client-mode-build{grid-column:1 / -1;background:linear-gradient(145deg,rgba(43,217,107,.18),rgba(43,217,107,.05));border-color:rgba(43,217,107,.5);}
 .auth-tabs.client-tabs #client-mode-build.active{background:linear-gradient(145deg,#2bd96b,#14a34a);color:#04210f;}
 /* ============ ΔΙΑΤΡΟΦΗ (client) ============ */
@@ -2474,6 +2498,7 @@ function rebuildClientDashboardShell(){
     <div class="mobile-preview-frame">
       <div class="panel pad" id="client-announce-panel" style="margin-bottom:20px;display:none;"></div>
       <div class="auth-tabs client-tabs" style="margin-bottom:20px;">
+        <button id="client-mode-home" class="${state.clientViewMode==='home'?'active':''}">🏠 Αρχική</button>
         <button id="client-mode-mine" class="${state.clientViewMode==='mine'?'active':''}">Τα Προγράμματά μου</button>
         <button id="client-mode-library" class="${state.clientViewMode==='library'?'active':''}">Έτοιμα Προγράμματα TRANSFORMATION</button>
         <button id="client-mode-log" class="${state.clientViewMode==='log'?'active':''}">Ημερολόγιο</button>
@@ -2488,6 +2513,8 @@ function rebuildClientDashboardShell(){
   else if(state.clientViewMode==='log') renderClientWorkoutLog();
   else if(state.clientViewMode==='food') renderClientNutrition();
   else if(state.clientViewMode==='build') renderClientBuilder();
+  else if(state.clientViewMode==='home') renderClientHome();
+  else if(state.clientViewMode==='profile') renderClientProfile();
   else renderClientMain();
 }
 function bindClientModeToggle(){
@@ -2496,10 +2523,11 @@ function bindClientModeToggle(){
   const logBtn = document.getElementById('client-mode-log');
   const foodBtn = document.getElementById('client-mode-food');
   const buildBtn = document.getElementById('client-mode-build');
+  const homeBtn = document.getElementById('client-mode-home');
   const setActive = (mode)=>{
     state.clientViewMode = mode;
-    [mineBtn,libBtn,logBtn,foodBtn,buildBtn].forEach(b=>b && b.classList.remove('active'));
-    const activeBtn = {mine:mineBtn, library:libBtn, log:logBtn, food:foodBtn, build:buildBtn}[mode];
+    [homeBtn,mineBtn,libBtn,logBtn,foodBtn,buildBtn].forEach(b=>b && b.classList.remove('active'));
+    const activeBtn = {home:homeBtn, mine:mineBtn, library:libBtn, log:logBtn, food:foodBtn, build:buildBtn}[mode];
     if(activeBtn) activeBtn.classList.add('active');
     const ap = document.getElementById('client-announce-panel');
     if(ap) ap.style.display = (mode==='mine' && ap.innerHTML.trim()) ? 'block' : 'none';
@@ -2518,6 +2546,8 @@ function bindClientModeToggle(){
   logBtn.addEventListener('click', ()=>{ setActive('log'); renderClientWorkoutLog(); });
   if(foodBtn) foodBtn.addEventListener('click', ()=>{ setActive('food'); renderClientNutrition(); });
   if(buildBtn) buildBtn.addEventListener('click', ()=>{ setActive('build'); renderClientBuilder(); });
+  if(homeBtn) homeBtn.addEventListener('click', ()=>{ setActive('home'); renderClientHome(); });
+  state.clientSetActive = setActive;
 }
 function returnFromWorkoutTplLib(){
   if(state.tplLibShellContext === 'client') rebuildClientDashboardShell();
@@ -8283,6 +8313,176 @@ function bindEqMediaEvents(){
   });
 }
 
+/* ===================================================================
+   ΑΘΛΟΥΜΕΝΟΣ: ΑΡΧΙΚΗ ΟΘΟΝΗ · ΠΡΟΣΩΠΙΚΑ ΣΤΟΙΧΕΙΑ · ΖΥΓΟΛΟΓΙΟ
+   Πίνακες client_profiles (στοιχεία + «Το πρόγραμμά μου») και weight_logs (ένα βάρος ανά ημέρα).
+   =================================================================== */
+const cprof = { loadedFor:null, data:null, weights:null, view:'form', saving:false, editDate:null };
+function cprofMyProgramId(){ return cprof.data && cprof.data.my_program_id || null; }
+async function cprofLoad(){
+  const code = auth.customer && auth.customer.code; if(!code) return;
+  if(cprof.loadedFor === code && cprof.data) return;
+  const [p, w] = await Promise.all([
+    sb.from('client_profiles').select('*').eq('customer_code', code).maybeSingle(),
+    sb.from('weight_logs').select('log_date, weight_kg').eq('customer_code', code).order('log_date', { ascending:false }).limit(400)
+  ]);
+  if(p.error) console.warn('client_profiles', p.error);
+  if(w.error) console.warn('weight_logs', w.error);
+  cprof.data = p.data || { customer_code: code };
+  cprof.weights = w.data || [];
+  cprof.loadedFor = code;
+}
+async function cprofSave(patch){
+  const code = auth.customer && auth.customer.code; if(!code) return false;
+  const row = { ...(cprof.data||{}), ...patch, customer_code: code, updated_at: new Date().toISOString() };
+  const { error } = await sb.from('client_profiles').upsert(row, { onConflict:'customer_code' });
+  if(error){ console.error(error); return false; }
+  cprof.data = row; return true;
+}
+function cprofDisplayName(){
+  const d = cprof.data || {}, c = auth.customer || {};
+  return d.nickname || d.first_name || c.name || '';
+}
+function clientGo(mode){ const b = document.getElementById('client-mode-'+mode); if(b) b.click(); }
+function renderClientHome(){
+  const box = document.getElementById('client-content'); if(!box) return;
+  const ap = document.getElementById('client-announce-panel'); if(ap) ap.style.display = ap.innerHTML.trim() ? 'block' : 'none';
+  const myId = cprofMyProgramId();
+  const my = myId && (state.selectedCustomerPrograms||[]).find(p=>p.id===myId);
+  const name = cprofDisplayName();
+  const lastW = (cprof.weights||[])[0];
+  box.innerHTML = `
+    <div class="topbar"><div><h1 style="font-size:22px;">${name ? 'Γεια σου, '+escHtml(name)+'!' : 'Καλώς ήρθες!'}</h1>
+      <div class="sub">${lastW ? `Τελευταίο ζύγισμα: <b>${fmtKg(lastW.weight_kg)} kg</b> · ${fmtDateGr(lastW.log_date)}` : 'Τι θέλεις να κάνεις σήμερα;'}</div></div></div>
+    <div class="home-grid">
+      <button class="home-tile" data-home="profile"><span class="home-ic">👤</span><span class="home-t">Προσωπικά στοιχεία</span><span class="home-s">Στοιχεία · ζυγολόγιο · λιπομετρήσεις</span></button>
+      <button class="home-tile" data-home="library"><span class="home-ic">🏆</span><span class="home-t">Προγράμματα TRANSFORMATION</span><span class="home-s">Τα έτοιμα προγράμματα</span></button>
+      <button class="home-tile" data-home="mine"><span class="home-ic">📋</span><span class="home-t">Τα προγράμματά μου</span><span class="home-s">${(state.selectedCustomerPrograms||[]).length} προγράμματα</span></button>
+      <button class="home-tile star" data-home="my"><span class="home-ic">⭐</span><span class="home-t">Το πρόγραμμά μου</span><span class="home-s">${my ? escHtml(getProgramNameForRecord(my.record) || categoryBadgeLabel(my.record)) : 'Δεν έχεις ορίσει ακόμα'}</span></button>
+    </div>`;
+  box.querySelectorAll('[data-home]').forEach(el=>el.addEventListener('click', ()=>{
+    const k = el.getAttribute('data-home');
+    if(k==='profile'){ cprof.view = 'form'; state.clientSetActive && state.clientSetActive('profile'); renderClientProfile(); return; }
+    if(k==='library'){ clientGo('library'); return; }
+    if(k==='mine'){ state.clientNav = { view:'programs', programId:null, dayIndex:null, itemIndex:null }; clientGo('mine'); return; }
+    if(k==='my'){
+      if(!my){ toast('Δεν έχεις ορίσει «Το πρόγραμμά μου». Άνοιξε ένα πρόγραμμα και πάτα «☆ Ορισμός ως το πρόγραμμά μου».'); state.clientNav = { view:'programs', programId:null, dayIndex:null, itemIndex:null }; clientGo('mine'); return; }
+      state.clientNav = { view: my.record.subtype==='cardio' ? 'items' : 'days', programId: my.id, dayIndex: my.record.subtype==='cardio' ? null : 0, itemIndex:null };
+      clientGo('mine');
+    }
+  }));
+}
+function fmtKg(v){ const n = Number(v); return isFinite(n) ? n.toLocaleString('el-GR', { minimumFractionDigits:1, maximumFractionDigits:1 }) : '—'; }
+function fmtDateGr(iso){ try{ const [y,m,d] = String(iso).split('-').map(Number); return new Date(y, m-1, d).toLocaleDateString('el-GR', { weekday:'short', day:'2-digit', month:'2-digit', year:'numeric' }); }catch(_){ return iso; } }
+function todayLocalISO(){ const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function renderClientProfile(){
+  const box = document.getElementById('client-content'); if(!box) return;
+  const ap = document.getElementById('client-announce-panel'); if(ap) ap.style.display = 'none';
+  if(!cprof.data){ box.innerHTML = `<div style="color:var(--ink-soft);">Φόρτωση...</div>`; cprofLoad().then(renderClientProfile); return; }
+  if(cprof.view==='weights') return renderClientWeights();
+  if(cprof.view==='fat') return renderClientFat();
+  const d = cprof.data, c = auth.customer || {};
+  const v = (k, fb)=>escAttr(d[k]!=null && d[k]!=='' ? d[k] : (fb||''));
+  const lastW = (cprof.weights||[])[0];
+  box.innerHTML = `
+    <div class="auth-back" id="cp-home">${ICON.back}Αρχική</div>
+    <div class="topbar"><div><h1 style="font-size:20px;">👤 Προσωπικά στοιχεία</h1></div></div>
+    <div class="panel pad">
+      <div class="cp-grid">
+        <div class="field"><label>Όνομα</label><input type="text" id="cp-first" maxlength="60" value="${v('first_name', c.name)}"></div>
+        <div class="field"><label>Επώνυμο</label><input type="text" id="cp-last" maxlength="60" value="${v('last_name', c.surname)}"></div>
+        <div class="field"><label>Nickname</label><input type="text" id="cp-nick" maxlength="40" value="${v('nickname')}" placeholder="πώς θέλεις να σε λέμε"></div>
+        <div class="field"><label>Ηλικία</label><input type="text" inputmode="numeric" id="cp-age" value="${v('age')}"></div>
+        <div class="field"><label>Ύψος (cm)</label><input type="text" inputmode="decimal" id="cp-height" value="${v('height_cm')}"></div>
+        <div class="field"><label>Βάρος (kg)</label><input type="text" inputmode="decimal" id="cp-weight" value="${v('weight_kg', lastW ? lastW.weight_kg : '')}"></div>
+        <div class="field"><label>Ποσοστό λίπους (%)</label><input type="text" inputmode="decimal" id="cp-fat" value="${v('body_fat_pct')}"></div>
+      </div>
+      <button class="btn btn-critical" id="cp-save" style="width:100%;justify-content:center;margin-top:6px;" ${cprof.saving?'disabled':''}>${ICON.save}${cprof.saving?'Αποθήκευση…':'Αποθήκευση στοιχείων'}</button>
+    </div>
+    <div class="cp-more">
+      <button class="home-tile" id="cp-weights"><span class="home-ic">⚖️</span><span class="home-t">Ζυγολόγιο</span><span class="home-s">${(cprof.weights||[]).length ? (cprof.weights.length+' ζυγίσματα') : 'Κατάγραψε το βάρος σου'}</span></button>
+      <button class="home-tile" id="cp-fatbtn"><span class="home-ic">📏</span><span class="home-t">Λιπομετρήσεις</span><span class="home-s">Σύντομα</span></button>
+    </div>`;
+  const $ = id=>document.getElementById(id);
+  $('cp-home').addEventListener('click', ()=>clientGo('home'));
+  $('cp-weights').addEventListener('click', ()=>{ cprof.view = 'weights'; renderClientProfile(); });
+  $('cp-fatbtn').addEventListener('click', ()=>{ cprof.view = 'fat'; renderClientProfile(); });
+  $('cp-save').addEventListener('click', async ()=>{
+    const num = id=>{ const x = $(id).value.trim().replace(',', '.'); return x==='' ? null : Number(x); };
+    const patch = { first_name: $('cp-first').value.trim() || null, last_name: $('cp-last').value.trim() || null, nickname: $('cp-nick').value.trim() || null,
+      age: num('cp-age'), height_cm: num('cp-height'), weight_kg: num('cp-weight'), body_fat_pct: num('cp-fat') };
+    const bad = (k,lo,hi)=>patch[k]!=null && (!isFinite(patch[k]) || patch[k]<lo || patch[k]>hi);
+    if(bad('age',5,120)) return toast('Η ηλικία δεν φαίνεται σωστή.');
+    if(bad('height_cm',50,260)) return toast('Το ύψος δεν φαίνεται σωστό (σε εκατοστά).');
+    if(bad('weight_kg',20,400)) return toast('Το βάρος δεν φαίνεται σωστό (σε κιλά).');
+    if(bad('body_fat_pct',1,75)) return toast('Το ποσοστό λίπους δεν φαίνεται σωστό.');
+    if(patch.age!=null) patch.age = Math.round(patch.age);
+    cprof.saving = true; renderClientProfile();
+    const ok = await cprofSave(patch);
+    cprof.saving = false; renderClientProfile();
+    toast(ok ? 'Τα στοιχεία σου αποθηκεύτηκαν!' : 'Δεν αποθηκεύτηκαν. Δοκίμασε ξανά.');
+  });
+}
+// Ζυγολόγιο: ημερομηνία αριστερά, βάρος δεξιά. Πράσινο αν είναι λιγότερο από το προηγούμενο ζύγισμα, πορτοκαλί αν είναι περισσότερο.
+function renderClientWeights(){
+  const box = document.getElementById('client-content'); if(!box) return;
+  const list = (cprof.weights||[]).slice().sort((a,b)=>String(b.log_date).localeCompare(String(a.log_date)));
+  box.innerHTML = `
+    <div class="auth-back" id="cw-back">${ICON.back}Προσωπικά στοιχεία</div>
+    <div class="topbar"><div><h1 style="font-size:20px;">⚖️ Ζυγολόγιο</h1><div class="sub">Ένα ζύγισμα την ημέρα. <span class="wl-ok">πράσινο</span> = λιγότερο από το προηγούμενο · <span class="wl-up">πορτοκαλί</span> = περισσότερο.</div></div></div>
+    <div class="panel pad" style="margin-bottom:14px;">
+      <div class="wl-add">
+        <div class="field" style="margin:0;"><label>Ημερομηνία</label><input type="date" id="cw-date" value="${escAttr(cprof.editDate || todayLocalISO())}" max="${todayLocalISO()}"></div>
+        <div class="field" style="margin:0;"><label>Βάρος (kg)</label><input type="text" id="cw-kg" inputmode="decimal" autocomplete="off" placeholder="π.χ. 82,4" value="${escAttr(cprof.editDate ? ((list.find(x=>x.log_date===cprof.editDate)||{}).weight_kg ?? '') : '')}"></div>
+        <button class="btn btn-critical" id="cw-save" ${cprof.saving?'disabled':''}>${cprof.saving?'…':'Καταχώρηση'}</button>
+      </div>
+    </div>
+    <div class="panel pad">
+      ${list.length ? `<table class="wl-table"><thead><tr><th>Ημερομηνία</th><th style="text-align:right;">Βάρος</th><th></th></tr></thead><tbody>
+        ${list.map((w,i)=>{ const prev = list[i+1]; const cur = Number(w.weight_kg), pv = prev ? Number(prev.weight_kg) : null;
+          const cls = pv==null ? '' : (cur < pv ? 'down' : (cur > pv ? 'up' : 'same'));
+          const diff = pv==null ? '' : (cur===pv ? '±0' : ((cur>pv?'+':'−') + fmtKg(Math.abs(cur-pv))));
+          return `<tr><td>${escHtml(fmtDateGr(w.log_date))}</td>
+            <td style="text-align:right;"><span class="wl-box ${cls}" data-cw-edit="${escAttr(w.log_date)}" title="Πάτα για διόρθωση">${fmtKg(cur)} kg</span>${diff?`<div class="wl-diff ${cls}">${diff}</div>`:''}</td>
+            <td style="text-align:right;width:34px;"><button class="wl-del" data-cw-del="${escAttr(w.log_date)}" title="Διαγραφή">${state.cwDelConfirm===w.log_date?'✓?':'✕'}</button></td></tr>`; }).join('')}
+      </tbody></table>` : `<div class="empty" style="padding:24px 0;"><div class="icon">⚖️</div><p>Δεν υπάρχουν ζυγίσματα ακόμα. Κατάγραψε το πρώτο σου παραπάνω.</p></div>`}
+    </div>`;
+  const $ = id=>document.getElementById(id);
+  $('cw-back').addEventListener('click', ()=>{ cprof.view = 'form'; cprof.editDate = null; renderClientProfile(); });
+  box.querySelectorAll('[data-cw-edit]').forEach(el=>el.addEventListener('click', ()=>{ cprof.editDate = el.getAttribute('data-cw-edit'); renderClientWeights(); $('cw-kg')?.focus(); }));
+  box.querySelectorAll('[data-cw-del]').forEach(el=>el.addEventListener('click', async ()=>{
+    const dte = el.getAttribute('data-cw-del');
+    if(state.cwDelConfirm !== dte){ state.cwDelConfirm = dte; renderClientWeights(); return; }
+    state.cwDelConfirm = null;
+    const { error } = await sb.from('weight_logs').delete().eq('customer_code', auth.customer.code).eq('log_date', dte);
+    if(error){ console.error(error); return toast('Δεν διαγράφηκε.'); }
+    cprof.weights = cprof.weights.filter(x=>x.log_date!==dte); renderClientWeights();
+  }));
+  $('cw-save').addEventListener('click', async ()=>{
+    const dte = $('cw-date').value, kg = Number(String($('cw-kg').value).replace(',', '.'));
+    if(!dte) return toast('Διάλεξε ημερομηνία.');
+    if(dte > todayLocalISO()) return toast('Η ημερομηνία δεν μπορεί να είναι στο μέλλον.');
+    if(!isFinite(kg) || kg < 20 || kg > 400) return toast('Γράψε το βάρος σε κιλά, π.χ. 82,4.');
+    const w = Math.round(kg*10)/10;
+    cprof.saving = true; renderClientWeights();
+    const { error } = await sb.from('weight_logs').upsert({ customer_code: auth.customer.code, log_date: dte, weight_kg: w }, { onConflict:'customer_code,log_date' });
+    cprof.saving = false;
+    if(error){ console.error(error); renderClientWeights(); return toast('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.'); }
+    cprof.weights = (cprof.weights||[]).filter(x=>x.log_date!==dte).concat([{ log_date: dte, weight_kg: w }]).sort((a,b)=>String(b.log_date).localeCompare(String(a.log_date)));
+    if(cprof.weights[0].log_date === dte) cprofSave({ weight_kg: w });   // το πιο πρόσφατο ζύγισμα = το βάρος στα στοιχεία
+    const i = cprof.weights.findIndex(x=>x.log_date===dte), prev = cprof.weights[i+1];
+    cprof.editDate = null; renderClientWeights();
+    toast(prev ? (w < prev.weight_kg ? '🟢 Μπράβο! Λιγότερο από το προηγούμενο ζύγισμα.' : (w > prev.weight_kg ? '🟠 Λίγο περισσότερο από το προηγούμενο ζύγισμα.' : 'Ίδιο με το προηγούμενο ζύγισμα.')) : 'Το πρώτο σου ζύγισμα καταχωρήθηκε!');
+  });
+}
+function renderClientFat(){
+  const box = document.getElementById('client-content'); if(!box) return;
+  box.innerHTML = `
+    <div class="auth-back" id="cf-back">${ICON.back}Προσωπικά στοιχεία</div>
+    <div class="topbar"><div><h1 style="font-size:20px;">📏 Λιπομετρήσεις</h1></div></div>
+    <div class="panel pad"><div class="empty" style="padding:24px 0;"><div class="icon">📏</div><p>Οι λιπομετρήσεις έρχονται σύντομα.</p></div></div>`;
+  document.getElementById('cf-back').addEventListener('click', ()=>{ cprof.view = 'form'; renderClientProfile(); });
+}
 async function renderAppClient(){
   document.getElementById('navlist').innerHTML = '';
   document.getElementById('mobile-tabs').innerHTML = '';
@@ -8298,7 +8498,8 @@ async function renderAppClient(){
   document.getElementById('sidebar-logout').addEventListener('click', doLogout);
 
   state.clientNav = { view:'programs', programId:null, dayIndex:null, itemIndex:null };
-  state.clientViewMode = 'mine';
+  state.clientViewMode = 'home';   // με το άνοιγμα: αρχική οθόνη
+  cprof.loadedFor = null; cprof.data = null; cprof.weights = null; cprof.view = 'form';
   food.date = foodLocalISO(new Date()); food.meals = []; food.loadedFor = null; food.draft = null; food.recent = null;
   state.eqMedia = null; eqMediaLoad(true);
   aiClient.latest = null; aiClient.loadedFor = null; aiClient.open = false; aiClient.busy = false; aiClient.note = '';
@@ -8308,7 +8509,8 @@ async function renderAppClient(){
     <div class="mobile-preview-frame">
       <div class="panel pad" id="client-announce-panel" style="margin-bottom:20px;display:none;"></div>
       <div class="auth-tabs client-tabs" style="margin-bottom:20px;">
-        <button id="client-mode-mine" class="active">Τα Προγράμματά μου</button>
+        <button id="client-mode-home" class="active">🏠 Αρχική</button>
+        <button id="client-mode-mine">Τα Προγράμματά μου</button>
         <button id="client-mode-library">Έτοιμα Προγράμματα TRANSFORMATION</button>
         <button id="client-mode-log">Ημερολόγιο</button>
         <button id="client-mode-food">Διατροφή</button>
@@ -8334,9 +8536,9 @@ async function renderAppClient(){
       }).join('')}
     `;
   });
-  const progs = (await loadProgramsFor(c.code)).sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
-  state.selectedCustomerPrograms = progs;
-  renderClientMain();
+  const [progs] = await Promise.all([loadProgramsFor(c.code), cprofLoad()]);
+  state.selectedCustomerPrograms = progs.sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
+  if(state.clientViewMode==='home') renderClientHome(); else renderClientMain();
 }
 
 function getClientDayItems(record, dayIndex){
@@ -8406,6 +8608,7 @@ function renderClientProgramsListView(){
               <div class="name">${mine ? `${escHtml(p.record.customName || p.record.templateName || 'Το πρόγραμμά μου')} <span class="mine-badge">🛠 ΔΙΚΟ ΜΟΥ</span><div style="font-size:11px;font-weight:600;color:var(--cyan-soft);text-transform:none;letter-spacing:0;">${escHtml(categoryBadgeLabel(p.record))}</div>` : ''}${mine ? '' : escHtml(fromTpl && p.record.templateName ? p.record.templateName : categoryBadgeLabel(p.record))}${(fromTpl)?' <span style="color:var(--accent);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· Έτοιμο</span>':''}${fromAI?' <span style="color:var(--cyan);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· ✨ AI</span>':''}</div>
               <div class="sub">${d.toLocaleDateString('el-GR')} · ${d.toLocaleTimeString('el-GR',{hour:'2-digit',minute:'2-digit'})}</div>
             </div>
+            ${cprofMyProgramId()===p.id ? `<span class="myprog-badge" title="Αυτό είναι «Το πρόγραμμά μου»">⭐ Το πρόγραμμά μου</span>` : ''}
           </div>`;
         }).join('')
       }
@@ -8464,6 +8667,7 @@ function clientProgramActionsHtml(p, record){
         <button class="btn btn-outline" data-client-pdf="${escAttr(p.id)}">${ICON.pdf}PDF</button>
         ${mine ? `<button class="btn btn-outline pc-act ${pcheck.programId===p.id && (pcheck.open||pcheck.result)?'on':''}" id="pc-open">🤖 Έλεγχος προγράμματος</button>` : ''}
         ${mine ? `<button class="btn btn-outline" id="cb-edit">✎ Διόρθωση προγράμματος</button>` : ''}
+        <button class="btn ${cprofMyProgramId()===p.id ? 'btn-primary' : 'btn-outline'}" id="cp-setmy">${cprofMyProgramId()===p.id ? '⭐ Είναι το πρόγραμμά μου' : '☆ Ορισμός ως το πρόγραμμά μου'}</button>
         <button class="btn btn-outline" id="cb-copy">${state.cbCopyConfirm===p.id ? 'Σίγουρα; Θα αντικατασταθεί το πρόχειρό σου' : '⧉ Αντιγραφή προγράμματος'}</button>
       </div>
       ${mine ? renderProgramCheckPanel(p, record) : ''}`;
@@ -8505,6 +8709,13 @@ function bindProgramCheck(p, record){
     if(pcheck.open || pcheck.result){ pcheck.open = false; pcheck.result = null; } else pcheck.open = true;
     renderClientMain();
     if(pcheck.open) setTimeout(()=>{ document.getElementById('pcheck-panel')?.scrollIntoView({ behavior:'smooth', block:'nearest' }); document.getElementById('pc-note')?.focus(); }, 40);
+  });
+  document.getElementById('cp-setmy')?.addEventListener('click', async ()=>{
+    if(cprofMyProgramId()===p.id) return toast('Είναι ήδη «Το πρόγραμμά μου».');
+    const ok = await cprofSave({ my_program_id: p.id });
+    if(!ok) return toast('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.');
+    toast('⭐ Ορίστηκε ως «Το πρόγραμμά μου». Το βρίσκεις και από την Αρχική.');
+    renderClientMain();
   });
   document.getElementById('cb-edit')?.addEventListener('click', ()=>{
     openClientBuilderWith(record, { name: record.customName || record.templateName || 'Το πρόγραμμά μου', editId: p.id });
