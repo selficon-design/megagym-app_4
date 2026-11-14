@@ -846,6 +846,10 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .apply-day{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid var(--line-strong);font-size:12px;cursor:pointer;color:var(--ink);}
 .apply-day.on{border-color:var(--cyan);background:rgba(61,216,255,.14);color:var(--cyan-soft);}
 .apply-day input{margin:0;}
+.day-copy-btn{padding:4px 9px;font-size:10.5px;margin-left:8px;flex-shrink:0;}
+.day-copy-btn.on{border-color:var(--cyan);color:var(--cyan-soft);}
+.day-copy{margin:0 20px 8px;padding:10px;border-radius:10px;border:1px dashed rgba(61,216,255,.45);background:rgba(61,216,255,.05);cursor:default;}
+.tpl-hist[disabled]{opacity:.4;cursor:default;}
 .dur-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(255,210,63,.14);color:#ffd23f;font-size:11px;font-weight:700;letter-spacing:0;text-transform:none;white-space:nowrap;}
 .dur-break{padding:6px 20px 0;font-size:10.5px;color:#cbb46a;}
 .dur-break b{color:#ffd23f;}
@@ -3360,6 +3364,7 @@ function renderTplFormArea(){
     });
     return;
   }
+  tplHistRecord(b);   // αναίρεση/επανάληψη: κρατάμε κάθε αλλαγή στις ημέρες
   const scroller = document.scrollingElement || document.documentElement, keepY = scroller.scrollTop; // η οθόνη μένει εκεί που είναι
   area.innerHTML = `
     ${clientMode ? '' : `<button class="btn btn-outline tpl-back-btn" id="tpl-back-btn">← Πίσω στα έτοιμα προγράμματα</button>`}
@@ -3381,12 +3386,58 @@ function renderTplFormArea(){
   if(clientMode) cbSaveDraft();
 }
 
+/* Αναίρεση / Επανάληψη στον builder: στιγμιότυπα των ημερών (μέχρι 50) */
+const TPL_HIST_MAX = 50;
+function tplHistSnap(b){ return JSON.stringify({ days: b.days, numDays: b.numDays }); }
+function tplHistRecord(b){
+  if(!b) return;
+  const h = b._hist || (b._hist = { undo:[], redo:[], last:null });
+  const cur = tplHistSnap(b);
+  if(h.last == null){ h.last = cur; return; }
+  if(cur === h.last) return;
+  h.undo.push(h.last); if(h.undo.length > TPL_HIST_MAX) h.undo.shift();
+  h.redo = []; h.last = cur;
+}
+function tplHistApply(b, snap){
+  const o = JSON.parse(snap); b.days = o.days; b.numDays = o.numDays;
+  b._hist.last = snap;
+  b.addForm = null; b.lastEdited = null; state.tplDayCopy = null;   // η ανοιχτή φόρμα μπορεί να δείχνει σε άσκηση που δεν υπάρχει πια
+}
+function tplUndo(){ const b = state.tplBuilder, h = b && b._hist; if(!h || !h.undo.length) return toast('Δεν υπάρχει κάτι για αναίρεση.'); h.redo.push(h.last); tplHistApply(b, h.undo.pop()); renderTplFormArea(); toast('Αναιρέθηκε.'); }
+function tplRedo(){ const b = state.tplBuilder, h = b && b._hist; if(!h || !h.redo.length) return toast('Δεν υπάρχει κάτι για επανάληψη.'); h.undo.push(h.last); tplHistApply(b, h.redo.pop()); renderTplFormArea(); toast('Επαναλήφθηκε.'); }
+// Αντιγραφή ημέρας: η ημέρα «from» μπαίνει ως ημέρα Νο «to» (αντικατάσταση αν υπάρχει, αλλιώς προσθήκη)
+function tplCopyDay(b, from, to){
+  const src = b.days[from]; if(!src) return;
+  if(to >= b.days.length){
+    const newDays = tplBuildDays(to+1);
+    newDays.forEach((d,i)=>{ if(b.days[i]) d.items = b.days[i].items; });
+    b.days = newDays; b.numDays = to+1;
+  }
+  b.days[to].items = JSON.parse(JSON.stringify(src.items));
+  if(b.closedDays) delete b.closedDays[to];
+}
+function tplDayCopyPanel(b, di){
+  const c = state.tplDayCopy; if(!c || c.from !== di) return '';
+  return `<div class="day-copy" data-no-toggle>
+    <div class="apply-days-t">Αντιγραφή της <b>${escHtml(b.days[di].label)}</b> ως ημέρα Νο:</div>
+    <div class="chip-row">${[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>{ const ti = n-1, exists = ti < b.days.length, has = exists && b.days[ti].items.length>0;
+      return `<button type="button" class="plate-btn ${c.to===ti?'active':''}" data-tpl-daycopy-to="${ti}" ${ti===di?'disabled':''} style="--size:36px;font-size:12px;${has?'border-color:#ff9f1a;':''}" title="${ti===di?'Η ίδια ημέρα':(has?'Υπάρχει και έχει ασκήσεις — θα αντικατασταθεί':(exists?'Υπάρχει (άδεια)':'Θα προστεθεί'))}">${n}</button>`; }).join('')}</div>
+    <div class="apply-days-t" style="margin-top:6px;">${c.to==null ? 'Διάλεξε νούμερο ημέρας. Πορτοκαλί = έχει ήδη ασκήσεις.' : (c.to < b.days.length ? (b.days[c.to].items.length ? `⚠ Η ${escHtml(b.days[c.to].label)} έχει ${b.days[c.to].items.length} στοιχεία — θα <b>αντικατασταθούν</b>.` : `Η ${escHtml(b.days[c.to].label)} είναι άδεια — θα γεμίσει.`) : `Θα <b>προστεθεί</b> ως νέα ημέρα Νο ${c.to+1}${c.to > b.days.length ? ` (και οι ενδιάμεσες ημέρες, άδειες)` : ''}.`)}</div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button type="button" class="btn btn-primary" style="padding:6px 12px;font-size:12px;" data-tpl-daycopy-ok="${di}" ${c.to==null?'disabled':''}>${c.to!=null && c.to < b.days.length && b.days[c.to].items.length ? 'Αντικατάσταση' : 'Προσθήκη'}</button>
+      <button type="button" class="btn btn-outline" style="padding:6px 12px;font-size:12px;" data-tpl-daycopy-cancel="1">Άκυρο</button>
+    </div>
+  </div>`;
+}
 function renderTplDaysEditor(b){
+  const h = b._hist || { undo:[], redo:[] };
   return `
     <div class="panel pad">
       <div class="tpl-days-bar">
         <div class="section-title" style="margin:0;"><span class="dot"></span>Ημέρες & Ασκήσεις</div>
         <div class="tpl-days-btns">
+          <button type="button" class="btn btn-outline tpl-hist" id="tpl-undo" ${h.undo.length?'':'disabled'} title="Αναίρεση (Ctrl+Z)">↶ Αναίρεση${h.undo.length?` (${h.undo.length})`:''}</button>
+          <button type="button" class="btn btn-outline tpl-hist" id="tpl-redo" ${h.redo.length?'':'disabled'} title="Επανάληψη (Ctrl+Y)">↷ Επανάληψη${h.redo.length?` (${h.redo.length})`:''}</button>
           <button type="button" class="btn btn-outline" data-tpl-days-all="open">▾ Άνοιγμα όλων</button>
           <button type="button" class="btn btn-outline" data-tpl-days-all="close">▸ Κλείσιμο όλων</button>
           <button type="button" class="btn btn-outline" data-tpl-days-all="last">▸ Μόνο η τελευταία</button>
@@ -3397,7 +3448,9 @@ function renderTplDaysEditor(b){
           <div class="day-head tpl-day-head" data-tpl-daytoggle="${di}" title="${closed?'Άνοιγμα ημέρας':'Κλείσιμο ημέρας'}">
             <div class="tag"><span class="tpl-day-caret">${closed?'▸':'▾'}</span><div class="day-num">${di+1}</div><h3>${escHtml(day.label)}</h3></div>
             <div class="count">${day.items.length} στοιχεία ${dayDurationHtml(day.items)}</div>
+            <button type="button" class="btn btn-outline day-copy-btn ${state.tplDayCopy && state.tplDayCopy.from===di?'on':''}" data-tpl-daycopy="${di}" title="Αντιγραφή αυτής της ημέρας σε άλλο νούμερο ημέρας">⧉ Αντιγραφή ημέρας</button>
           </div>
+          ${tplDayCopyPanel(b, di)}
           ${dayDurationBreakdown(day.items)}
           ${closed ? `<div class="tpl-day-sum">${escHtml(day.items.map(it=>it.type==='cardio' ? '🏃 '+(it.equipment||'Αερόβιο') : tplLabelNow(it.groupLabel)).join(' · ') || 'Χωρίς ασκήσεις')}</div>` : `
           <div style="padding:16px 20px;">
@@ -3654,6 +3707,27 @@ function bindTplBuilderEvents(){
   document.querySelectorAll('[data-tpl-gender]').forEach(el=>{
     el.addEventListener('click', ()=>{ b.gender = el.getAttribute('data-tpl-gender'); renderTplFormArea(); if(state.tplGenderView !== b.gender) setTplGenderView(b.gender); });
   });
+  document.getElementById('tpl-undo')?.addEventListener('click', tplUndo);
+  document.getElementById('tpl-redo')?.addEventListener('click', tplRedo);
+  document.querySelectorAll('[data-tpl-daycopy]').forEach(el=>el.addEventListener('click', e=>{
+    e.stopPropagation();
+    const di = Number(el.getAttribute('data-tpl-daycopy'));
+    state.tplDayCopy = (state.tplDayCopy && state.tplDayCopy.from===di) ? null : { from: di, to: null };
+    renderTplFormArea();
+  }));
+  document.querySelectorAll('[data-tpl-daycopy-to]').forEach(el=>el.addEventListener('click', e=>{ e.stopPropagation(); if(state.tplDayCopy){ state.tplDayCopy.to = Number(el.getAttribute('data-tpl-daycopy-to')); renderTplFormArea(); } }));
+  document.querySelector('[data-tpl-daycopy-cancel]')?.addEventListener('click', e=>{ e.stopPropagation(); state.tplDayCopy = null; renderTplFormArea(); });
+  document.querySelectorAll('[data-tpl-daycopy-ok]').forEach(el=>el.addEventListener('click', e=>{
+    e.stopPropagation();
+    const c = state.tplDayCopy; if(!c || c.to==null) return;
+    const fromLabel = b.days[c.from].label, replaced = c.to < b.days.length && b.days[c.to].items.length > 0;
+    tplCopyDay(b, c.from, c.to);
+    const toLabel = b.days[c.to].label;
+    state.tplDayCopy = null;
+    renderTplFormArea();
+    toast(`Η ${fromLabel} ${replaced ? 'αντικατέστησε' : 'μπήκε ως'} ${toLabel}. Αν μετάνιωσες: «↶ Αναίρεση».`, 4500);
+  }));
+  document.querySelectorAll('.day-copy').forEach(el=>el.addEventListener('click', e=>e.stopPropagation()));
   document.querySelectorAll('[data-tpl-days]').forEach(el=>{
     el.addEventListener('click', ()=>{
       const n = parseInt(el.getAttribute('data-tpl-days'));
@@ -10544,6 +10618,13 @@ function tplQuickSave(){
   document.addEventListener('keydown', e=>{
     if((e.ctrlKey || e.metaKey) && !e.altKey && (e.key==='s' || e.key==='S' || e.key==='σ' || e.code==='KeyS')){
       if(state.tab==='tplbuilder' || (auth.role==='client' && state.clientViewMode==='build')){ e.preventDefault(); tplQuickSave(); }
+    }
+    // Ctrl+Z / Ctrl+Y στον builder (όχι όταν γράφεις σε πεδίο — εκεί δουλεύει η αναίρεση του πεδίου)
+    const inField = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target||{}).tagName||'') || (e.target && e.target.isContentEditable);
+    const inBuilder = document.getElementById('tpl-form-area') && state.tplBuilder && (state.tab==='tplbuilder' || (auth.role==='client' && state.clientViewMode==='build'));
+    if(inBuilder && !inField && (e.ctrlKey || e.metaKey) && !e.altKey){
+      if(e.key==='z' || e.key==='Z' || e.key==='ζ' || e.code==='KeyZ'){ e.preventDefault(); if(e.shiftKey) tplRedo(); else tplUndo(); }
+      else if(e.key==='y' || e.key==='Y' || e.key==='υ' || e.code==='KeyY'){ e.preventDefault(); tplRedo(); }
     }
   });
   document.getElementById('quick-save-btn')?.addEventListener('click', tplQuickSave);
