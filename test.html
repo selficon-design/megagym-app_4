@@ -838,6 +838,14 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .apply-all{border:1px solid rgba(255,159,26,.55);background:rgba(255,159,26,.1);color:#ffc465;border-radius:999px;padding:3px 10px;font-size:10.5px;font-weight:700;cursor:pointer;text-transform:none;letter-spacing:0;}
 .apply-all.done{background:#2bd96b;border-color:#2bd96b;color:#06210f;box-shadow:0 0 12px rgba(43,217,107,.55);}
 .apply-all.confirm{background:#ff9f1a;color:#111;}
+.apply-wrap{display:inline-flex;gap:6px;flex-wrap:wrap;}
+.apply-all.days{border-color:rgba(61,216,255,.5);background:rgba(61,216,255,.08);color:var(--cyan-soft);}
+.apply-all.days.confirm{background:var(--cyan);color:#04121c;}
+.apply-days{margin-top:8px;padding:10px;border-radius:10px;border:1px dashed rgba(61,216,255,.45);background:rgba(61,216,255,.05);}
+.apply-days-t{font-size:12px;color:var(--ink-soft);margin-bottom:6px;}
+.apply-day{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid var(--line-strong);font-size:12px;cursor:pointer;color:var(--ink);}
+.apply-day.on{border-color:var(--cyan);background:rgba(61,216,255,.14);color:var(--cyan-soft);}
+.apply-day input{margin:0;}
 .dur-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(255,210,63,.14);color:#ffd23f;font-size:11px;font-weight:700;letter-spacing:0;text-transform:none;white-space:nowrap;}
 .dur-break{padding:6px 20px 0;font-size:10.5px;color:#cbb46a;}
 .dur-break b{color:#ffd23f;}
@@ -3326,7 +3334,7 @@ function setTplGenderView(g){   // από το κουμπί φύλου μέσα 
 // Κλείνει τη φόρμα άσκησης και κρατά στην οθόνη την άσκηση που μόλις διορθώθηκε/προστέθηκε
 function tplCloseItemForm(b, itemIndex){
   const af = b.addForm; b.addForm = null;
-  state.tplApplyAllConfirm = null; state.tplApplyAllDone = null;
+  state.tplApplyAllConfirm = null; state.tplApplyAllDone = null; state.tplApplyDays = null; state.tplApplyDaysDone = null;
   // πορτοκαλί πλαίσιο στην άσκηση που μόλις αποθηκεύτηκε (μόνο σε αποθήκευση, όχι σε ακύρωση)
   b.lastEdited = (af && itemIndex!=null) ? { di: af.dayIndex, ii: itemIndex } : null;
   renderTplFormArea();
@@ -3458,7 +3466,23 @@ function tplApplyAllBtn(key){
   const confirm = state.tplApplyAllConfirm === key;
   const af = state.tplBuilder && state.tplBuilder.addForm;
   const done = !confirm && state.tplApplyAllDone && Object.prototype.hasOwnProperty.call(state.tplApplyAllDone, key) && af && af[key] === state.tplApplyAllDone[key];
-  return `<button type="button" class="apply-all ${confirm?'confirm':''} ${done?'done':''}" data-tpl-applyall="${key}">${confirm ? 'Σίγουρα; Πάτα ξανά' : (done ? '✓ Έγινε σε όλες' : '↻ Σε όλες τις ασκήσεις')}</button>`;
+  const pd = state.tplApplyDays;
+  const dOpen = pd && pd.key === key;
+  const dDone = !dOpen && state.tplApplyDaysDone && state.tplApplyDaysDone[key] && af && af[key] === state.tplApplyDaysDone[key].val;
+  return `<span class="apply-wrap"><button type="button" class="apply-all ${confirm?'confirm':''} ${done?'done':''}" data-tpl-applyall="${key}">${confirm ? 'Σίγουρα; Πάτα ξανά' : (done ? '✓ Έγινε σε όλες' : '↻ Σε όλες τις ασκήσεις')}</button><button type="button" class="apply-all days ${dOpen?'confirm':''} ${dDone?'done':''}" data-tpl-applydays="${key}">${dDone ? `✓ Έγινε σε ${state.tplApplyDaysDone[key].n} ${state.tplApplyDaysDone[key].n===1?'ημέρα':'ημέρες'}` : '📅 Σε ημέρες…'}</button></span>`;
+}
+// Πλαίσιο επιλογής ημερών για το «📅 Σε ημέρες…» (εμφανίζεται κάτω από το πεδίο)
+function tplApplyDaysPanel(key){
+  const pd = state.tplApplyDays; if(!pd || pd.key !== key) return '';
+  const b = state.tplBuilder;
+  return `<div class="apply-days">
+    <div class="apply-days-t">Σε ποιες ημέρες να μπει ${TPL_ALL_LABELS[key]} «${escHtml(key==='failure' ? failureLabel(b.addForm[key]) : b.addForm[key])}»;</div>
+    <div class="chip-row">${b.days.map((d,di)=>`<label class="apply-day ${pd.days.includes(di)?'on':''}"><input type="checkbox" data-tpl-applyday="${di}" ${pd.days.includes(di)?'checked':''}>${escHtml(d.label || ('DAY '+(di+1)))}</label>`).join('')}</div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button type="button" class="btn btn-primary" style="padding:6px 12px;font-size:12px;" data-tpl-applydays-ok="${key}">Εφαρμογή</button>
+      <button type="button" class="btn btn-outline" style="padding:6px 12px;font-size:12px;" data-tpl-applydays-cancel="1">Άκυρο</button>
+    </div>
+  </div>`;
 }
 // Κρατά μόνο εξοπλισμό που ανήκει στην άσκηση (όχι «ξεχασμένο» από προηγούμενη άσκηση)
 function tplEquipForExercise(exercise, list){
@@ -3493,11 +3517,11 @@ function renderTplAddMuscleForm(af){
         </select>
         ${af.exercise==='ΆΛΛΟ' ? `<input type="text" id="tpl-af-customex" value="${escAttr(af.customExercise||'')}" placeholder="Όνομα άσκησης" style="margin-top:8px;width:100%;padding:9px 11px;border-radius:10px;border:1.5px dashed var(--accent);background:var(--accent-soft);color:var(--ink);">`:''}
       </div>
-      <div class="field"><label class="lbl-all">Set ${tplApplyAllBtn('set')}</label><div class="chip-row">${TPL_SET_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.set===v?'active':''}" data-tpl-af-set="${v}">${v}</button>`).join('')}</div></div>
-      <div class="field"><label class="lbl-all">Rep ${tplApplyAllBtn('rep')}</label><div class="chip-row">${TPL_REP_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.rep===v?'active':''}" data-tpl-af-rep="${escAttr(v)}" style="font-size:11px;">${escHtml(v)}</button>`).join('')}</div></div>
-      <div class="field"><label class="lbl-all">Διάλειμμα ${tplApplyAllBtn('rest')}</label><div class="chip-row">${TPL_REST_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.rest===v?'active':''}" data-tpl-af-rest="${escAttr(v)}">${escHtml(v)}</button>`).join('')}</div></div>
-      <div class="field"><label class="lbl-all">Τέμπο ${tplApplyAllBtn('tempo')}</label><div class="chip-row">${TPL_TEMPO_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.tempo===v?'active':''}" data-tpl-af-tempo="${escAttr(v)}">${escHtml(v)}</button>`).join('')}</div></div>
-      <div class="field"><label class="lbl-all">Ένταση ${tplApplyAllBtn('failure')}</label><div class="chip-row">${FAILURE_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.failure===v?'active':''}" data-tpl-af-failure="${v}">${failureLabel(v)}</button>`).join('')}</div></div>
+      <div class="field"><label class="lbl-all">Set ${tplApplyAllBtn('set')}</label><div class="chip-row">${TPL_SET_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.set===v?'active':''}" data-tpl-af-set="${v}">${v}</button>`).join('')}</div>${tplApplyDaysPanel('set')}</div>
+      <div class="field"><label class="lbl-all">Rep ${tplApplyAllBtn('rep')}</label><div class="chip-row">${TPL_REP_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.rep===v?'active':''}" data-tpl-af-rep="${escAttr(v)}" style="font-size:11px;">${escHtml(v)}</button>`).join('')}</div>${tplApplyDaysPanel('rep')}</div>
+      <div class="field"><label class="lbl-all">Διάλειμμα ${tplApplyAllBtn('rest')}</label><div class="chip-row">${TPL_REST_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.rest===v?'active':''}" data-tpl-af-rest="${escAttr(v)}">${escHtml(v)}</button>`).join('')}</div>${tplApplyDaysPanel('rest')}</div>
+      <div class="field"><label class="lbl-all">Τέμπο ${tplApplyAllBtn('tempo')}</label><div class="chip-row">${TPL_TEMPO_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.tempo===v?'active':''}" data-tpl-af-tempo="${escAttr(v)}">${escHtml(v)}</button>`).join('')}</div>${tplApplyDaysPanel('tempo')}</div>
+      <div class="field"><label class="lbl-all">Ένταση ${tplApplyAllBtn('failure')}</label><div class="chip-row">${FAILURE_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.failure===v?'active':''}" data-tpl-af-failure="${v}">${failureLabel(v)}</button>`).join('')}</div>${tplApplyDaysPanel('failure')}</div>
       ${(af.exercise && af.exercise!=='ΆΛΛΟ' && EQUIPMENT_BY_EXERCISE[af.exercise]) ? `
       <div class="field">
         <label>Προτεινόμενος Εξοπλισμός (από λίστα)</label>
@@ -3680,7 +3704,7 @@ function bindTplBuilderEvents(){
       const it = b.days[di].items[ii];
       if(!it) return;
       b.lastEdited = null;
-      state.tplApplyAllConfirm = null; state.tplApplyAllDone = null;
+      state.tplApplyAllConfirm = null; state.tplApplyAllDone = null; state.tplApplyDays = null; state.tplApplyDaysDone = null;
       b.addForm = it.type==='cardio'
         ? { dayIndex:di, type:'cardio', equipment:it.equipment, mode:it.mode, speedLow:it.speedLow, speedHigh:it.speedHigh, incline:it.incline, intensity:it.intensity, minutes:it.minutes, drillEveryMinutes:it.drillEveryMinutes, editIndex:ii }
         : { dayIndex:di, type:'muscle', groupLabel:tplLabelNow(it.groupLabel), exercise:it.exercise, customExercise:'', set:it.set, rep:it.rep, rest:it.rest, tempo:it.tempo, failure:it.failure,
@@ -3762,6 +3786,30 @@ function bindTplBuilderEvents(){
       state.tplApplyAllDone = { ...(state.tplApplyAllDone||{}), [key]: val };   // πράσινο: εφαρμόστηκε
       renderTplFormArea();
       toast(`${TPL_ALL_LABELS[key]} «${shown}» σε όλες τις ασκήσεις του προγράμματος (${n} άλλαξαν). Θυμήσου «Αποθήκευση Αλλαγών».`);
+    }));
+    document.querySelectorAll('[data-tpl-applydays]').forEach(el=>el.addEventListener('click', ()=>{
+      const key = el.getAttribute('data-tpl-applydays');
+      if(state.tplApplyDays && state.tplApplyDays.key === key){ state.tplApplyDays = null; renderTplFormArea(); return; }
+      state.tplApplyAllConfirm = null;
+      state.tplApplyDays = { key, days: [af.dayIndex] };   // προεπιλογή: η ημέρα της φόρμας
+      renderTplFormArea();
+    }));
+    document.querySelectorAll('[data-tpl-applyday]').forEach(el=>el.addEventListener('change', ()=>{
+      const di = Number(el.getAttribute('data-tpl-applyday')); const pd = state.tplApplyDays; if(!pd) return;
+      pd.days = el.checked ? [...new Set([...pd.days, di])] : pd.days.filter(x=>x!==di);
+      el.closest('.apply-day')?.classList.toggle('on', el.checked);
+    }));
+    document.querySelector('[data-tpl-applydays-cancel]')?.addEventListener('click', ()=>{ state.tplApplyDays = null; renderTplFormArea(); });
+    document.querySelectorAll('[data-tpl-applydays-ok]').forEach(el=>el.addEventListener('click', ()=>{
+      const key = el.getAttribute('data-tpl-applydays-ok'); const pd = state.tplApplyDays; if(!pd) return;
+      if(!pd.days.length) return toast('Τσέκαρε τουλάχιστον μία ημέρα.');
+      const val = af[key]; let n = 0;
+      pd.days.forEach(di=>(b.days[di]?.items||[]).forEach(it=>{ if(it.type==='muscle'){ if(it[key] !== val) n++; it[key] = val; } }));
+      const shown = key==='failure' ? failureLabel(val) : val;
+      state.tplApplyDaysDone = { ...(state.tplApplyDaysDone||{}), [key]: { val, n: pd.days.length } };
+      state.tplApplyDays = null;
+      renderTplFormArea();
+      toast(`${TPL_ALL_LABELS[key]} «${shown}» σε ${pd.days.length} ${pd.days.length===1?'ημέρα':'ημέρες'} (${n} ασκήσεις άλλαξαν). Θυμήσου «Αποθήκευση Αλλαγών».`);
     }));
     const submitBtn = document.getElementById('tpl-af-submit');
     if(submitBtn) submitBtn.addEventListener('click', ()=>{
