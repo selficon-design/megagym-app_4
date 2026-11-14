@@ -2498,7 +2498,7 @@ function rebuildClientDashboardShell(){
     <div class="mobile-preview-frame">
       <div class="panel pad" id="client-announce-panel" style="margin-bottom:20px;display:none;"></div>
       <div class="auth-back client-home-back" id="client-home-back" style="display:${(state.clientViewMode==='home'||state.clientViewMode==='profile')?'none':'flex'};">${ICON.back}Αρχική</div>
-      <div class="auth-tabs client-tabs" id="client-tabs" style="margin-bottom:20px;display:${(state.clientViewMode==='home'||state.clientViewMode==='profile')?'none':'grid'};">
+      <div class="auth-tabs client-tabs" id="client-tabs" style="margin-bottom:20px;display:${clientTabsVisible(state.clientViewMode)?'grid':'none'};">
         <button id="client-mode-mine" class="${state.clientViewMode==='mine'?'active':''}">Τα Προγράμματά μου</button>
         <button id="client-mode-library" class="${state.clientViewMode==='library'?'active':''}">Έτοιμα Προγράμματα TRANSFORMATION</button>
         <button id="client-mode-log" class="${state.clientViewMode==='log'?'active':''}">Ημερολόγιο</button>
@@ -2526,10 +2526,12 @@ function bindClientModeToggle(){
   const homeBtn = document.getElementById('client-mode-home');
   const setActive = (mode)=>{
     state.clientViewMode = mode;
-    // Η αρχική και τα προσωπικά στοιχεία δεν έχουν καρτέλες· οι υπόλοιπες οθόνες έχουν καρτέλες + «← Αρχική»
+    // Η αρχική και τα προσωπικά στοιχεία δεν έχουν «← Αρχική».
+    // Το πλαίσιο με τις καρτέλες εμφανίζεται ΜΟΝΟ όταν μπεις από το «Τα προγράμματά μου».
     const top = (mode==='home' || mode==='profile');
+    if(top) state.clientTabsArea = false;
     const tabs = document.getElementById('client-tabs'), back = document.getElementById('client-home-back');
-    if(tabs) tabs.style.display = top ? 'none' : 'grid';
+    if(tabs) tabs.style.display = clientTabsVisible(mode) ? 'grid' : 'none';
     if(back) back.style.display = top ? 'none' : 'flex';
     [homeBtn,mineBtn,libBtn,logBtn,foodBtn,buildBtn].forEach(b=>b && b.classList.remove('active'));
     const activeBtn = {home:homeBtn, mine:mineBtn, library:libBtn, log:logBtn, food:foodBtn, build:buildBtn}[mode];
@@ -8349,6 +8351,7 @@ function cprofDisplayName(){
   const d = cprof.data || {}, c = auth.customer || {};
   return d.nickname || d.first_name || c.name || '';
 }
+function clientTabsVisible(mode){ return !!state.clientTabsArea && mode!=='home' && mode!=='profile'; }
 function clientGoHome(){ if(state.clientSetActive) state.clientSetActive('home'); window.scrollTo(0,0); renderClientHome(); }
 function clientGo(mode){ if(mode==='home') return clientGoHome(); const b = document.getElementById('client-mode-'+mode); if(b) b.click(); window.scrollTo(0,0); }
 function renderClientHome(){
@@ -8370,9 +8373,10 @@ function renderClientHome(){
   box.querySelectorAll('[data-home]').forEach(el=>el.addEventListener('click', ()=>{
     const k = el.getAttribute('data-home');
     if(k==='profile'){ cprof.view = 'form'; state.clientSetActive && state.clientSetActive('profile'); renderClientProfile(); return; }
-    if(k==='library'){ clientGo('library'); return; }
-    if(k==='mine'){ state.clientNav = { view:'programs', programId:null, dayIndex:null, itemIndex:null }; clientGo('mine'); return; }
+    if(k==='library'){ state.clientTabsArea = false; clientGo('library'); return; }
+    if(k==='mine'){ state.clientTabsArea = true; state.clientNav = { view:'programs', programId:null, dayIndex:null, itemIndex:null }; clientGo('mine'); return; }
     if(k==='my'){
+      state.clientTabsArea = !my;
       if(!my){ toast('Δεν έχεις ορίσει «Το πρόγραμμά μου». Άνοιξε ένα πρόγραμμα και πάτα «☆ Ορισμός ως το πρόγραμμά μου».'); state.clientNav = { view:'programs', programId:null, dayIndex:null, itemIndex:null }; clientGo('mine'); return; }
       state.clientNav = { view: my.record.subtype==='cardio' ? 'items' : 'days', programId: my.id, dayIndex: my.record.subtype==='cardio' ? null : 0, itemIndex:null };
       clientGo('mine');
