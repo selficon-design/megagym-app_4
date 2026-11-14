@@ -25,7 +25,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&family=Play:wght@400;700&family=JetBrains+Mono:wght@500;700&display=swap');
 /* ============ TOKENS ============ */
 :root{
   --bg-0:#05080d;
@@ -850,6 +850,16 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .day-copy-btn.on{border-color:var(--cyan);color:var(--cyan-soft);}
 .day-copy{margin:0 20px 8px;padding:10px;border-radius:10px;border:1px dashed rgba(61,216,255,.45);background:rgba(61,216,255,.05);cursor:default;}
 .tpl-hist[disabled]{opacity:.4;cursor:default;}
+.cb-guide-sec{margin-top:12px;}
+.cb-guide-sec h3{font-size:14px;color:var(--cyan-soft);margin:0 0 8px;letter-spacing:.3px;}
+.cb-guide-sec ul{margin:0;padding-left:18px;display:grid;gap:6px;}
+.cb-guide-sec li{font-size:13.5px;line-height:1.5;color:var(--ink);}
+.home-tile[disabled]{opacity:.55;cursor:default;}
+/* Στόχος στον builder: δύο ίσα ορθογώνια κουτιά, ένα αριστερά και ένα δεξιά, κεφαλαία */
+.goal-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.goal-box{display:flex;align-items:center;justify-content:center;text-align:center;min-height:64px;padding:12px 10px;border-radius:10px;border:1.5px solid var(--line-strong);background:rgba(3,11,18,.6);color:var(--ink);font-family:'Play','Rajdhani','Segoe UI',sans-serif;font-weight:700;font-size:14.5px;letter-spacing:1.4px;text-transform:uppercase;line-height:1.2;cursor:pointer;transition:border-color .12s,background .12s,transform .12s;}
+.goal-box:hover{border-color:var(--cyan);transform:translateY(-1px);}
+.goal-box.active{background:var(--accent);border-color:var(--accent);color:#1a1200;box-shadow:0 0 16px rgba(255,159,26,.4);}
 .dur-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(255,210,63,.14);color:#ffd23f;font-size:11px;font-weight:700;letter-spacing:0;text-transform:none;white-space:nowrap;}
 .dur-break{padding:6px 20px 0;font-size:10.5px;color:#cbb46a;}
 .dur-break b{color:#ffd23f;}
@@ -3940,8 +3950,8 @@ function bindTplBuilderEvents(){
   document.getElementById('cb-cancel-edit')?.addEventListener('click', ()=>cbLeaveEdit(true));
   document.getElementById('cb-reset')?.addEventListener('click', ()=>{
     if(!state.cbResetConfirm){ state.cbResetConfirm = true; renderTplFormArea(); return; }
-    state.cbResetConfirm = false; state.clientBuilder = freshClientBuilder(); state.tplBuilder = state.clientBuilder; cbSaveDraft();
-    renderTplFormArea(); toast('Ξεκινάς από την αρχή.');
+    state.cbResetConfirm = false; state.clientBuilder = freshClientBuilder(); state.clientBuilder.ownerCode = auth.customer && auth.customer.code; state.tplBuilder = state.clientBuilder; cbSaveDraft();
+    state.cbStarted = false; renderClientBuilder(); toast('Ξεκινάς από την αρχή.');
   });
   const cancelEditBtn = document.getElementById('tpl-cancel-edit');
   document.getElementById('tpl-back-btn')?.addEventListener('click', ()=>cancelEditBtn && cancelEditBtn.click());
@@ -8916,7 +8926,7 @@ function recordToBuilderDays(record){
 function openClientBuilderWith(record, opts){
   const b = freshClientBuilder();
   const days = recordToBuilderDays(record);
-  const tplDays = tplBuildDays(Math.max(1, Math.min(7, days.length || 1)));
+  const tplDays = tplBuildDays(Math.max(1, Math.min(12, days.length || 1)));
   tplDays.forEach((d,i)=>{ if(days[i]) d.items = days[i].items; });
   Object.assign(b, {
     name: opts.name, numDays: tplDays.length, days: tplDays,
@@ -9300,6 +9310,7 @@ function freshClientBuilder(){
 function cbDraftKey(){ return 'forma_my_builder_' + ((auth.customer && auth.customer.code) || 'x'); }
 // Έξοδος από τη «Διόρθωση»: επιστρέφει το πρόχειρο νέου προγράμματος
 function cbLeaveEdit(goToPrograms){
+  state.cbStarted = false;
   state.clientBuilder = state.cbSavedDraft || cbLoadDraft() || freshClientBuilder();
   state.clientBuilder.ownerCode = auth.customer && auth.customer.code;
   state.cbSavedDraft = null;
@@ -9321,17 +9332,120 @@ function renderClientBuilderMeta(b){
       <div class="field"><label>Όνομα προγράμματος</label><input type="text" id="tpl-name" value="${escAttr(b.name)}" placeholder="π.χ. Το πρόγραμμά μου — 3 ημέρες" maxlength="80"></div>
       <div class="field">
         <label>Στόχος</label>
-        <div class="calc-selector">
-          ${Object.keys(TPL_CATEGORIES).map(c=>`<button type="button" class="${b.topCategory===c?'active':''}" data-cb-goal="${escAttr(c)}">${c==='ΚΑΥΣΗΣ ΛΙΠΟΥΣ'?'🔥 Καύση λίπους':'💪 Αύξηση μυϊκού ιστού'}</button>`).join('')}
+        <div class="goal-grid">
+          ${Object.keys(TPL_CATEGORIES).map(c=>`<button type="button" class="goal-box ${b.topCategory===c?'active':''}" data-cb-goal="${escAttr(c)}">${c==='ΚΑΥΣΗΣ ΛΙΠΟΥΣ'?'ΚΑΥΣΗ ΛΙΠΟΥΣ':'ΑΥΞΗΣΗ ΜΥΪΚΟΥ ΙΣΤΟΥ'}</button>`).join('')}
         </div>
         ${b.topCategory==='ΚΑΥΣΗΣ ΛΙΠΟΥΣ' ? `<div class="food-note" style="margin:6px 0 0;">Ο τύπος βγαίνει αυτόματα από τις ασκήσεις σου: μόνο βάρη, μόνο αερόβιο, ή βάρη και αερόβιο.</div>` : ''}
       </div>
       <div class="field">
         <label>Πόσες ημέρες την εβδομάδα;</label>
-        <div class="chip-row">${[1,2,3,4,5,6,7].map(n=>`<button class="plate-btn ${b.numDays===n?'active':''}" data-tpl-days="${n}" style="--size:36px;font-size:12px;">${n}</button>`).join('')}</div>
+        <div class="chip-row">${[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>`<button class="plate-btn ${b.numDays===n?'active':''}" data-tpl-days="${n}" style="--size:36px;font-size:12px;">${n}</button>`).join('')}</div>
       </div>
       <div class="field" style="margin-bottom:0;"><label>Σημειώσεις (προαιρετικά)</label><textarea id="tpl-description" rows="2" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);" placeholder="π.χ. στόχος, πώς νιώθω, τι θέλω να βελτιώσω">${escHtml(b.description||'')}</textarea></div>
     </div>`;
+}
+// Το «BEGINNER 1»: το πρώτο έτοιμο πρόγραμμα για το φύλο του αθλούμενου
+// (κατά προτίμηση ένα με «beginner 1» στο όνομα, αλλιώς το Νο 1 της «Αύξησης μυϊκού ιστού», αλλιώς το πρώτο δημοσιευμένο)
+function cbGenderKey(){
+  const g = cprofGender();
+  if(g==='ΓΥΝΑΙΚΑ') return 'ΓΥΝΑΙΚΕΣ';
+  if(g==='ΑΝΔΡΑΣ') return 'ΑΝΔΡΕΣ';
+  return (auth.customer && auth.customer.gender) || 'ΑΝΔΡΕΣ';
+}
+function cbStarterTemplate(){
+  const pub = (state.tplTemplates||[]).filter(t=>t.is_published!==false);
+  const g = cbGenderKey();
+  const mine = pub.filter(t=>t.gender===g), pool = mine.length ? mine : pub;
+  const named = pool.filter(t=>/beginner\s*1\b/i.test(t.name||'')).sort(tplOrderCmp);
+  if(named.length) return named[0];
+  const muscle = pool.filter(t=>t.top_category==='ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ').sort(tplOrderCmp);
+  if(muscle.length) return muscle[0];
+  return pool.sort(tplOrderCmp)[0] || null;
+}
+function cbIsBlank(b){ return !!b && !b.editProgramId && !(b.name||'').trim() && !b.days.some(d=>d.items.length); }
+function renderClientBuilderStart(box){
+  if(!state.tplTemplatesLoaded){   // φόρτωσε τα έτοιμα προγράμματα, για να ξέρουμε ποιο είναι το «BEGINNER 1»
+    if(!state.cbTplLoading){ state.cbTplLoading = true; loadTemplatePrograms().then(l=>{ state.tplTemplates = l; state.tplTemplatesLoaded = true; state.cbTplLoading = false; if(state.clientViewMode==='build' && !state.cbStarted) renderClientBuilder(); }); }
+  }
+  if(state.cbGuideOpen){ renderClientBuilderGuide(box); return; }
+  const t = cbStarterTemplate();
+  box.innerHTML = `
+    <div class="topbar"><div><h1 style="font-size:20px;">🛠 Φτιάχνω δικό μου πρόγραμμα</h1>
+      <div class="sub">Πώς θέλεις να ξεκινήσεις;</div></div></div>
+    <div class="home-grid">
+      <button class="home-tile" id="cb-start-template" ${t?'':'disabled'}>
+        <div class="home-tile-ic">⧉</div>
+        <div class="home-tile-t">Χρησιμοποιώ ένα έτοιμο πρόγραμμα και το μετατρέπω</div>
+        <div class="home-tile-s">${t ? `Ανοίγει το «${escHtml(t.name)}» μέσα στον builder — αλλάζεις ό,τι θέλεις και το αποθηκεύεις ως δικό σου.` : (state.tplTemplatesLoaded ? 'Δεν υπάρχει ακόμα έτοιμο πρόγραμμα για να ξεκινήσεις.' : 'Φόρτωση…')}</div>
+      </button>
+      <button class="home-tile" id="cb-start-blank">
+        <div class="home-tile-ic">✎</div>
+        <div class="home-tile-t">Ξεκινάω από το μηδέν</div>
+        <div class="home-tile-s">Άδειος builder: διαλέγεις ημέρες, ασκήσεις, αερόβιο, set, επαναλήψεις, διάλειμμα και tempo.</div>
+      </button>
+      <button class="home-tile" id="cb-start-guide">
+        <div class="home-tile-ic">📖</div>
+        <div class="home-tile-t">Οδηγίες</div>
+        <div class="home-tile-s">Πώς φτιάχνεις το δικό σου πρόγραμμα βήμα-βήμα, τι σημαίνουν set, επαναλήψεις, διάλειμμα, tempo, και τι κάνει ο έλεγχος AI.</div>
+      </button>
+    </div>`;
+  document.getElementById('cb-start-blank').addEventListener('click', ()=>{ state.cbStarted = true; renderClientBuilder(); });
+  document.getElementById('cb-start-guide').addEventListener('click', ()=>{ state.cbGuideOpen = true; renderClientBuilder(); window.scrollTo(0,0); });
+  document.getElementById('cb-start-template')?.addEventListener('click', async ()=>{
+    if(!state.tplTemplatesLoaded){ state.tplTemplates = await loadTemplatePrograms(); state.tplTemplatesLoaded = true; }
+    const tt = cbStarterTemplate(); if(!tt) return toast('Δεν βρέθηκε έτοιμο πρόγραμμα.');
+    const record = mapTemplateToCustomRecord(tt);
+    state.cbStarted = true;
+    openClientBuilderWith(record, { name: (tt.name || 'Πρόγραμμα') + ' (δικό μου)' });
+    renderClientBuilder();
+    toast(`Το «${tt.name}» άνοιξε στον builder — άλλαξέ το όπως θέλεις.`, 4000);
+  });
+}
+// Οδηγίες χρήσης του builder (κείμενο μέσα στην εφαρμογή)
+const CB_GUIDE_SECTIONS = [
+  { t:'1. Πώς ξεκινάω', b:[
+    '«Χρησιμοποιώ ένα έτοιμο πρόγραμμα»: ανοίγει το βασικό πρόγραμμα TRANSFORMATION για αρχάριους και το αλλάζεις όπου θέλεις. Είναι ο πιο εύκολος δρόμος.',
+    '«Ξεκινάω από το μηδέν»: άδειο πρόγραμμα, το χτίζεις εσύ από την αρχή.',
+    'Ό,τι φτιάχνεις μένει πρόχειρο στη συσκευή σου μέχρι να πατήσεις αποθήκευση — μπορείς να φύγεις και να συνεχίσεις αργότερα.' ]},
+  { t:'2. Όνομα και στόχος', b:[
+    'Δώσε ένα όνομα στο πρόγραμμά σου, π.χ. «Δικό μου Νο 1».',
+    'Διάλεξε στόχο: Αύξηση μυϊκού ιστού ή Καύση λίπους. Στην καύση λίπους, το αν είναι «με βάρη», «με αερόβιο» ή «με βάρη και αερόβιο» βγαίνει μόνο του από τις ασκήσεις που θα βάλεις.' ]},
+  { t:'3. Ημέρες', b:[
+    'Διάλεξε πόσες προπονήσεις έχει ο κύκλος σου (1 έως 12). Κάθε «ημέρα» είναι μία προπόνηση, όχι μέρα του ημερολογίου.',
+    'Με το «⧉ Αντιγραφή ημέρας» γράφεις μία ημέρα μία φορά και τη βάζεις και σε άλλο νούμερο ημέρας.',
+    'Με τα «▾ Άνοιγμα όλων / ▸ Κλείσιμο όλων» βλέπεις όλες τις ημέρες ή μόνο αυτή που δουλεύεις.' ]},
+  { t:'4. Ασκήσεις', b:[
+    '«+ Άσκηση με Βάρη»: διαλέγεις μυϊκή ομάδα, άσκηση και με ποιο μηχάνημα ή όργανο θα τη κάνεις (μπορείς να τσεκάρεις περισσότερα από ένα, με σειρά προτίμησης).',
+    '«+ Αερόβιο»: διαλέγεις μηχάνημα (διάδρομος, ποδήλατο κ.λπ.) και λεπτά, σε βήματα των 5.',
+    'Με τα βελάκια ▲▼ αλλάζεις τη σειρά. Με «Επεξεργασία» διορθώνεις, με «Αφαίρεση» σβήνεις.' ]},
+  { t:'5. Set, επαναλήψεις, διάλειμμα, tempo, ένταση', b:[
+    'SET: πόσες φορές θα κάνεις την άσκηση. REP: πόσες επαναλήψεις σε κάθε set, π.χ. «10 έως 12».',
+    'Διάλειμμα: πόσο ξεκουράζεσαι ανάμεσα στα set.',
+    'Tempo: η ταχύτητα της κίνησης σε δευτερόλεπτα, π.χ. «1-2-1» = 1″ κατέβασμα, 2″ κράτημα, 1″ ανέβασμα. Οι αρχάριοι ξεκινούν με 1-2-1.',
+    'UNTIL FAILURE: πόσες επαναλήψεις «περισσεύουν» στο τέλος του set. -3 σημαίνει ότι σταματάς έχοντας ακόμα 3 επαναλήψεις στα πόδια σου· 0 σημαίνει μέχρι εξάντλησης.',
+    '«↻ Σε όλες τις ασκήσεις» βάζει την ίδια τιμή σε όλο το πρόγραμμα. «📅 Σε ημέρες…» μόνο στις ημέρες που θα τσεκάρεις.' ]},
+  { t:'6. Χρόνος προπόνησης', b:[
+    'Δίπλα σε κάθε ημέρα βλέπεις πόσο θα κρατήσει, υπολογισμένο από set × επαναλήψεις × tempo, τα διαλείμματα, 10″ προετοιμασία ανά άσκηση, 2,5′ για κάθε αλλαγή μηχανήματος και τα λεπτά του αερόβιου.' ]},
+  { t:'7. Αναίρεση και αποθήκευση', b:[
+    '«↶ Αναίρεση» και «↷ Επανάληψη» (ή Ctrl+Z / Ctrl+Y) γυρίζουν πίσω ή μπροστά κάθε αλλαγή που έκανες στις ημέρες.',
+    'Όταν τελειώσεις, πάτα «Αποθήκευση στα Προγράμματά μου» (ή Ctrl+S). Το πρόγραμμα εμφανίζεται στη λίστα σου με το σήμα «🛠 ΔΙΚΟ ΜΟΥ».' ]},
+  { t:'8. Έλεγχος από το AI', b:[
+    'Άνοιξε το πρόγραμμά σου, πάτα «⋯ Ενέργειες» και μετά «🤖 Έλεγχος προγράμματος». Το AI το ελέγχει με τους κανόνες του γυμναστηρίου και σου προτείνει αλλαγές.',
+    'Για κάθε πρόταση απαντάς «Ναι» ή «Όχι». Ό,τι δεχτείς γράφεται κατευθείαν στο πρόγραμμά σου.',
+    'Με «✎ Διόρθωση προγράμματος» το ξανανοίγεις στον builder για αλλαγές, και με «⧉ Αντιγραφή προγράμματος» φτιάχνεις ένα αντίγραφο για να πειραματιστείς.' ]},
+];
+function renderClientBuilderGuide(box){
+  box.innerHTML = `
+    <div class="auth-back" id="cb-guide-back">← Πίσω</div>
+    <div class="topbar"><div><h1 style="font-size:20px;">📖 Οδηγίες — Φτιάχνω δικό μου πρόγραμμα</h1>
+      <div class="sub">Διάβασέ τες μία φορά· μετά όλα είναι απλά.</div></div></div>
+    ${CB_GUIDE_SECTIONS.map(sec=>`<div class="panel pad cb-guide-sec"><h3>${escHtml(sec.t)}</h3><ul>${sec.b.map(x=>`<li>${escHtml(x)}</li>`).join('')}</ul></div>`).join('')}
+    <div class="panel pad" style="margin-top:14px;display:grid;gap:10px;">
+      <button class="btn btn-primary" style="justify-content:center;" id="cb-guide-go">Πάμε — ξεκινάω το πρόγραμμά μου</button>
+    </div>`;
+  const back = ()=>{ state.cbGuideOpen = false; renderClientBuilder(); window.scrollTo(0,0); };
+  document.getElementById('cb-guide-back').addEventListener('click', back);
+  document.getElementById('cb-guide-go').addEventListener('click', back);
 }
 function renderClientBuilder(){
   const box = document.getElementById('client-content'); if(!box) return;
@@ -9340,6 +9454,8 @@ function renderClientBuilder(){
     state.clientBuilder.ownerCode = auth.customer && auth.customer.code;
   }
   state.tplBuilder = state.clientBuilder;
+  // Πρώτα οι δύο επιλογές (έτοιμο πρόγραμμα ή από το μηδέν), όσο ο builder είναι άδειος
+  if(cbIsBlank(state.clientBuilder) && !state.cbStarted){ renderClientBuilderStart(box); return; }
   box.innerHTML = `
     <div class="topbar"><div><h1 style="font-size:20px;">🛠 Φτιάχνω δικό μου πρόγραμμα</h1>
       <div class="sub">Διάλεξε ημέρες, πρόσθεσε ασκήσεις και αερόβιο, και όρισε set, επαναλήψεις, διάλειμμα και tempo. Βλέπεις αμέσως πόση ώρα θα κρατήσει κάθε προπόνηση. Όταν τελειώσεις, πάτα «Αποθήκευση στα Προγράμματά μου».</div></div></div>
@@ -9369,7 +9485,7 @@ async function submitClientProgram(){
   if(!ok){ toast('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.'); renderTplFormArea(); return; }
   toast(editId ? 'Οι διορθώσεις στο «'+name+'» αποθηκεύτηκαν!' : 'Το πρόγραμμα «'+name+'» μπήκε στα Προγράμματά μου!');
   if(editId){ cbLeaveEdit(false); }
-  else { state.clientBuilder = freshClientBuilder(); state.clientBuilder.ownerCode = auth.customer.code; try{ localStorage.removeItem(cbDraftKey()); }catch(_){} }
+  else { state.clientBuilder = freshClientBuilder(); state.clientBuilder.ownerCode = auth.customer.code; state.cbStarted = false; try{ localStorage.removeItem(cbDraftKey()); }catch(_){} }
   // ξαναφόρτωση της λίστας, ώστε το νέο πρόγραμμα να φαίνεται αμέσως (πρώτο, ως το πιο πρόσφατο)
   state.selectedCustomerPrograms = (await loadProgramsFor(auth.customer.code)).sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
   state.clientNav = editId ? { view:'days', programId: editId, dayIndex:0, itemIndex:null } : { ...(state.clientNav||{}), view:'programs', programId:null };
