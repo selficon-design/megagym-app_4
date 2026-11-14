@@ -556,7 +556,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .auth-tabs button{flex:1;padding:9px;border-radius:8px;font-size:12.5px;font-weight:700;background:transparent;color:var(--ink-soft);border:none;}
 .auth-tabs button.active{background:rgba(61,216,255,.16);color:#fff;box-shadow:inset 0 0 0 1px rgba(61,216,255,.4);}
 .auth-tabs.client-tabs{display:grid;grid-template-columns:1fr 1fr;}
-.auth-tabs.client-tabs #client-mode-home{grid-column:1 / -1;}
+.client-home-back{margin-bottom:12px;}
 .home-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .home-tile{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:18px 16px;min-height:132px;border-radius:18px;border:1.5px solid var(--line-strong);background:linear-gradient(160deg,rgba(13,31,48,.85),rgba(3,11,18,.85));color:var(--ink);cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:transform .12s,border-color .12s;}
 .home-tile:hover{transform:translateY(-2px);border-color:var(--cyan);}
@@ -2497,8 +2497,8 @@ function rebuildClientDashboardShell(){
   main.innerHTML = `
     <div class="mobile-preview-frame">
       <div class="panel pad" id="client-announce-panel" style="margin-bottom:20px;display:none;"></div>
-      <div class="auth-tabs client-tabs" style="margin-bottom:20px;">
-        <button id="client-mode-home" class="${state.clientViewMode==='home'?'active':''}">🏠 Αρχική</button>
+      <div class="auth-back client-home-back" id="client-home-back" style="display:${(state.clientViewMode==='home'||state.clientViewMode==='profile')?'none':'flex'};">${ICON.back}Αρχική</div>
+      <div class="auth-tabs client-tabs" id="client-tabs" style="margin-bottom:20px;display:${(state.clientViewMode==='home'||state.clientViewMode==='profile')?'none':'grid'};">
         <button id="client-mode-mine" class="${state.clientViewMode==='mine'?'active':''}">Τα Προγράμματά μου</button>
         <button id="client-mode-library" class="${state.clientViewMode==='library'?'active':''}">Έτοιμα Προγράμματα TRANSFORMATION</button>
         <button id="client-mode-log" class="${state.clientViewMode==='log'?'active':''}">Ημερολόγιο</button>
@@ -2526,6 +2526,11 @@ function bindClientModeToggle(){
   const homeBtn = document.getElementById('client-mode-home');
   const setActive = (mode)=>{
     state.clientViewMode = mode;
+    // Η αρχική και τα προσωπικά στοιχεία δεν έχουν καρτέλες· οι υπόλοιπες οθόνες έχουν καρτέλες + «← Αρχική»
+    const top = (mode==='home' || mode==='profile');
+    const tabs = document.getElementById('client-tabs'), back = document.getElementById('client-home-back');
+    if(tabs) tabs.style.display = top ? 'none' : 'grid';
+    if(back) back.style.display = top ? 'none' : 'flex';
     [homeBtn,mineBtn,libBtn,logBtn,foodBtn,buildBtn].forEach(b=>b && b.classList.remove('active'));
     const activeBtn = {home:homeBtn, mine:mineBtn, library:libBtn, log:logBtn, food:foodBtn, build:buildBtn}[mode];
     if(activeBtn) activeBtn.classList.add('active');
@@ -2547,6 +2552,7 @@ function bindClientModeToggle(){
   if(foodBtn) foodBtn.addEventListener('click', ()=>{ setActive('food'); renderClientNutrition(); });
   if(buildBtn) buildBtn.addEventListener('click', ()=>{ setActive('build'); renderClientBuilder(); });
   if(homeBtn) homeBtn.addEventListener('click', ()=>{ setActive('home'); renderClientHome(); });
+  document.getElementById('client-home-back')?.addEventListener('click', ()=>clientGoHome());
   state.clientSetActive = setActive;
 }
 function returnFromWorkoutTplLib(){
@@ -8343,7 +8349,8 @@ function cprofDisplayName(){
   const d = cprof.data || {}, c = auth.customer || {};
   return d.nickname || d.first_name || c.name || '';
 }
-function clientGo(mode){ const b = document.getElementById('client-mode-'+mode); if(b) b.click(); }
+function clientGoHome(){ if(state.clientSetActive) state.clientSetActive('home'); window.scrollTo(0,0); renderClientHome(); }
+function clientGo(mode){ if(mode==='home') return clientGoHome(); const b = document.getElementById('client-mode-'+mode); if(b) b.click(); window.scrollTo(0,0); }
 function renderClientHome(){
   const box = document.getElementById('client-content'); if(!box) return;
   const ap = document.getElementById('client-announce-panel'); if(ap) ap.style.display = ap.innerHTML.trim() ? 'block' : 'none';
@@ -8508,8 +8515,8 @@ async function renderAppClient(){
   main.innerHTML = `
     <div class="mobile-preview-frame">
       <div class="panel pad" id="client-announce-panel" style="margin-bottom:20px;display:none;"></div>
-      <div class="auth-tabs client-tabs" style="margin-bottom:20px;">
-        <button id="client-mode-home" class="active">🏠 Αρχική</button>
+      <div class="auth-back client-home-back" id="client-home-back" style="display:none;">${ICON.back}Αρχική</div>
+      <div class="auth-tabs client-tabs" id="client-tabs" style="margin-bottom:20px;display:none;">
         <button id="client-mode-mine">Τα Προγράμματά μου</button>
         <button id="client-mode-library">Έτοιμα Προγράμματα TRANSFORMATION</button>
         <button id="client-mode-log">Ημερολόγιο</button>
