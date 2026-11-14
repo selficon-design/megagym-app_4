@@ -557,6 +557,9 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .auth-tabs button.active{background:rgba(61,216,255,.16);color:#fff;box-shadow:inset 0 0 0 1px rgba(61,216,255,.4);}
 .auth-tabs.client-tabs{display:grid;grid-template-columns:1fr 1fr;}
 .client-home-back{margin-bottom:12px;}
+.pact-toggle{flex:0 0 auto;padding:7px 12px;font-size:12.5px;white-space:nowrap;}
+.pact-toggle.on{border-color:var(--cyan-soft);color:var(--cyan-soft);}
+.pact-bar{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08);}
 .home-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .home-tile{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:18px 16px;min-height:132px;border-radius:18px;border:1.5px solid var(--line-strong);background:linear-gradient(160deg,rgba(13,31,48,.85),rgba(3,11,18,.85));color:var(--ink);cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:transform .12s,border-color .12s;}
 .home-tile:hover{transform:translateY(-2px);border-color:var(--cyan);}
@@ -8590,7 +8593,7 @@ function renderClientMain(){
   bindClientNavEvents();
   if(nav.programId && (nav.view==='days' || (nav.view==='items' && (state.selectedCustomerPrograms.find(x=>x.id===nav.programId)||{record:{}}).record.subtype==='cardio'))){
     const pp = state.selectedCustomerPrograms.find(x=>x.id===nav.programId); if(pp) bindProgramCheck(pp, pp.record);
-  } else { pcheck.programId = null; state.cbCopyConfirm = null; }   // έξω από το πρόγραμμα: ο έλεγχος κλείνει
+  } else { pcheck.programId = null; state.cbCopyConfirm = null; state.clientActionsOpen = null; }   // έξω από το πρόγραμμα: ενέργειες και έλεγχος κλείνουν
   if(nav.view==='programs' || !nav.programId){
     bindAiClientEvents();
     if(auth.user && aiClient.loadedFor !== auth.user.id){
@@ -8671,9 +8674,15 @@ function renderProgramCheckPanel(p, record){
     ` : ''}
   </div>`;
 }
+// Το πλαίσιο ενεργειών είναι κλειστό· ανοίγει με το κουμπί «Ενέργειες» πάνω δεξιά
+function clientActionsToggleHtml(p){
+  const open = state.clientActionsOpen===p.id;
+  return `<button class="btn btn-outline pact-toggle ${open?'on':''}" id="cp-actions" aria-expanded="${open}">⋯ Ενέργειες</button>`;
+}
 function clientProgramActionsHtml(p, record){
   const mine = !!record.fromClientBuilder;
-  return `<div class="action-bar">
+  if(state.clientActionsOpen!==p.id) return '';
+  return `<div class="action-bar pact-bar">
         <button class="btn btn-outline" data-client-print="${escAttr(p.id)}">${ICON.print}Εκτύπωση</button>
         <button class="btn btn-outline" data-client-pdf="${escAttr(p.id)}">${ICON.pdf}PDF</button>
         ${mine ? `<button class="btn btn-outline pc-act ${pcheck.programId===p.id && (pcheck.open||pcheck.result)?'on':''}" id="pc-open">🤖 Έλεγχος προγράμματος</button>` : ''}
@@ -8714,6 +8723,11 @@ function openClientBuilderWith(record, opts){
   document.getElementById('client-mode-build')?.click();
 }
 function bindProgramCheck(p, record){
+  document.getElementById('cp-actions')?.addEventListener('click', ()=>{
+    state.clientActionsOpen = (state.clientActionsOpen===p.id) ? null : p.id;
+    if(state.clientActionsOpen!==p.id){ pcheck.open = false; pcheck.result = null; state.cbCopyConfirm = null; }
+    renderClientMain();
+  });
   document.getElementById('pc-open')?.addEventListener('click', ()=>{
     if(pcheck.programId !== p.id) pcheck.programId = null;
     renderProgramCheckPanel(p, record);   // αρχικοποίηση για αυτό το πρόγραμμα
@@ -8784,8 +8798,11 @@ function renderClientDaysListView(p, record){
   return `
     <div class="auth-back" data-client-back="programs">${ICON.back}Όλα τα προγράμματα</div>
     <div class="panel pad" style="margin-bottom:18px;">
-      <h2 style="font-size:18px;">${escHtml(categoryBadgeLabel(record))}</h2>
-      <div class="sub" style="margin-top:4px;color:var(--ink-soft);font-size:12.5px;">${new Date(p.createdAt).toLocaleDateString('el-GR')}</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+        <div><h2 style="font-size:18px;">${escHtml(categoryBadgeLabel(record))}</h2>
+        <div class="sub" style="margin-top:4px;color:var(--ink-soft);font-size:12.5px;">${new Date(p.createdAt).toLocaleDateString('el-GR')}</div></div>
+        ${clientActionsToggleHtml(p)}
+      </div>
       ${record.nutrition ? `<div style="margin-top:12px;font-size:12.5px;"><b style="color:var(--cyan-soft);">Διατροφή:</b> ${escHtml(record.nutrition.kcal)}</div>`:''}
       ${record.instructions ? `<div style="margin-top:6px;font-size:12.5px;"><b style="color:var(--cyan-soft);">Οδηγίες:</b> ${escHtml(record.instructions)}</div>`:''}
       ${record.notes ? `<div style="margin-top:6px;font-size:12.5px;"><b style="color:var(--cyan-soft);">Παρατηρήσεις:</b> ${escHtml(record.notes)}</div>`:''}
@@ -8812,8 +8829,8 @@ function renderClientItemsListView(p, record, dayIndex){
   const backLabel = isCardioOnly ? 'Όλα τα προγράμματα' : 'Ημέρες';
   return `
     <div class="auth-back" data-client-back="${backTarget}">${ICON.back}${escHtml(backLabel)}</div>
-    <div class="topbar"><div><h1 style="font-size:20px;">${escHtml(dayLabel)}</h1><div style="margin-top:4px;">${dayDurationHtml(items)}</div></div></div>
-    ${isCardioOnly ? `<div class="panel pad" style="margin-bottom:14px;">${clientProgramActionsHtml(p, record)}</div>` : ''}
+    <div class="topbar"><div><h1 style="font-size:20px;">${escHtml(dayLabel)}</h1><div style="margin-top:4px;">${dayDurationHtml(items)}</div></div>${isCardioOnly ? clientActionsToggleHtml(p) : ''}</div>
+    ${isCardioOnly && state.clientActionsOpen===p.id ? `<div class="panel pad" style="margin-bottom:14px;">${clientProgramActionsHtml(p, record)}</div>` : ''}
     <div style="display:flex;flex-direction:column;gap:10px;">
       ${items.length===0 ? `<div class="panel pad empty"><p>Δεν υπάρχουν ασκήσεις εδώ.</p></div>` :
         items.map((item,i)=>{
