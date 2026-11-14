@@ -850,6 +850,11 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .day-copy-btn.on{border-color:var(--cyan);color:var(--cyan-soft);}
 .day-copy{margin:0 20px 8px;padding:10px;border-radius:10px;border:1px dashed rgba(61,216,255,.45);background:rgba(61,216,255,.05);cursor:default;}
 .tpl-hist[disabled]{opacity:.4;cursor:default;}
+.cb-h1{font-family:'Play','Rajdhani',sans-serif !important;font-weight:400 !important;font-size:19px !important;letter-spacing:1.2px;text-transform:uppercase;line-height:1.3;}
+.cb-sub{text-transform:uppercase;letter-spacing:1px;font-size:12.5px;}
+.cb-start .home-tile-t{font-family:'Play','Rajdhani',sans-serif;font-weight:400;font-size:14.5px;letter-spacing:1px;text-transform:uppercase;line-height:1.3;}
+.cb-start .home-tile-s{font-size:12.5px;color:var(--ink-soft);line-height:1.4;}
+.auth-tabs.client-tabs #client-mode-build{font-family:'Play','Rajdhani',sans-serif;font-weight:400;letter-spacing:1px;}
 .cb-guide-sec{margin-top:12px;}
 .cb-guide-sec h3{font-size:14px;color:var(--cyan-soft);margin:0 0 8px;letter-spacing:.3px;}
 .cb-guide-sec ul{margin:0;padding-left:18px;display:grid;gap:6px;}
@@ -857,7 +862,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .home-tile[disabled]{opacity:.55;cursor:default;}
 /* Στόχος στον builder: δύο ίσα ορθογώνια κουτιά, ένα αριστερά και ένα δεξιά, κεφαλαία */
 .goal-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.goal-box{display:flex;align-items:center;justify-content:center;text-align:center;min-height:64px;padding:12px 10px;border-radius:10px;border:1.5px solid var(--line-strong);background:rgba(3,11,18,.6);color:var(--ink);font-family:'Play','Rajdhani','Segoe UI',sans-serif;font-weight:700;font-size:14.5px;letter-spacing:1.4px;text-transform:uppercase;line-height:1.2;cursor:pointer;transition:border-color .12s,background .12s,transform .12s;}
+.goal-box{display:flex;align-items:center;justify-content:center;text-align:center;min-height:64px;padding:12px 10px;border-radius:10px;border:1.5px solid var(--line-strong);background:rgba(3,11,18,.6);color:var(--ink);font-family:'Play','Rajdhani','Segoe UI',sans-serif;font-weight:400;font-size:14.5px;letter-spacing:1.4px;text-transform:uppercase;line-height:1.2;cursor:pointer;transition:border-color .12s,background .12s,transform .12s;}
 .goal-box:hover{border-color:var(--cyan);transform:translateY(-1px);}
 .goal-box.active{background:var(--accent);border-color:var(--accent);color:#1a1200;box-shadow:0 0 16px rgba(255,159,26,.4);}
 .dur-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(255,210,63,.14);color:#ffd23f;font-size:11px;font-weight:700;letter-spacing:0;text-transform:none;white-space:nowrap;}
@@ -2546,7 +2551,7 @@ function rebuildClientDashboardShell(){
         <button id="client-mode-library" class="${state.clientViewMode==='library'?'active':''}">Έτοιμα Προγράμματα TRANSFORMATION</button>
         <button id="client-mode-log" class="${state.clientViewMode==='log'?'active':''}">Ημερολόγιο</button>
         <button id="client-mode-food" class="${state.clientViewMode==='food'?'active':''}">Διατροφή</button>
-        <button id="client-mode-build" class="${state.clientViewMode==='build'?'active':''}">🛠 Φτιάχνω δικό μου πρόγραμμα</button>
+        <button id="client-mode-build" class="${state.clientViewMode==='build'?'active':''}">🛠 ΘΕΛΩ ΝΑ ΦΤΙΑΞΩ ΤΟ ΔΙΚΟ ΜΟΥ ΠΡΟΓΡΑΜΜΑ</button>
       </div>
       <div id="client-content"></div>
     </div>
@@ -2595,7 +2600,11 @@ function bindClientModeToggle(){
   });
   logBtn.addEventListener('click', ()=>{ setActive('log'); renderClientWorkoutLog(); });
   if(foodBtn) foodBtn.addEventListener('click', ()=>{ setActive('food'); renderClientNutrition(); });
-  if(buildBtn) buildBtn.addEventListener('click', ()=>{ setActive('build'); renderClientBuilder(); });
+  if(buildBtn) buildBtn.addEventListener('click', ()=>{
+    // Κάθε φορά που πατάς την καρτέλα: πρώτα οι επιλογές (εκτός αν άνοιξε για διόρθωση/αντιγραφή)
+    if(state.cbOpenDirect) state.cbOpenDirect = false; else state.cbStarted = false;
+    setActive('build'); renderClientBuilder();
+  });
   if(homeBtn) homeBtn.addEventListener('click', ()=>{ setActive('home'); renderClientHome(); });
   document.getElementById('client-home-back')?.addEventListener('click', ()=>clientGoHome());
   state.clientSetActive = setActive;
@@ -8747,7 +8756,7 @@ async function renderAppClient(){
         <button id="client-mode-library">Έτοιμα Προγράμματα TRANSFORMATION</button>
         <button id="client-mode-log">Ημερολόγιο</button>
         <button id="client-mode-food">Διατροφή</button>
-        <button id="client-mode-build">🛠 Φτιάχνω δικό μου πρόγραμμα</button>
+        <button id="client-mode-build">🛠 ΘΕΛΩ ΝΑ ΦΤΙΑΞΩ ΤΟ ΔΙΚΟ ΜΟΥ ΠΡΟΓΡΑΜΜΑ</button>
       </div>
       <div id="client-content"></div>
     </div>
@@ -8939,6 +8948,7 @@ function openClientBuilderWith(record, opts){
   state.clientBuilder = b;
   if(!b.editProgramId) cbSaveDraft();
   pcheck.programId = null;
+  state.cbStarted = true; state.cbOpenDirect = true;
   document.getElementById('client-mode-build')?.click();
 }
 function bindProgramCheck(p, record){
@@ -8969,7 +8979,7 @@ function bindProgramCheck(p, record){
     if(draft && state.cbCopyConfirm !== p.id){ state.cbCopyConfirm = p.id; renderClientMain(); return; }
     state.cbCopyConfirm = null;
     openClientBuilderWith(record, { name: (record.customName || getProgramNameForRecord(record) || 'Πρόγραμμα') + ' (αντίγραφο)' });
-    toast('Το αντίγραφο άνοιξε στο «Φτιάχνω δικό μου πρόγραμμα» — άλλαξε ό,τι θέλεις και αποθήκευσέ το.');
+    toast('Το αντίγραφο άνοιξε στο «ΘΕΛΩ ΝΑ ΦΤΙΑΞΩ ΤΟ ΔΙΚΟ ΜΟΥ ΠΡΟΓΡΑΜΜΑ» — άλλαξε ό,τι θέλεις και αποθήκευσέ το.');
   });
   const $ = id=>document.getElementById(id);
   const redraw = ()=>{ renderClientMain(); };
@@ -9369,27 +9379,34 @@ function renderClientBuilderStart(box){
   }
   if(state.cbGuideOpen){ renderClientBuilderGuide(box); return; }
   const t = cbStarterTemplate();
+  const draft = state.clientBuilder && !cbIsBlank(state.clientBuilder) && !state.clientBuilder.editProgramId ? state.clientBuilder : null;
   box.innerHTML = `
-    <div class="topbar"><div><h1 style="font-size:20px;">🛠 Φτιάχνω δικό μου πρόγραμμα</h1>
-      <div class="sub">Πώς θέλεις να ξεκινήσεις;</div></div></div>
-    <div class="home-grid">
+    <div class="topbar"><div><h1 class="cb-h1">ΘΕΛΩ ΝΑ ΦΤΙΑΞΩ ΤΟ ΔΙΚΟ ΜΟΥ ΠΡΟΓΡΑΜΜΑ</h1>
+      <div class="sub cb-sub">ΠΩΣ ΘΕΛΕΙΣ ΝΑ ΞΕΚΙΝΗΣΕΙΣ;</div></div></div>
+    <div class="home-grid cb-start">
+      ${draft ? `<button class="home-tile star" id="cb-start-draft" style="grid-column:1 / -1;min-height:auto;">
+        <div class="home-tile-t">ΣΥΝΕΧΙΖΩ ΑΠΟ ΕΚΕΙ ΠΟΥ ΕΙΧΑ ΜΕΙΝΕΙ</div>
+        <div class="home-tile-s">${escHtml(draft.name||'Χωρίς όνομα')} · ${draft.days.filter(d=>d.items.length).length} από ${draft.days.length} ημέρες έτοιμες</div>
+      </button>` : ''}
       <button class="home-tile" id="cb-start-template" ${t?'':'disabled'}>
-        <div class="home-tile-ic">⧉</div>
-        <div class="home-tile-t">Χρησιμοποιώ ένα έτοιμο πρόγραμμα και το μετατρέπω</div>
+        <div class="home-tile-t">ΧΡΗΣΙΜΟΠΟΙΩ ΕΝΑ ΕΤΟΙΜΟ ΠΡΟΓΡΑΜΜΑ ΚΑΙ ΤΟ ΜΕΤΑΤΡΕΠΩ</div>
         <div class="home-tile-s">${t ? `Ανοίγει το «${escHtml(t.name)}» μέσα στον builder — αλλάζεις ό,τι θέλεις και το αποθηκεύεις ως δικό σου.` : (state.tplTemplatesLoaded ? 'Δεν υπάρχει ακόμα έτοιμο πρόγραμμα για να ξεκινήσεις.' : 'Φόρτωση…')}</div>
       </button>
       <button class="home-tile" id="cb-start-blank">
-        <div class="home-tile-ic">✎</div>
-        <div class="home-tile-t">Ξεκινάω από το μηδέν</div>
+        <div class="home-tile-t">ΞΕΚΙΝΑΩ ΑΠΟ ΤΟ ΜΗΔΕΝ</div>
         <div class="home-tile-s">Άδειος builder: διαλέγεις ημέρες, ασκήσεις, αερόβιο, set, επαναλήψεις, διάλειμμα και tempo.</div>
       </button>
       <button class="home-tile" id="cb-start-guide">
-        <div class="home-tile-ic">📖</div>
-        <div class="home-tile-t">Οδηγίες</div>
+        <div class="home-tile-t">ΟΔΗΓΙΕΣ</div>
         <div class="home-tile-s">Πώς φτιάχνεις το δικό σου πρόγραμμα βήμα-βήμα, τι σημαίνουν set, επαναλήψεις, διάλειμμα, tempo, και τι κάνει ο έλεγχος AI.</div>
       </button>
     </div>`;
-  document.getElementById('cb-start-blank').addEventListener('click', ()=>{ state.cbStarted = true; renderClientBuilder(); });
+  document.getElementById('cb-start-draft')?.addEventListener('click', ()=>{ state.cbStarted = true; renderClientBuilder(); });
+  document.getElementById('cb-start-blank').addEventListener('click', ()=>{
+    // από το μηδέν: καθαρό builder (το παλιό πρόχειρο σβήνεται)
+    state.clientBuilder = freshClientBuilder(); state.clientBuilder.ownerCode = auth.customer && auth.customer.code; state.tplBuilder = state.clientBuilder; cbSaveDraft();
+    state.cbStarted = true; renderClientBuilder();
+  });
   document.getElementById('cb-start-guide').addEventListener('click', ()=>{ state.cbGuideOpen = true; renderClientBuilder(); window.scrollTo(0,0); });
   document.getElementById('cb-start-template')?.addEventListener('click', async ()=>{
     if(!state.tplTemplatesLoaded){ state.tplTemplates = await loadTemplatePrograms(); state.tplTemplatesLoaded = true; }
@@ -9437,7 +9454,7 @@ const CB_GUIDE_SECTIONS = [
 function renderClientBuilderGuide(box){
   box.innerHTML = `
     <div class="auth-back" id="cb-guide-back">← Πίσω</div>
-    <div class="topbar"><div><h1 style="font-size:20px;">📖 Οδηγίες — Φτιάχνω δικό μου πρόγραμμα</h1>
+    <div class="topbar"><div><h1 class="cb-h1">ΟΔΗΓΙΕΣ</h1>
       <div class="sub">Διάβασέ τες μία φορά· μετά όλα είναι απλά.</div></div></div>
     ${CB_GUIDE_SECTIONS.map(sec=>`<div class="panel pad cb-guide-sec"><h3>${escHtml(sec.t)}</h3><ul>${sec.b.map(x=>`<li>${escHtml(x)}</li>`).join('')}</ul></div>`).join('')}
     <div class="panel pad" style="margin-top:14px;display:grid;gap:10px;">
@@ -9454,10 +9471,10 @@ function renderClientBuilder(){
     state.clientBuilder.ownerCode = auth.customer && auth.customer.code;
   }
   state.tplBuilder = state.clientBuilder;
-  // Πρώτα οι δύο επιλογές (έτοιμο πρόγραμμα ή από το μηδέν), όσο ο builder είναι άδειος
-  if(cbIsBlank(state.clientBuilder) && !state.cbStarted){ renderClientBuilderStart(box); return; }
+  // Πρώτα οι επιλογές (έτοιμο πρόγραμμα / από το μηδέν / οδηγίες / συνέχεια προχείρου)
+  if(!state.cbStarted && !state.clientBuilder.editProgramId){ renderClientBuilderStart(box); return; }
   box.innerHTML = `
-    <div class="topbar"><div><h1 style="font-size:20px;">🛠 Φτιάχνω δικό μου πρόγραμμα</h1>
+    <div class="topbar"><div><h1 class="cb-h1">ΘΕΛΩ ΝΑ ΦΤΙΑΞΩ ΤΟ ΔΙΚΟ ΜΟΥ ΠΡΟΓΡΑΜΜΑ</h1>
       <div class="sub">Διάλεξε ημέρες, πρόσθεσε ασκήσεις και αερόβιο, και όρισε set, επαναλήψεις, διάλειμμα και tempo. Βλέπεις αμέσως πόση ώρα θα κρατήσει κάθε προπόνηση. Όταν τελειώσεις, πάτα «Αποθήκευση στα Προγράμματά μου».</div></div></div>
     <div id="tpl-form-area"></div>`;
   renderTplFormArea();
