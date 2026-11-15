@@ -10109,7 +10109,9 @@ function mapTemplateToCustomRecord(t){
     instructions: t.description || '',
     nutrition: t.nutrition ? { kcal:'', text: t.nutrition } : null,
     days: null, cardioSlots: null,
-    fromTemplate: true, templateName: t.name || ''
+    fromTemplate: true, templateName: t.name || '',
+    // από ποιο έτοιμο πρόγραμμα προήλθε (για τον κανόνα της ανανέωσης: οργανόγραμμα / σειρά προγραμμάτων)
+    templateId: t.id || null, templateGender: t.gender || null, templateTop: t.top_category || null, templateSub: t.sub_category || null
   };
   if(subtype === 'cardio'){
     record.cardioSlots = mappedDays.reduce((acc,d)=>acc.concat(d.cardioSlots),[]);

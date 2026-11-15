@@ -586,6 +586,139 @@ ${groups}
 }
 
 // ---------------------------------------------------------------------
+/* =====================================================================
+   ΑΝΑΝΕΩΣΗ ΜΕ ΚΑΝΟΝΑ (χωρίς AI): ακολουθεί το οργανόγραμμα και τη σειρά των προγραμμάτων TRANSFORMATION.
+   • «Επόμενο επίπεδο»            → ίδια κατηγορία, επόμενο πρόγραμμα
+   • «Περισσότερη έμφαση»         → κατηγορία «ΜΕ ΕΜΦΑΣΗ ΣΤΟ ΠΑΝΩ/ΚΑΤΩ ΜΕΡΟΣ…» (άνδρες πάνω, γυναίκες κάτω)
+   • «Πολύ περισσότερη έμφαση»    → «ΜΕ ΑΚΟΜΗ ΠΕΡΙΣΣΟΤΕΡΗ ΕΜΦΑΣΗ…» (αν δεν υπάρχει, η αμέσως πιο ήπια)
+   • «Μόνο το πάνω/κάτω μέρος»    → κατηγορία με «ΜΟΝΟ» (αν δεν υπάρχει, η πιο έντονη έμφαση που υπάρχει)
+   Αλλαγή κατηγορίας: συνεχίζει από το επόμενο επίπεδο, στη νέα κατηγορία (ίδιο όνομα προγράμματος ή ίδια θέση).
+   ===================================================================== */
+const SUB_FULL = "ΓΥΜΝΑΖΕΙ ΟΛΟ ΤΟ ΣΩΜΑ";
+// deno-lint-ignore no-explicit-any
+function templateToRecord(t: any, capFailure: boolean) {
+  const days = t?.data?.days ?? [];
+  const isFat = t.top_category === "ΚΑΥΣΗΣ ΛΙΠΟΥΣ";
+  let category = "muscle"; let subtype: string | null = null;
+  if (isFat) { category = "fatburn"; subtype = t.sub_category === "ΚΑΥΣΗ ΛΙΠΟΥΣ ΜΕ ΒΑΡΗ" ? "weights" : t.sub_category === "ΚΑΥΣΗ ΛΙΠΟΥΣ ΜΕ ΑΕΡΟΒΙΟ" ? "cardio" : "combo"; }
+  // deno-lint-ignore no-explicit-any
+  const mapped = days.map((d: any) => {
+    const items = d.items ?? [];
+    // deno-lint-ignore no-explicit-any
+    const groups = items.filter((it: any) => it.type !== "cardio").map((it: any) => {
+      let failure = it.failure; let tempo = it.tempo || "";
+      if (capFailure) { if (!(Number(failure) <= -3)) failure = -3; tempo = "1-2-1"; }
+      return { groupLabel: it.groupLabel, exercise: it.exercise, set: it.set, rep: it.rep, rest: it.rest, tempo, failure, equipment: it.equipment || [] };
+    });
+    // deno-lint-ignore no-explicit-any
+    const cardioSlots = items.filter((it: any) => it.type === "cardio").map((it: any) => ({
+      equipment: it.equipment, mode: it.mode, speedLow: it.speedLow, speedHigh: it.speedHigh, incline: it.incline,
+      intensity: it.intensity, minutes: it.minutes, drillEveryMinutes: it.drillEveryMinutes }));
+    // deno-lint-ignore no-explicit-any
+    return { label: d.label, groups, cardioSlots, topSection: "weights", order: items.filter((it: any) => it.type === "muscle" || it.type === "cardio" || !it.type).map((it: any) => it.type === "cardio" ? "c" : "w") };
+  });
+  // deno-lint-ignore no-explicit-any
+  const record: any = {
+    category, subtype, notes: t.notes || "", instructions: t.description || "",
+    nutrition: t.nutrition ? { kcal: "", text: t.nutrition } : null, days: null, cardioSlots: null,
+    fromTemplate: true, templateName: t.name || "",
+    templateId: t.id, templateGender: t.gender, templateTop: t.top_category, templateSub: t.sub_category,
+  };
+  // deno-lint-ignore no-explicit-any
+  if (subtype === "cardio") record.cardioSlots = mapped.reduce((a: any[], d: any) => a.concat(d.cardioSlots), []);
+  // deno-lint-ignore no-explicit-any
+  else record.days = mapped.filter((d: any) => d.groups.length > 0 || d.cardioSlots.length > 0);
+  return record;
+}
+// deno-lint-ignore no-explicit-any
+async function ruleRenewal(admin: any, code: string, choiceKey: string, ctx: any) {
+  if (!["next_level", "more_emphasis", "much_more", "only_part"].includes(choiceKey)) return null;
+  const { data: prof } = await admin.from("client_profiles").select("gender, my_program_id").eq("customer_code", code).maybeSingle();
+  // το τρέχον πρόγραμμα: «Το πρόγραμμά μου», αλλιώς το πιο πρόσφατο που προήλθε από έτοιμο πρόγραμμα
+  // deno-lint-ignore no-explicit-any
+  let cur: any = null;
+  if (prof?.my_program_id) {
+    const { data } = await admin.from("programs").select("id, days").eq("id", prof.my_program_id).eq("customer_code", code).maybeSingle();
+    if (data?.days?.fromTemplate) cur = data.days;
+  }
+  if (!cur) {
+    const { data } = await admin.from("programs").select("days").eq("customer_code", code).order("created_at", { ascending: false }).limit(20);
+    // deno-lint-ignore no-explicit-any
+    cur = (data ?? []).map((r: any) => r.days).find((d: any) => d?.fromTemplate) ?? null;
+  }
+  const gender = cur?.templateGender || (prof?.gender === "ΓΥΝΑΙΚΑ" ? "ΓΥΝΑΙΚΕΣ" : prof?.gender === "ΑΝΔΡΑΣ" ? "ΑΝΔΡΕΣ" : null);
+  if (!gender) return null;
+  const { data: tpls } = await admin.from("template_programs")
+    .select("id, gender, top_category, sub_category, name, data, notes, description, nutrition, sort_order, created_at, is_published")
+    .eq("gender", gender).eq("top_category", "ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ").eq("is_published", true);
+  // deno-lint-ignore no-explicit-any
+  const all: any[] = tpls ?? [];
+  if (!all.length) return null;
+  // deno-lint-ignore no-explicit-any
+  const ord = (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || String(a.created_at).localeCompare(String(b.created_at));
+  const inSub = (sub: string) => all.filter((t) => (t.sub_category || SUB_FULL) === sub).sort(ord);
+  // το έτοιμο πρόγραμμα από το οποίο ξεκίνησε
+  // deno-lint-ignore no-explicit-any
+  let curT: any = cur?.templateId ? all.find((t) => t.id === cur.templateId) : null;
+  if (!curT && cur?.templateName) {
+    curT = all.find((t) => t.name === cur.templateName && (t.sub_category || SUB_FULL) === (cur.templateSub || SUB_FULL))
+        || all.find((t) => t.name === cur.templateName && (t.sub_category || SUB_FULL) === SUB_FULL);
+  }
+  const curSub = curT ? (curT.sub_category || SUB_FULL) : SUB_FULL;
+  // επόμενο στην ίδια κατηγορία: οργανόγραμμα → «επόμενο πρόγραμμα» → σειρά
+  const { data: flowRow } = await admin.from("program_flows").select("graph").eq("gender", gender).maybeSingle();
+  // deno-lint-ignore no-explicit-any
+  const nextOf = (t: any) => {
+    // deno-lint-ignore no-explicit-any
+    const edge = (flowRow?.graph?.edges ?? []).find((e: any) => e.from === t.id && !String(e.rule || "").trim());
+    if (edge) return all.find((x) => x.id === edge.to) ?? null;
+    const n = t?.data?.next;
+    if (n === "none") return null;
+    if (n && n !== "auto") { const f = all.find((x) => x.id === n); if (f) return f; }
+    const list = inSub(t.sub_category || SUB_FULL); const i = list.findIndex((x) => x.id === t.id);
+    return i >= 0 ? (list[i + 1] ?? null) : null;
+  };
+  // ποια κατηγορία
+  const subs = [...new Set(all.map((t) => t.sub_category || SUB_FULL))];
+  const part = gender === "ΓΥΝΑΙΚΕΣ" ? "ΚΑΤΩ" : "ΠΑΝΩ";
+  const emph = subs.find((x) => x.includes("ΕΜΦΑΣΗ") && x.includes(part) && !x.includes("ΑΚΟΜΗ"));
+  const more = subs.find((x) => x.includes("ΑΚΟΜΗ") && x.includes(part));
+  const only = subs.find((x) => x.includes("ΜΟΝΟ") && x.includes(part));
+  let targetSub = curSub;
+  if (choiceKey === "more_emphasis") targetSub = emph ?? curSub;
+  if (choiceKey === "much_more") targetSub = more ?? emph ?? curSub;
+  if (choiceKey === "only_part") targetSub = only ?? more ?? emph ?? curSub;
+  // ποιο πρόγραμμα
+  // deno-lint-ignore no-explicit-any
+  let target: any = null; let lastOfLine = false;
+  if (!curT) {
+    target = inSub(targetSub)[0] ?? null;                     // δεν βρέθηκε τρέχον: ξεκινά από το πρώτο
+  } else {
+    const nxtSame = nextOf(curT);
+    if (!nxtSame) lastOfLine = true;
+    const step = nxtSame ?? curT;                              // τέλος γραμμής: μένει στο ίδιο επίπεδο
+    if (targetSub === (step.sub_category || SUB_FULL)) target = step;
+    else {
+      const list = inSub(targetSub);
+      target = list.find((x) => x.name === step.name) ?? list.find((x) => (x.sort_order ?? 0) === (step.sort_order ?? 0)) ?? list[0] ?? null;
+    }
+  }
+  if (!target) return null;
+  const record = templateToRecord(target, medicalCap(ctx));
+  const from = curT ? `«${curT.name}» (${curSub})` : "χωρίς τρέχον πρόγραμμα TRANSFORMATION";
+  const to = `«${target.name}» (${target.sub_category || SUB_FULL})`;
+  return {
+    record, lastOfLine,
+    message: lastOfLine && targetSub === curSub
+      ? `Είσαι ήδη στο τελευταίο πρόγραμμα αυτής της κατηγορίας. Σου ετοιμάσαμε ξανά το ${to}, και ο προπονητής σου θα σου πει πώς συνεχίζουμε.`
+      : `Σου ετοιμάσαμε το επόμενο πρόγραμμα TRANSFORMATION: ${to}.`,
+    reasoning: `Κανόνας ανανέωσης (οργανόγραμμα TRANSFORMATION): ${from} → ${to}. Επιλογή πελάτη: ${choiceKey}.` +
+      (lastOfLine ? " Το τρέχον ήταν το τελευταίο της γραμμής — έμεινε στο ίδιο επίπεδο." : "") +
+      (choiceKey !== "next_level" && targetSub === curSub ? " Δεν υπάρχει κατάλληλη κατηγορία έμφασης — έμεινε στην ίδια." : "") +
+      (medicalCap(ctx) ? " Ιατρικό: UNTIL FAILURE -3 και tempo 1-2-1." : ""),
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return fail(405, "method_not_allowed", "Μη επιτρεπτή μέθοδος.");
@@ -639,6 +772,36 @@ Deno.serve(async (req) => {
   const { count } = await admin.from("ai_usage").select("id", { count: "exact", head: true })
     .eq("user_id", user.id).gte("created_at", new Date(Date.now() - 864e5).toISOString());
   if ((count ?? 0) >= limit) return fail(429, "rate_limited", `Έφτασες το όριο των ${limit} αιτημάτων για σήμερα. Δοκίμασε ξανά αύριο.`);
+
+  // --- Ανανέωση με κανόνα (οργανόγραμμα / σειρά προγραμμάτων TRANSFORMATION) — χωρίς AI
+  if (buttonKey === "program_renewal" && customerCode) {
+    const ctxR = await customerContext(admin, customerCode);
+    const rr = await ruleRenewal(admin, customerCode, choiceKey, ctxR);
+    if (rr) {
+      const { data: pubV } = await admin.from("ai_rule_versions").select("id, version_no").eq("app", APP).eq("status", "published").maybeSingle();
+      // deno-lint-ignore no-explicit-any
+      const docW = (ctxR as any)?.medical?.cardiologist_allows_weights === "ΟΧΙ";
+      const sensitiveR = docW || rr.lastOfLine;
+      const reasonR = [docW ? "Ο καρδιολόγος δεν επιτρέπει βάρη." : "", rr.lastOfLine ? "Τέλος της σειράς προγραμμάτων." : ""].filter(Boolean).join(" ");
+      if (isSim) return json({ version_no: pubV?.version_no ?? null, used_draft: false, sensitive: sensitiveR, sensitive_reason: reasonR, message_to_client: rr.message, reasoning: rr.reasoning, program: rr.record, warnings: [], would_status: (sensitiveR || s.approval_program !== false) ? "pending" : "auto_applied", rule: true });
+      const needs = sensitiveR || s.approval_program !== false;
+      let st = needs ? "pending" : "auto_applied"; let pid: string | null = null;
+      if (!needs) {
+        const { data: prog, error: pErr } = await admin.from("programs").insert({ customer_code: customerCode, created_by: user.id, days: rr.record }).select("id").single();
+        if (pErr) { console.error("program insert failed", pErr); st = "pending"; } else pid = String(prog.id);
+      }
+      const { data: prop, error: propErr } = await admin.from("ai_proposals").insert({
+        app: APP, customer_code: customerCode, user_id: user.id, button_key: buttonKey, status: st,
+        version_id: pubV?.id ?? null, version_no: pubV?.version_no ?? null, used_draft: false,
+        sensitive: sensitiveR, sensitive_reason: reasonR || null, request_note: [choice ? `[${choice}]` : "", note].filter(Boolean).join(" ") || null,
+        message_to_client: rr.message, reasoning: rr.reasoning, proposal: rr.record, applied_program_id: pid,
+        decided_at: st === "auto_applied" ? new Date().toISOString() : null,
+      }).select("id").single();
+      if (propErr) console.error("proposal insert failed", propErr);
+      return json({ status: st, proposal_id: prop?.id ?? null, sensitive: sensitiveR,
+        message: st === "auto_applied" ? rr.message : "Το νέο σου πρόγραμμα ετοιμάστηκε! Ο προπονητής σου θα το ελέγξει και θα εμφανιστεί στα προγράμματά σου." });
+    }
+  }
 
   // --- Ποια έκδοση κανόνων
   const { data: versions } = await admin.from("ai_rule_versions").select("id, version_no, status").eq("app", APP).in("status", ["draft", "published"]);
