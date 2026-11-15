@@ -861,6 +861,9 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .cb-start .home-tile-t{font-family:'Commissioner','Rajdhani',sans-serif;font-weight:400;font-size:14.5px;letter-spacing:2px;text-transform:uppercase;line-height:1.3;}
 .cb-start .home-tile-s{font-size:12.5px;color:var(--ink-soft);line-height:1.4;}
 .auth-tabs.client-tabs #client-mode-build{font-family:'Commissioner','Rajdhani',sans-serif;font-weight:400;letter-spacing:1px;}
+.hand-badge{display:block;margin:6px auto 0;width:max-content;padding:4px 16px;border-radius:999px;background:rgba(3,11,18,.82);border:1.5px solid var(--cyan);color:#fff;font-size:14px;font-weight:800;letter-spacing:2px;}
+.hand-badge.b{border-color:#fff;color:#ffd23f;animation:handPulse 1.2s ease-in-out infinite;}
+@keyframes handPulse{0%,100%{box-shadow:0 0 0 rgba(255,159,26,0);}50%{box-shadow:0 0 14px rgba(255,159,26,.6);}}
 .wk-instr{margin:0;padding-left:22px;display:grid;gap:10px;}
 .wk-instr li{font-size:14px;line-height:1.55;color:#eefcff;padding-left:4px;}
 .wk-instr li::marker{color:var(--cyan-soft);font-weight:700;}
@@ -5465,6 +5468,14 @@ document.addEventListener('click', e=>{
   const b = e.target.closest && e.target.closest('[data-firstset-instr]');
   if(b){ state.firstSetInstrOpen = true; renderModal(); }
 });
+// 2 = η άσκηση γίνεται πρώτα με το ΧΕΡΙ Α και μετά με το ΧΕΡΙ Β (στήλη «ΧΕΡΙΑ» του Excel, ανά εξοπλισμό)
+function workoutHands(ex){
+  const eq = ex && ex.equipment && ex.equipment[0];
+  if(!eq) return 1;
+  const list = (typeof EQUIPMENT_BY_EXERCISE!=='undefined' && EQUIPMENT_BY_EXERCISE[ex.exercise]) || [];
+  const cat = list.find(e=>String(e.name||'').trim()===String(eq.name||'').trim());
+  return Number((cat && cat.hands) || eq.hands) === 2 ? 2 : 1;
+}
 function openWorkoutMode(ex, returnFn){
   const key = ex.exercise+'|'+ex.set+'|'+ex.rep+'|'+ex.rest;
   const maxRest = parseRestSeconds(ex.rest);
@@ -5472,13 +5483,15 @@ function openWorkoutMode(ex, returnFn){
   let isFreshOpen = false;
   if(timerState.exerciseKey !== key){
     if(timerState.interval) clearInterval(timerState.interval);
-    timerState = { exerciseKey:key, max:maxRest, remaining:maxRest, totalSets, nextSet:1, running:false, paused:false, interval:null, lastAdvanceSource:null, skipNextAdvance:false };
+    timerState = { exerciseKey:key, max:maxRest, remaining:maxRest, totalSets, nextSet:1, running:false, paused:false, interval:null, lastAdvanceSource:null, skipNextAdvance:false,
+                   hands: workoutHands(ex), hand:'A' };
     workoutCalcField = null;
     workoutCalcValues = { reps:'', kg:'' };
     workoutCalcRevealed = { reps:false, kg:false };
     workoutFailureQuality = null;
     isFreshOpen = true;
   }
+  timerState.hands = workoutHands(ex); if(timerState.hands!==2) timerState.hand = 'A'; else if(!timerState.hand) timerState.hand = 'A';
   state.workoutExercise = ex;
   if(returnFn) workoutReturnRender = returnFn;
   renderWorkoutPage();
@@ -5797,13 +5810,20 @@ function finishDayFlow(){
   }
   state.dayDoneModal = true; renderModal(); window.scrollTo(0,0);
 }
-function closeWorkoutPage(){
+function closeWorkoutPage(force){
+  if(!force && timerState.hands===2 && timerState.hand==='B' && document.getElementById('setBox')){
+    state.choiceModal = { icon:'✋', color:'#ffb648', title:'ΔΕΝ ΕΧΕΙ ΓΙΝΕΙ ΤΟ ΧΕΡΙ Β',
+      html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:14px;">Έκανες το ΧΕΡΙ Α στο SET ${timerState.nextSet}, αλλά όχι ακόμα το ΧΕΡΙ Β. Θέλεις σίγουρα να φύγεις;</p>`,
+      yes:{ label:'ΜΕΝΩ — ΚΑΝΩ ΤΟ ΧΕΡΙ Β', fn:null }, no:{ label:'ΦΕΥΓΩ', fn:()=>closeWorkoutPage(true) } };
+    renderModal(); return;
+  }
   if(workoutReturnRender) workoutReturnRender();
 }
 function getSetBoxContent(){
   const { nextSet, totalSets } = timerState;
   if(nextSet <= totalSets){
-    return { cls:'', html: `ΕΠΟΜΕΝΟ <span class="set-emph">SET ${nextSet}</span> ΑΠΟ <span class="set-emph">${totalSets}</span>` };
+    const hand = timerState.hands===2 ? `<div class="hand-badge ${timerState.hand==='B'?'b':''}">ΧΕΡΙ ${timerState.hand==='B'?'Β':'Α'}</div>` : '';
+    return { cls:'', html: `ΕΠΟΜΕΝΟ <span class="set-emph">SET ${nextSet}</span> ΑΠΟ <span class="set-emph">${totalSets}</span>${hand}` };
   } else if(nextSet === totalSets+1){
     return { cls:'completed-blink', html: 'ΟΛΟΚΛΗΡΩΘΗΚΑΝ ΟΛΑ ΤΑ <span class="set-emph">SET</span>' };
   }
@@ -5853,6 +5873,16 @@ function startWorkoutTimer(){
     }
     timerState.remaining=timerState.max; timerState.paused=false;
   }
+  // 2 χέρια: μετά το ΧΕΡΙ Α το START δεν ξεκινά διάλειμμα — περνάμε κατευθείαν στο ΧΕΡΙ Β
+  if(timerState.hands===2 && timerState.hand==='A' && timerState.remaining===timerState.max && !timerState.paused
+     && !timerState.skipNextAdvance && timerState.lastAdvanceSource!=='calc' && timerState.nextSet<=timerState.totalSets){
+    timerState.hand = 'B';
+    updateWorkoutTimerUI();
+    const st = document.getElementById('timerStatus'); if(st) st.textContent = 'ΧΕΡΙ Α ✓ — Τώρα ΧΕΡΙ Β, χωρίς διάλειμμα. Μόλις τελειώσεις, πάτα START.';
+    if(navigator.vibrate) navigator.vibrate(120);
+    return;
+  }
+  if(timerState.hands===2 && timerState.hand==='B') timerState.hand = 'A';   // τελείωσε και το ΧΕΡΙ Β: διάλειμμα και επόμενο set
   if(timerState.remaining===timerState.max && !timerState.paused){
     if(timerState.skipNextAdvance){
       timerState.skipNextAdvance = false;
@@ -5922,6 +5952,7 @@ function resetWorkoutTimer(){
   timerState.interval=null; timerState.remaining=timerState.max;
   timerState.running=false; timerState.paused=false;
   timerState.skipNextAdvance=true; // η επόμενη START απλά ξαναρχίζει το ίδιο σετ, δεν προχωράει σε νέο
+  if(timerState.hands===2) timerState.hand='A';
   stopTimerDecimalTicker();
   updateWorkoutTimerUI();
 }
@@ -6018,6 +6049,10 @@ function calculateWorkoutNextWeight(){
 }
 function performWorkoutCalculation(){
   const ex = state.workoutExercise;
+  if(timerState.hands===2 && timerState.hand==='B'){
+    showWorkoutCalcError('Δεν έχει γίνει ακόμα το ΧΕΡΙ Β. Κάνε το ΧΕΡΙ Β, πάτα START και μετά γράψε κιλά και επαναλήψεις (μία φορά για το set).');
+    return;
+  }
   const range = parseRepRangeStr(ex.rep);
   const reps = Number(workoutCalcValues.reps);
   const kg = parseCalcNumber(workoutCalcValues.kg);
@@ -6215,7 +6250,7 @@ function renderWorkoutPage(){
   bindWorkoutPageEvents();
 }
 function bindWorkoutPageEvents(){
-  document.getElementById('workout-back')?.addEventListener('click', closeWorkoutPage);
+  document.getElementById('workout-back')?.addEventListener('click', ()=>closeWorkoutPage());
   document.getElementById('timerInstructionsBtn')?.addEventListener('click', ()=>{ state.instructionsModalOpen=true; renderModal(); });
   document.getElementById('prevWorkoutsBtn')?.addEventListener('click', ()=>{ state.previousWorkoutsModalOpen=true; renderModal(); });
   document.getElementById('firstSetInfoBtn')?.addEventListener('click', ()=>{ state.firstSetInfoModalOpen=true; renderModal(); });
@@ -10573,7 +10608,8 @@ function parseCatalogWorkbook(XLSX, arrayBuffer, groupDisplay){
   const H = (eq[hRow]||[]).map(catNorm), col = name=>H.indexOf(name);
   const cE = col('ΑΣΚΗΣΗ'), cN = col('ΕΞΟΠΛΙΣΜΟΣ'), cO = H.findIndex(h=>h.startsWith('ΣΕΙΡΑ ΠΡΟΤΑΣΗΣ')),
         cC = H.findIndex(h=>h.startsWith('ΥΠΟΛΟΓΙΣΤΗΣ ΚΙΛΩΝ')), cG = col('ΓΥΜΝΑΣΤΗΡΙΑ'), cP = col('ΦΩΤΟΓΡΑΦΙΑ ΕΞΟΠΛΙΣΜΟΥ'),
-        cXP = col('ΦΩΤΟΓΡΑΦΙΑ ΑΣΚΗΣΗΣ'), cV = col('VIDEO ΑΣΚΗΣΗΣ'), cI = H.findIndex(h=>h.startsWith('ΣΠΟΥΔΑΙΟΤΗΤΑ'));
+        cXP = col('ΦΩΤΟΓΡΑΦΙΑ ΑΣΚΗΣΗΣ'), cV = col('VIDEO ΑΣΚΗΣΗΣ'), cI = H.findIndex(h=>h.startsWith('ΣΠΟΥΔΑΙΟΤΗΤΑ')),
+        cHands = H.findIndex(h=>h.startsWith('ΧΕΡΙ'));   // 1 = και τα δύο χέρια μαζί, 2 = πρώτα ΧΕΡΙ Α και μετά ΧΕΡΙ Β
   const textCols = Object.entries(CATALOG_TEXT_COLUMNS).map(([h,k])=>[col(h), k]);
   const allTitles = new Set(Object.values(EXERCISES).flat());
   const byEx = {};
@@ -10589,6 +10625,7 @@ function parseCatalogWorkbook(XLSX, arrayBuffer, groupDisplay){
       gyms: t(cG).replace(/;/g,',').split(',').map(x=>x.trim()).filter(Boolean),
       photoUrl: t(cP).trim(), exercisePhotoUrl: t(cXP).trim(), videoUrl: t(cV).trim()
     };
+    if(cHands >= 0 && String(t(cHands)).trim()==='2') item.hands = 2;
     textCols.forEach(([c,k])=>{ item[k] = t(c); });
     (byEx[exn] = byEx[exn] || []).push({ ord: Number(r[cO]) || 99, i, item });
   });
@@ -10729,7 +10766,7 @@ async function catalogLoad(){
 
 /* ---------- Σύγκριση: τι αλλάζει με το νέο Excel ---------- */
 const CATALOG_FIELD_LABELS = {
-  calcType:'Υπολογιστής κιλών', importance:'Σπουδαιότητα', gyms:'Γυμναστήρια', order:'Σειρά πρότασης',
+  calcType:'Υπολογιστής κιλών', importance:'Σπουδαιότητα', hands:'Χέρια (1/2)', gyms:'Γυμναστήρια', order:'Σειρά πρότασης',
   photoUrl:'Link φωτογραφίας εξοπλισμού', exercisePhotoUrl:'Link φωτογραφίας άσκησης', videoUrl:'Link βίντεο',
   description:'Περιγραφή', whatItWorks:'Τι γυμνάζει', technique:'Τεχνική', purpose:'Σκοπός', breathing:'Αναπνοή',
   executionSpeed:'Ταχύτητα εκτέλεσης', commonMistakes:'Συχνά λάθη', safety:'Ασφάλεια', grip:'Λαβή', expertTips:'Transformation Experts Tips',
