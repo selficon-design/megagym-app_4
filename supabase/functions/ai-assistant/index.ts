@@ -625,6 +625,7 @@ function templateToRecord(t: any, capFailure: boolean, offset = 0) {
     fromTemplate: true, templateName: t.name || "",
     templateId: t.id, templateGender: t.gender, templateTop: t.top_category, templateSub: t.sub_category,
     failureOffset: offset || 0,   // πόσο κάτω από το κανονικό UNTIL FAILURE (π.χ. -1 λόγω κούρασης)
+    fromRenewal: true, renewedAt: new Date().toISOString(),   // «ΝΕΟ ΠΡΟΓΡΑΜΜΑ» στην εφαρμογή μέχρι να το ανοίξει
   };
   // deno-lint-ignore no-explicit-any
   if (subtype === "cardio") record.cardioSlots = mapped.reduce((a: any[], d: any) => a.concat(d.cardioSlots), []);
@@ -803,7 +804,8 @@ async function claimDue(admin: any, code: string, userId: string) {
     const lock = await admin.from("ai_proposals").update({ status: "auto_applied", decided_at: new Date().toISOString() })
       .eq("id", p.id).eq("status", "pending").select("id");
     if (!lock.data?.length) continue;
-    const { data: prog, error } = await admin.from("programs").insert({ customer_code: code, created_by: userId, days: p.proposal }).select("id").single();
+    const days = { ...(p.proposal ?? {}), fromRenewal: true, renewedAt: new Date().toISOString() };
+    const { data: prog, error } = await admin.from("programs").insert({ customer_code: code, created_by: userId, days }).select("id").single();
     if (error) { console.error("claim insert failed", error); await admin.from("ai_proposals").update({ status: "pending", decided_at: null }).eq("id", p.id); continue; }
     await admin.from("ai_proposals").update({ applied_program_id: String(prog.id) }).eq("id", p.id);
     // το νέο πρόγραμμα γίνεται «Το πρόγραμμά μου»

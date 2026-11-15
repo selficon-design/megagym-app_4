@@ -578,6 +578,9 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .home-ic{font-size:30px;line-height:1;}
 .home-t{font-weight:800;font-size:15px;color:#fff;}
 .home-s{font-size:11.5px;color:var(--ink-soft);}
+.client-card.new-prog{position:relative;border:2px solid #ff3b3b !important;box-shadow:0 0 18px rgba(255,59,59,.45) !important;margin-top:14px;}
+.new-prog-badge{position:absolute;top:-11px;left:14px;padding:3px 10px;border-radius:999px;background:#ff3b3b;color:#fff;font-size:10.5px;font-weight:800;letter-spacing:1px;box-shadow:0 0 10px rgba(255,59,59,.6);}
+.tpl-personal{font-size:11px;font-weight:600;color:var(--accent);text-transform:none;letter-spacing:0;margin-top:2px;}
 .myprog-badge{margin-left:auto;flex-shrink:0;padding:3px 9px;border-radius:999px;background:rgba(255,210,63,.18);color:#ffd23f;font-size:10.5px;font-weight:800;white-space:nowrap;}
 .cp-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
 .cp-more{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;}
@@ -9659,10 +9662,12 @@ function renderClientProgramsListView(){
           const mine = p.record && p.record.fromClientBuilder;            // «Φτιάχνω δικό μου πρόγραμμα»
           const fromTpl = p.record && p.record.fromTemplate && !mine;
           const fromAI = p.record && p.record.fromAI;
-          return `<div class="client-card" data-open-program="${escAttr(p.id)}" ${fromTpl?'style="border-color:var(--accent);box-shadow:0 0 18px rgba(255,159,26,.35);"':''}>
+          const isNew = progIsNew(p);
+          return `<div class="client-card ${isNew?'new-prog':''}" data-open-program="${escAttr(p.id)}" ${fromTpl && !isNew?'style="border-color:var(--accent);box-shadow:0 0 18px rgba(255,159,26,.35);"':''}>
+            ${isNew ? `<span class="new-prog-badge">🆕 ΝΕΟ ΠΡΟΓΡΑΜΜΑ</span>` : ''}
             <div class="client-avatar">${progs.length-i}</div>
             <div class="client-meta">
-              <div class="name">${mine ? `${escHtml(p.record.customName || p.record.templateName || 'Το πρόγραμμά μου')} <span class="mine-badge">🛠 ΔΙΚΟ ΜΟΥ</span><div style="font-size:11px;font-weight:600;color:var(--cyan-soft);text-transform:none;letter-spacing:0;">${escHtml(categoryBadgeLabel(p.record))}</div>` : ''}${mine ? '' : escHtml(fromTpl && p.record.templateName ? p.record.templateName : categoryBadgeLabel(p.record))}${(fromTpl)?' <span style="color:var(--accent);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· Έτοιμο</span>':''}${fromAI?' <span style="color:var(--cyan);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· ✨ AI</span>':''}</div>
+              <div class="name">${mine ? `${escHtml(p.record.customName || p.record.templateName || 'Το πρόγραμμά μου')} <span class="mine-badge">🛠 ΔΙΚΟ ΜΟΥ</span><div style="font-size:11px;font-weight:600;color:var(--cyan-soft);text-transform:none;letter-spacing:0;">${escHtml(categoryBadgeLabel(p.record))}</div>` : ''}${mine ? '' : escHtml(fromTpl && p.record.templateName ? p.record.templateName : categoryBadgeLabel(p.record))}${fromAI?' <span style="color:var(--cyan);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· ✨ AI</span>':''}${fromTpl?'<div class="tpl-personal">Πρόγραμμα TRANSFORMATION · διαμορφωμένο ειδικά για σένα</div>':''}</div>
               <div class="sub">${d.toLocaleDateString('el-GR')} · ${d.toLocaleTimeString('el-GR',{hour:'2-digit',minute:'2-digit'})}</div>
             </div>
             ${cprofMyProgramId()===p.id ? `<span class="myprog-badge" title="Αυτό είναι «Το πρόγραμμά μου»">⭐ Το πρόγραμμά μου</span>` : ''}
@@ -9672,6 +9677,15 @@ function renderClientProgramsListView(){
     </div>`;
 }
 
+/* «ΝΕΟ ΠΡΟΓΡΑΜΜΑ»: πρόγραμμα από ανανέωση/AI που δεν έχει ανοίξει ακόμα σε αυτή τη συσκευή */
+function progSeenKey(){ return 'forma_seen_progs_' + ((auth.customer && auth.customer.code) || ''); }
+function progSeenSet(){ try{ return new Set(JSON.parse(localStorage.getItem(progSeenKey())||'[]')); }catch(_){ return new Set(); } }
+function progMarkSeen(id){ try{ const s = progSeenSet(); s.add(id); localStorage.setItem(progSeenKey(), JSON.stringify([...s].slice(-200))); }catch(_){} }
+function progIsNew(p){
+  const r = p && p.record; if(!r || !(r.fromRenewal || r.fromAI)) return false;
+  if(Date.now() - new Date(p.createdAt) > 30*864e5) return false;
+  return !progSeenSet().has(p.id);
+}
 /* ---------- «Έλεγχος προγράμματος» (μόνο στα προγράμματα «Φτιάχνω δικό μου») ----------
    Το AI ελέγχει με τους κανόνες (κάρτα «Έλεγχος προγράμματος» στο Κέντρο Κανόνων AI, αλλιώς
    οι βασικοί κανόνες TRANSFORMATION) και κάνει προτάσεις. Για κάθε πρόταση ο αθλούμενος απαντά
@@ -9953,6 +9967,7 @@ function bindClientNavEvents(){
       const id = el.getAttribute('data-open-program');
       const p = state.selectedCustomerPrograms.find(x=>x.id===id);
       if(!p) return;
+      progMarkSeen(id);   // μετά το πρώτο άνοιγμα δεν είναι πια «ΝΕΟ»
       const record = p.record;
       state.clientNav = {
         view: record.subtype==='cardio' ? 'items' : 'days',
