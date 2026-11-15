@@ -861,6 +861,10 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .cb-start .home-tile-t{font-family:'Commissioner','Rajdhani',sans-serif;font-weight:400;font-size:14.5px;letter-spacing:2px;text-transform:uppercase;line-height:1.3;}
 .cb-start .home-tile-s{font-size:12.5px;color:var(--ink-soft);line-height:1.4;}
 .auth-tabs.client-tabs #client-mode-build{font-family:'Commissioner','Rajdhani',sans-serif;font-weight:400;letter-spacing:1px;}
+.wk-instr{margin:0;padding-left:22px;display:grid;gap:10px;}
+.wk-instr li{font-size:14px;line-height:1.55;color:#eefcff;padding-left:4px;}
+.wk-instr li::marker{color:var(--cyan-soft);font-weight:700;}
+.wk-instr b{color:#ffd23f;font-weight:600;}
 .start-prog-btn{width:100%;justify-content:center;min-height:58px;margin-top:20px;font-family:'Commissioner','Rajdhani',sans-serif;font-weight:500;font-size:15px;letter-spacing:2px;}
 .cb-guide-sec{margin-top:12px;}
 .cb-guide-sec h3{font-size:14px;color:var(--cyan-soft);margin:0 0 8px;letter-spacing:.3px;}
@@ -5444,6 +5448,16 @@ function renderTrainerExercisePreviewPage(){
     el.addEventListener('click', ()=>{ openLightbox('video', el.getAttribute('data-trainerprev-eqvideo')); });
   });
 }
+// Οδηγίες εκτέλεσης άσκησης με βάρη — ανοίγουν αυτόματα στην αρχή κάθε άσκησης
+const WORKOUT_INSTRUCTIONS = [
+  'Επίλεξε <b>εξοπλισμό</b> από την παρακάτω λίστα εξοπλισμού, σύμφωνα με τη σειρά προτεραιότητας που δίνει.',
+  'Πάτησε <b>«Υπολογιστής κιλών»</b>.',
+  'Βάλε στον εξοπλισμό τόσα κιλά ώστε να μπορείς να κάνεις, με τη μεγαλύτερη δυσκολία, <b>20 επαναλήψεις</b>.',
+  'Εκτέλεσε την άσκηση.',
+  'Μόλις τελειώσεις το set, πήγαινε πιο πάνω και πάτα το <b>χρονόμετρο (START)</b>, για να ξεκινήσει να μετράει.',
+  'Πήγαινε μετά κάτω στον <b>υπολογιστή κιλών</b> και γράψε πόσα κιλά έβαλες και πόσες επαναλήψεις έβγαλες.',
+  'Πάτα <b>«Υπολογισμός κιλών επόμενου set»</b> και θα σου πει πόσα κιλά να βάλεις στο επόμενο set.'
+];
 function openWorkoutMode(ex, returnFn){
   const key = ex.exercise+'|'+ex.set+'|'+ex.rep+'|'+ex.rest;
   const maxRest = parseRestSeconds(ex.rest);
@@ -5465,10 +5479,9 @@ function openWorkoutMode(ex, returnFn){
   if(logCode && !state.skipDoneTodayCheck) checkExerciseAlreadyDoneToday(logCode, ex.exercise);
   if(isFreshOpen){
     const primaryEq = (ex.equipment && ex.equipment[0]) || null;
-    if(primaryEq && primaryEq.calcType === 'CALALT_2_5'){
-      state.calAltWarningModalOpen = true;
-      renderModal();
-    }
+    state.instructionsModalOpen = true;   // πρώτα οι οδηγίες
+    state.calAltAfterInstr = !!(primaryEq && primaryEq.calcType === 'CALALT_2_5');
+    renderModal();
   }
 }
 async function checkExerciseAlreadyDoneToday(customerCode, exerciseName){
@@ -6054,7 +6067,7 @@ function renderWorkoutPage(){
       <div class="sub" style="margin-bottom:0;text-transform:uppercase;">${escHtml(ex.groupLabel||'')} · SET ${ex.set} · REP ${escHtml(String(ex.rep))}</div>
 
       <div style="text-align:center;margin-top:16px;">
-        <button class="btn btn-outline" id="timerInstructionsBtn" style="border:2px solid var(--cyan);margin-bottom:10px;display:inline-flex;">Οδηγίες / Instructions</button>
+        <button class="btn btn-outline" id="timerInstructionsBtn" style="border:2px solid var(--cyan);margin-bottom:10px;display:inline-flex;">ΟΔΗΓΙΕΣ</button>
         <br>
         <div id="setBox" class="timer-set-box ${setBoxContent.cls}">${setBoxContent.html}</div>
         <div id="timerRing" class="timer-ring" style="--progress:${progress}">
@@ -6233,19 +6246,21 @@ function renderModal(){
   if(state.instructionsModalOpen){
     root.innerHTML = `
       <div class="modal-overlay" id="instructions-overlay">
-        <div class="modal" style="max-width:380px;">
+        <div class="modal" style="max-width:440px;max-height:88vh;overflow-y:auto;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
-            <h2 style="font-size:17px;margin:0;">Οδηγίες / Instructions</h2>
+            <h2 style="font-size:18px;margin:0;letter-spacing:1.5px;">ΟΔΗΓΙΕΣ</h2>
             <button id="instructions-close-x" style="background:none;border:none;color:var(--ink-soft);font-size:20px;cursor:pointer;line-height:1;padding:4px;">✕</button>
           </div>
-          <p style="font-size:14px;line-height:1.6;color:#eefcff;margin:0 0 10px;">Στο τέλος κάθε Set πάτα το <strong>START</strong>. Όταν τελειώσει ο χρόνος ξεκινάς το επόμενο Set.</p>
-          <p style="font-size:12px;line-height:1.6;color:var(--ink-soft);margin:0;font-style:italic;">At the end of each Set press <strong>START</strong>. When the time runs out you begin the next Set.</p>
-          <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:18px;" id="instructions-close-btn">Κατάλαβα</button>
+          <ol class="wk-instr">
+            ${WORKOUT_INSTRUCTIONS.map(t=>`<li>${t}</li>`).join('')}
+          </ol>
+          <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:16px;" id="instructions-close-btn">Κατάλαβα</button>
         </div>
       </div>`;
-    document.getElementById('instructions-close-x')?.addEventListener('click', ()=>{ state.instructionsModalOpen=false; renderModal(); });
-    document.getElementById('instructions-close-btn')?.addEventListener('click', ()=>{ state.instructionsModalOpen=false; renderModal(); });
-    document.getElementById('instructions-overlay')?.addEventListener('click', (e)=>{ if(e.target.id==='instructions-overlay'){ state.instructionsModalOpen=false; renderModal(); } });
+    const closeInstr = ()=>{ state.instructionsModalOpen=false; if(state.calAltAfterInstr){ state.calAltAfterInstr=false; state.calAltWarningModalOpen=true; } renderModal(); };
+    document.getElementById('instructions-close-x')?.addEventListener('click', closeInstr);
+    document.getElementById('instructions-close-btn')?.addEventListener('click', closeInstr);
+    document.getElementById('instructions-overlay')?.addEventListener('click', (e)=>{ if(e.target.id==='instructions-overlay') closeInstr(); });
     return;
   }
   if(state.fqRequiredModalOpen){
