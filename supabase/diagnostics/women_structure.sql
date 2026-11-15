@@ -4,5 +4,5 @@ select t.sort_order as so, t.name, jsonb_array_length(t.data->'days') as n_days,
 from public.template_programs t
 cross join lateral jsonb_array_elements(t.data->'days') with ordinality d(day, ord)
 cross join lateral jsonb_array_elements(d.day->'items') with ordinality i(it, ord)
-where t.gender='ΓΥΝΑΙΚΕΣ' and t.sub_category='ΓΥΜΝΑΖΕΙ ΟΛΟ ΤΟ ΣΩΜΑ' and t.is_published and d.ord <= 4
+where t.gender='ΓΥΝΑΙΚΕΣ' and t.sub_category like 'ΜΕ ΑΚΟΜΗ%' and t.name in ('BEGINNER 1','ACTIVE 1','ACTIVE 4','PRO 1') and d.ord <= 6
 group by 1,2,3,4 order by 1,2,4
