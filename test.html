@@ -5432,6 +5432,40 @@ async function checkExerciseAlreadyDoneToday(customerCode, exerciseName){
     renderModal();
   }
 }
+// Η επόμενη άσκηση της ημέρας (μετά από αυτή που μόλις τελείωσε)
+function workoutNextInfo(){
+  const c = state.workoutNextCtx; if(!c || c.itemIndex==null) return null;
+  let items = [];
+  if(c.src==='client'){
+    const p = (state.selectedCustomerPrograms||[]).find(x=>x.id===c.programId);
+    items = p ? getClientDayItems(p.record, c.dayIndex) : [];
+  } else if(c.src==='tpllib'){
+    const t = (state.tplTemplates||[]).find(x=>x.id===c.programId) || (typeof tplLibCurrentProgram==='function' ? tplLibCurrentProgram() : null);
+    const day = t && (t.data.days||[])[c.dayIndex];
+    items = day ? day.items : [];
+  }
+  const ni = c.itemIndex + 1;
+  if(ni >= items.length) return { none:true };
+  const it = items[ni];
+  return { index: ni, item: it,
+    group: it.type==='cardio' ? 'ΑΕΡΟΒΙΟ' : (it.groupLabel || ''),
+    name: it.type==='cardio' ? `${it.equipment||''}${it.minutes?` · ${it.minutes}′`:''}` : (it.exercise || '') };
+}
+function workoutOpenNext(){
+  const n = state.nextExerciseModal, c = state.workoutNextCtx;
+  state.nextExerciseModal = null; renderModal();
+  if(!n || n.none || !c) return;
+  if(timerState.interval){ clearInterval(timerState.interval); timerState.interval = null; }
+  timerState.running = false; if(typeof stopTimerDecimalTicker==='function') stopTimerDecimalTicker();
+  if(c.src==='client'){
+    state.clientNav = { ...state.clientNav, view:'exercise', programId:c.programId, dayIndex:c.dayIndex, itemIndex:n.index };
+    rebuildClientDashboardShell();
+  } else {
+    state.tplLibNav = { ...state.tplLibNav, view:'exercise', programId:c.programId, dayIndex:c.dayIndex, itemIndex:n.index };
+    returnFromWorkoutTplLib();
+  }
+  window.scrollTo(0,0);
+}
 function closeWorkoutPage(){
   if(workoutReturnRender) workoutReturnRender();
 }
@@ -5455,6 +5489,11 @@ function updateWorkoutTimerUI(){
   }
   if(timerState.remaining===0){ numberEl?.classList.add('finished'); ringEl?.classList.add('finished'); }
   else if(timerState.remaining<=10){ numberEl?.classList.add('warning'); ringEl?.classList.add('warning'); }
+  // Μόλις τελειώσουν όλα τα set: ρώτα αν θέλει να ανοίξει η επόμενη άσκηση (μία φορά ανά άσκηση)
+  if(timerState.nextSet === timerState.totalSets+1 && !timerState.nextPrompted && document.getElementById('setBox')){
+    timerState.nextPrompted = true;
+    setTimeout(()=>{ state.nextExerciseModal = workoutNextInfo() || { none:true }; renderModal(); }, 350);
+  }
   const setBox=document.getElementById('setBox');
   if(setBox){
     const sc = getSetBoxContent();
@@ -6173,6 +6212,32 @@ function renderModal(){
     document.getElementById('firstsetinfo-close-x')?.addEventListener('click', ()=>{ state.firstSetInfoModalOpen=false; renderModal(); });
     document.getElementById('firstsetinfo-close-btn')?.addEventListener('click', ()=>{ state.firstSetInfoModalOpen=false; renderModal(); });
     document.getElementById('firstsetinfo-overlay')?.addEventListener('click', (e)=>{ if(e.target.id==='firstsetinfo-overlay'){ state.firstSetInfoModalOpen=false; renderModal(); } });
+    return;
+  }
+  if(state.nextExerciseModal){
+    const n = state.nextExerciseModal;
+    root.innerHTML = `
+      <div class="modal-overlay" id="nextex-overlay">
+        <div class="modal" style="max-width:420px;text-align:center;">
+          <div style="font-size:40px;margin-bottom:8px;">✅</div>
+          <h2 style="font-size:19px;margin-bottom:10px;color:#2bd96b;">Η ΑΣΚΗΣΗ ΤΕΛΕΙΩΣΕ</h2>
+          ${n.none ? `
+            <p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:20px;">Ολοκλήρωσες όλα τα set και αυτή ήταν η τελευταία άσκηση της ημέρας. Μπράβο!</p>
+            <button class="btn btn-primary" style="width:100%;justify-content:center;" id="nextex-no">Κατάλαβα</button>` : `
+            <p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:12px;">Ολοκλήρωσες όλα τα set. Πρέπει να μεταβούμε στην επόμενη άσκηση.</p>
+            <div style="padding:12px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(3,11,18,.6);margin-bottom:16px;">
+              <div style="font-size:11px;letter-spacing:1.5px;color:var(--cyan-soft);margin-bottom:4px;">ΕΠΟΜΕΝΗ — ${escHtml(n.group)}</div>
+              <div style="font-size:15px;font-weight:600;color:#fff;">${escHtml(n.name)}</div>
+            </div>
+            <p style="font-size:14px;color:#eefcff;margin-bottom:16px;">Θέλεις να ανοίξω την επόμενη άσκηση;</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <button class="btn btn-primary" style="justify-content:center;" id="nextex-yes">ΝΑΙ</button>
+              <button class="btn btn-outline" style="justify-content:center;" id="nextex-no">ΟΧΙ</button>
+            </div>`}
+        </div>
+      </div>`;
+    document.getElementById('nextex-yes')?.addEventListener('click', workoutOpenNext);
+    document.getElementById('nextex-no')?.addEventListener('click', ()=>{ state.nextExerciseModal = null; renderModal(); });
     return;
   }
   if(state.alreadyDoneTodayModalOpen){
@@ -9205,6 +9270,7 @@ function bindClientNavEvents(){
     const item = items[nav.itemIndex];
     if(item && item.type==='muscle'){
       state.workoutLogContext = { customerCode: auth.customer ? auth.customer.code : null, programName: getProgramNameForRecord(p.record) };
+      state.workoutNextCtx = { src:'client', programId: nav.programId, dayIndex: nav.dayIndex, itemIndex: nav.itemIndex };
       openWorkoutMode(item, rebuildClientDashboardShell);
     }
   });
@@ -9220,6 +9286,7 @@ function bindClientNavEvents(){
       const p = state.selectedCustomerPrograms.find(x=>x.id===nav.programId);
       try{
         state.workoutLogContext = { customerCode: auth.customer ? auth.customer.code : null, programName: p ? getProgramNameForRecord(p.record) : '' };
+        state.workoutNextCtx = { src:'client', programId: nav.programId, dayIndex: nav.dayIndex, itemIndex: nav.itemIndex };
         openWorkoutMode(JSON.parse(el.getAttribute('data-clientlib-eqworkout')), rebuildClientDashboardShell);
       }catch(e){}
     });
@@ -9807,6 +9874,7 @@ function bindTplLibEvents(){
     const it = day && day.items[state.tplLibNav.itemIndex];
     if(it && it.type==='muscle'){
       state.workoutLogContext = { customerCode: (auth.status==='client' && auth.customer) ? auth.customer.code : null, programName: t ? t.name : '' };
+      state.workoutNextCtx = { src:'tpllib', programId: state.tplLibNav.programId, dayIndex: state.tplLibNav.dayIndex, itemIndex: state.tplLibNav.itemIndex };
       openWorkoutMode(it, returnFromWorkoutTplLib);
     }
   });
@@ -9842,6 +9910,7 @@ function bindTplLibEvents(){
       const t = tplLibCurrentProgram();
       try{
         state.workoutLogContext = { customerCode: (auth.status==='client' && auth.customer) ? auth.customer.code : null, programName: t ? t.name : '' };
+        state.workoutNextCtx = { src:'tpllib', programId: state.tplLibNav.programId, dayIndex: state.tplLibNav.dayIndex, itemIndex: state.tplLibNav.itemIndex };
         openWorkoutMode(JSON.parse(raw), returnFromWorkoutTplLib);
       }catch(e){}
     });
