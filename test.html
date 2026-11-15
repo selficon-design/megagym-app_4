@@ -563,6 +563,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .air-cl-q{font-size:13px;color:var(--ink-soft);margin:4px 0 8px;}
 .air-cl-opts{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
 .air-cl-opt{text-align:left;padding:11px 13px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(3,11,18,.5);color:var(--ink);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;}
+.air-cl-advice{margin:-2px 0 12px;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,182,72,.55);background:rgba(255,182,72,.08);font-size:13px;line-height:1.55;color:#eefcff;}
+.air-cl-advice b{color:#ffd23f;}
 .air-cl-note{display:block;margin:3px 0 0 16px;font-size:11.5px;font-weight:500;color:#ffb648;}
 .air-cl-opt.on{border-color:var(--cyan);background:rgba(61,216,255,.14);color:var(--cyan-soft);box-shadow:0 0 12px rgba(61,216,255,.3);}
 .pact-toggle{flex:0 0 auto;padding:7px 12px;font-size:12.5px;white-space:nowrap;}
@@ -8785,6 +8787,11 @@ function bindAiRulesEvents(){
    =================================================================== */
 const aiClient = { latest:null, loadedFor:null, open:false, busy:false, note:'', choice:null };
 // Επιλογές ανανέωσης — εξαρτώνται από το φύλο (άνδρες: πάνω μέρος, γυναίκες: κάτω μέρος)
+// Μήνυμα όταν διαλέγει επιλογή που δεν συνίσταται για πρόγραμμα TRANSFORMATION
+const AI_RENEWAL_ADVICE = `<b>💡 Αν θέλεις να έχεις τα μέγιστα αποτελέσματα, καλό είναι να ακολουθείς πιστά τα προγράμματα TRANSFORMATION.</b><br><br>
+Δεν είναι μόνο οι μυϊκές ομάδες και οι μύες που θέλεις να γυμνάσεις· είναι και η <b>παραγωγή ορμονών</b>, που είναι σημαντική γιατί αυτή είναι που ενισχύει τα αποτελέσματα.<br><br>
+Ένα κλασικό παράδειγμα: αν θέλεις μεγάλα χέρια, θα πρέπει να γυμνάζεις τα πόδια. Το έλεγε ο Άρνολντ Σβαρτσενέγκερ — και είναι αλήθεια, για πολλούς λόγους.<br><br>
+Καλό λοιπόν είναι να γυμνάζουμε <b>όλο το σώμα</b> σύμφωνα με τα πρωτόκολλα TRANSFORMATION. Θα έχουμε καλύτερα αποτελέσματα και στους μεμονωμένους μύες.`;
 function aiRenewalOptions(gender){
   const part = gender==='ΓΥΝΑΙΚΑ' ? 'κάτω μέρος του σώματος' : 'πάνω μέρος του σώματος';
   return [
@@ -8820,7 +8827,8 @@ function renderAiClientPanel(){
       <div class="air-cl-q">Για να σου δείξουμε τις σωστές επιλογές, πες μας πρώτα: είσαι</div>
       <div class="chip-row" style="margin-bottom:12px;">${CPROF_GENDERS.map(g=>`<button type="button" class="kcal-btn" data-ai-gender="${g}">${g}</button>`).join('')}</div>` : `
       <div class="air-cl-q">Τι θέλεις από το νέο σου πρόγραμμα;</div>
-      <div class="air-cl-opts">${aiRenewalOptions(cprofGender()).map(o=>`<button type="button" class="air-cl-opt ${aiClient.choice===o.key?'on':''}" data-ai-choice="${o.key}">${aiClient.choice===o.key?'●':'○'} ${escHtml(o.label)}${o.note?`<span class="air-cl-note">(${escHtml(o.note)})</span>`:''}</button>`).join('')}</div>`}
+      <div class="air-cl-opts">${aiRenewalOptions(cprofGender()).map(o=>`<button type="button" class="air-cl-opt ${aiClient.choice===o.key?'on':''}" data-ai-choice="${o.key}">${aiClient.choice===o.key?'●':'○'} ${escHtml(o.label)}${o.note?`<span class="air-cl-note">(${escHtml(o.note)})</span>`:''}</button>`).join('')}</div>
+      ${(aiRenewalOptions(cprofGender()).find(o=>o.key===aiClient.choice)||{}).note ? `<div class="air-cl-advice">${AI_RENEWAL_ADVICE}</div>` : ''}`}
       <textarea id="ai-cl-note" rows="3" maxlength="600" placeholder="Θέλεις να μας πεις κάτι ακόμα; (προαιρετικό) π.χ. «Πονάει λίγο ο ώμος μου»" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);font-family:inherit;font-size:14px;">${escHtml(aiClient.note)}</textarea>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:10px;">
         <button class="btn btn-primary" id="ai-cl-send" style="justify-content:center;" ${aiClient.busy||!aiClient.choice?'disabled':''}>${aiClient.busy?'Ετοιμάζεται… (έως 1 λεπτό)':'Στείλε αίτημα'}</button>
