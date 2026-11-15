@@ -596,7 +596,7 @@ ${groups}
    ===================================================================== */
 const SUB_FULL = "ΓΥΜΝΑΖΕΙ ΟΛΟ ΤΟ ΣΩΜΑ";
 // deno-lint-ignore no-explicit-any
-function templateToRecord(t: any, capFailure: boolean) {
+function templateToRecord(t: any, capFailure: boolean, offset = 0) {
   const days = t?.data?.days ?? [];
   const isFat = t.top_category === "ΚΑΥΣΗΣ ΛΙΠΟΥΣ";
   let category = "muscle"; let subtype: string | null = null;
@@ -607,6 +607,7 @@ function templateToRecord(t: any, capFailure: boolean) {
     // deno-lint-ignore no-explicit-any
     const groups = items.filter((it: any) => it.type !== "cardio").map((it: any) => {
       let failure = it.failure; let tempo = it.tempo || "";
+      if (offset && failure !== undefined && failure !== null && failure !== "") failure = Math.max(-3, Math.min(0, Number(failure) + offset));
       if (capFailure) { if (!(Number(failure) <= -3)) failure = -3; tempo = "1-2-1"; }
       return { groupLabel: it.groupLabel, exercise: it.exercise, set: it.set, rep: it.rep, rest: it.rest, tempo, failure, equipment: it.equipment || [] };
     });
@@ -623,12 +624,64 @@ function templateToRecord(t: any, capFailure: boolean) {
     nutrition: t.nutrition ? { kcal: "", text: t.nutrition } : null, days: null, cardioSlots: null,
     fromTemplate: true, templateName: t.name || "",
     templateId: t.id, templateGender: t.gender, templateTop: t.top_category, templateSub: t.sub_category,
+    failureOffset: offset || 0,   // πόσο κάτω από το κανονικό UNTIL FAILURE (π.χ. -1 λόγω κούρασης)
   };
   // deno-lint-ignore no-explicit-any
   if (subtype === "cardio") record.cardioSlots = mapped.reduce((a: any[], d: any) => a.concat(d.cardioSlots), []);
   // deno-lint-ignore no-explicit-any
   else record.days = mapped.filter((d: any) => d.groups.length > 0 || d.cardioSlots.length > 0);
   return record;
+}
+const DECIDE_TOOL = {
+  name: "decide_renewal",
+  description: "Απόφαση για την ανανέωση προγράμματος TRANSFORMATION με βάση την κούραση/ενέργεια του αθλούμενου.",
+  input_schema: {
+    type: "object",
+    properties: {
+      decision: { type: "string", enum: ["next", "next_easier", "same_easier", "same_restore"],
+        description: "next = επόμενο πρόγραμμα με κανονική ένταση · next_easier = επόμενο πρόγραμμα με UNTIL FAILURE μία μονάδα κάτω · same_easier = ίδιο πρόγραμμα με UNTIL FAILURE μία μονάδα κάτω (κούραση) · same_restore = ίδιο πρόγραμμα, επιστροφή στην κανονική ένταση (ανέκαμψε)" },
+      message_to_client: { type: "string", description: "Σύντομο, ζεστό μήνυμα στον αθλούμενο (ελληνικά, 1-3 προτάσεις), χωρίς τεχνικούς όρους πέρα από UNTIL FAILURE." },
+      reasoning_for_trainer: { type: "string", description: "Γιατί αποφάσισες έτσι (για τον προπονητή)." },
+    },
+    required: ["decision", "message_to_client", "reasoning_for_trainer"],
+  },
+};
+// deno-lint-ignore no-explicit-any
+async function aiDecideRenewal(info: any): Promise<any> {
+  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  const heur = info.tired ? (info.sameAllowed ? "same_easier" : "next_easier") : (info.curOffset < 0 && !info.hasNext ? "same_restore" : "next");
+  if (!apiKey) return { decision: heur, message_to_client: "", reasoning_for_trainer: "Χωρίς AI — απλός κανόνας." };
+  const system = [
+    "Είσαι ο expert του TRANSFORMATION. Αποφασίζεις πώς συνεχίζει το πρόγραμμα ενός αθλούμενου που ζήτησε ανανέωση.",
+    "Κανόνες:",
+    "1. Κανονικά πηγαίνει στο ΕΠΟΜΕΝΟ πρόγραμμα της σειράς (decision=next).",
+    "2. Αν στις τελευταίες προπονήσεις δηλώνει κούραση/εξάντληση, κακό ύπνο, πόνο, ή σταμάτησε νωρίτερα από κούραση, μπορείς να τον κρατήσεις στο ΙΔΙΟ πρόγραμμα με UNTIL FAILURE μία μονάδα κάτω (same_easier), ή να πάει στο επόμενο με μία μονάδα κάτω (next_easier).",
+    "3. Αν ήδη είχε κατέβει ένταση (failure_offset < 0) και πλέον νιώθει καλά/με ενέργεια, μπορείς να τον γυρίσεις στην κανονική ένταση στο ίδιο πρόγραμμα (same_restore) ή να προχωρήσει στο επόμενο (next).",
+    "4. Αν δεν υπάρχουν στοιχεία κούρασης, προτίμησε next.",
+    info.cards ? `Οδηγίες του γυμναστηρίου:\n${info.cards}` : "",
+    "Απάντησε ΜΟΝΟ με το εργαλείο decide_renewal.",
+  ].filter(Boolean).join("\n");
+  const user = JSON.stringify({
+    current_program: info.curName, current_category: info.curSub, current_failure_offset: info.curOffset,
+    next_program: info.nextName ?? "(δεν υπάρχει επόμενο — τέλος σειράς)", target_category: info.targetSub,
+    allowed_decisions: info.allowed, customer_choice: info.choiceKey,
+    recent_checkins: info.checkins, recent_sessions: info.sessions,
+  }).slice(0, 20000);
+  try {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({ model: MODEL, max_tokens: 800, system, tools: [DECIDE_TOOL], tool_choice: { type: "auto" }, messages: [{ role: "user", content: user }] }),
+      });
+      if (!r.ok) { console.error("Anthropic decide error", r.status, await r.text()); break; }
+      const j = await r.json();
+      // deno-lint-ignore no-explicit-any
+      const out = (j.content ?? []).find((c: any) => c.type === "tool_use")?.input;
+      if (out?.decision && info.allowed.includes(out.decision)) return out;
+    }
+  } catch (e) { console.error("decide failed", e); }
+  return { decision: info.allowed.includes(heur) ? heur : info.allowed[0], message_to_client: "", reasoning_for_trainer: "Το AI δεν απάντησε — απλός κανόνας." };
 }
 // deno-lint-ignore no-explicit-any
 async function ruleRenewal(admin: any, code: string, choiceKey: string, ctx: any) {
@@ -704,19 +757,60 @@ async function ruleRenewal(admin: any, code: string, choiceKey: string, ctx: any
     }
   }
   if (!target) return null;
-  const record = templateToRecord(target, medicalCap(ctx));
+  // --- Κούραση: το AI διαλέγει επόμενο ή ίδιο πρόγραμμα, και αν κατεβαίνει/επανέρχεται το UNTIL FAILURE
+  const curOffset = Number(cur?.failureOffset ?? 0) || 0;
+  // deno-lint-ignore no-explicit-any
+  const checkins = (ctx?.recent_checkins ?? []).slice(0, 8);
+  const tiredWords = ["Αρκετά", "Πολύ", "Κουρασμένος", "Εξαντλημένος", "Άσχημα", "Πολύ δύσκολη", "Κούραση"];
+  // deno-lint-ignore no-explicit-any
+  const tired = checkins.slice(0, 3).some((c: any) => Object.values(c.answers ?? {}).some((v: any) => tiredWords.includes(String(v))));
+  const sameAllowed = !!curT && choiceKey === "next_level";
+  const allowed = sameAllowed ? ["next", "next_easier", "same_easier", ...(curOffset < 0 ? ["same_restore"] : [])] : ["next", "next_easier"];
+  const { data: sess } = await admin.from("workout_sessions").select("log_date, day_label, done_sets, total_sets, completed").eq("customer_code", code).order("log_date", { ascending: false }).limit(6);
+  const dec = await aiDecideRenewal({
+    curName: curT?.name ?? null, curSub, curOffset, nextName: lastOfLine ? null : target.name, hasNext: !lastOfLine, targetSub: target.sub_category || SUB_FULL,
+    allowed, choiceKey, checkins, sessions: sess ?? [], tired, sameAllowed, cards: ctx?.__cards ?? "",
+  });
+  let base = target; let offset = 0;
+  if (dec.decision === "next_easier") offset = -1;
+  if (dec.decision === "same_easier") { base = curT ?? target; offset = Math.max(-3, curOffset - 1); }
+  if (dec.decision === "same_restore") { base = curT ?? target; offset = 0; }
+  const record = templateToRecord(base, medicalCap(ctx), offset);
   const from = curT ? `«${curT.name}» (${curSub})` : "χωρίς τρέχον πρόγραμμα TRANSFORMATION";
-  const to = `«${target.name}» (${target.sub_category || SUB_FULL})`;
+  const to = `«${base.name}» (${base.sub_category || SUB_FULL})`;
+  const offTxt = offset < 0 ? ` · UNTIL FAILURE ${offset} μονάδα από το κανονικό` : (dec.decision === "same_restore" ? " · επιστροφή στην κανονική ένταση" : "");
+  const defaultMsg = dec.decision === "same_easier"
+    ? `Επειδή νιώθεις κούραση τελευταία, συνεχίζουμε με το ${to} λίγο πιο ελαφρύ (UNTIL FAILURE μία μονάδα κάτω), για να ανακάμψεις σωστά.`
+    : dec.decision === "same_restore" ? `Βλέπουμε ότι νιώθεις καλύτερα! Συνεχίζουμε με το ${to} στην κανονική του ένταση.`
+    : `Σου ετοιμάσαμε το επόμενο πρόγραμμα TRANSFORMATION: ${to}${offset < 0 ? " — λίγο πιο ελαφρύ στην αρχή (UNTIL FAILURE μία μονάδα κάτω)" : ""}.`;
   return {
-    record, lastOfLine,
-    message: lastOfLine && targetSub === curSub
-      ? `Είσαι ήδη στο τελευταίο πρόγραμμα αυτής της κατηγορίας. Σου ετοιμάσαμε ξανά το ${to}, και ο προπονητής σου θα σου πει πώς συνεχίζουμε.`
-      : `Σου ετοιμάσαμε το επόμενο πρόγραμμα TRANSFORMATION: ${to}.`,
-    reasoning: `Κανόνας ανανέωσης (οργανόγραμμα TRANSFORMATION): ${from} → ${to}. Επιλογή πελάτη: ${choiceKey}.` +
-      (lastOfLine ? " Το τρέχον ήταν το τελευταίο της γραμμής — έμεινε στο ίδιο επίπεδο." : "") +
+    record, lastOfLine: lastOfLine && base.id === curT?.id && dec.decision !== "same_easier" && dec.decision !== "same_restore",
+    message: String(dec.message_to_client || defaultMsg).slice(0, 1500),
+    reasoning: `Κανόνας ανανέωσης (οργανόγραμμα TRANSFORMATION): ${from} → ${to}${offTxt}. Επιλογή πελάτη: ${choiceKey}. Απόφαση AI: ${dec.decision}.` +
+      (dec.reasoning_for_trainer ? ` ${String(dec.reasoning_for_trainer).slice(0, 1200)}` : "") +
+      (lastOfLine ? " Το τρέχον ήταν το τελευταίο της γραμμής." : "") +
       (choiceKey !== "next_level" && targetSub === curSub ? " Δεν υπάρχει κατάλληλη κατηγορία έμφασης — έμεινε στην ίδια." : "") +
       (medicalCap(ctx) ? " Ιατρικό: UNTIL FAILURE -3 και tempo 1-2-1." : ""),
   };
+}
+// Εφαρμογή των προτάσεων που έφτασε η ώρα τους (για τον συγκεκριμένο πελάτη)
+// deno-lint-ignore no-explicit-any
+async function claimDue(admin: any, code: string, userId: string) {
+  const { data: due } = await admin.from("ai_proposals").select("id, proposal, customer_code")
+    .eq("customer_code", code).eq("status", "pending").not("auto_apply_at", "is", null).lte("auto_apply_at", new Date().toISOString());
+  let applied = 0;
+  for (const p of due ?? []) {
+    const lock = await admin.from("ai_proposals").update({ status: "auto_applied", decided_at: new Date().toISOString() })
+      .eq("id", p.id).eq("status", "pending").select("id");
+    if (!lock.data?.length) continue;
+    const { data: prog, error } = await admin.from("programs").insert({ customer_code: code, created_by: userId, days: p.proposal }).select("id").single();
+    if (error) { console.error("claim insert failed", error); await admin.from("ai_proposals").update({ status: "pending", decided_at: null }).eq("id", p.id); continue; }
+    await admin.from("ai_proposals").update({ applied_program_id: String(prog.id) }).eq("id", p.id);
+    // το νέο πρόγραμμα γίνεται «Το πρόγραμμά μου»
+    await admin.from("client_profiles").upsert({ customer_code: code, my_program_id: String(prog.id), updated_at: new Date().toISOString() }, { onConflict: "customer_code" });
+    applied++;
+  }
+  return applied;
 }
 
 Deno.serve(async (req) => {
@@ -733,6 +827,11 @@ Deno.serve(async (req) => {
   let body: any;
   try { body = await req.json(); } catch { return fail(400, "bad_request", "Μη έγκυρο αίτημα."); }
   const action = body?.action;
+  if (action === "claim") {
+    const { data: custC } = await admin.from("customers").select("code").eq("claimed_by", user.id).maybeSingle();
+    if (!custC?.code) return json({ applied: 0 });
+    return json({ applied: await claimDue(admin, custC.code, user.id) });
+  }
   const buttonKey = String(body?.button_key ?? "");
   const note = String(body?.note ?? "").slice(0, 600);
   // Η επιλογή από τη λίστα της ανανέωσης (π.χ. «Θέλω να πάω σε επόμενο επίπεδο») — προαιρετική
@@ -776,7 +875,17 @@ Deno.serve(async (req) => {
   // --- Ανανέωση με κανόνα (οργανόγραμμα / σειρά προγραμμάτων TRANSFORMATION) — χωρίς AI
   if (buttonKey === "program_renewal" && customerCode) {
     const ctxR = await customerContext(admin, customerCode);
+    {
+      const { data: pv } = await admin.from("ai_rule_versions").select("id").eq("app", APP).eq("status", "published").maybeSingle();
+      if (pv?.id) {
+        const { data: cr } = await admin.from("ai_rule_cards").select("title, body, kind, button_key").eq("version_id", pv.id).eq("active", true).order("sort");
+        // deno-lint-ignore no-explicit-any
+        (ctxR as any).__cards = (cr ?? []).filter((c: any) => c.kind === "button" && c.button_key === "program_renewal").map((c: any) => `${c.title}: ${c.body}`).join("\n").slice(0, 4000);
+      }
+    }
     const rr = await ruleRenewal(admin, customerCode, choiceKey, ctxR);
+    // deno-lint-ignore no-explicit-any
+    delete (ctxR as any).__cards;
     if (rr) {
       const { data: pubV } = await admin.from("ai_rule_versions").select("id, version_no").eq("app", APP).eq("status", "published").maybeSingle();
       // deno-lint-ignore no-explicit-any
@@ -784,22 +893,20 @@ Deno.serve(async (req) => {
       const sensitiveR = docW || rr.lastOfLine;
       const reasonR = [docW ? "Ο καρδιολόγος δεν επιτρέπει βάρη." : "", rr.lastOfLine ? "Τέλος της σειράς προγραμμάτων." : ""].filter(Boolean).join(" ");
       if (isSim) return json({ version_no: pubV?.version_no ?? null, used_draft: false, sensitive: sensitiveR, sensitive_reason: reasonR, message_to_client: rr.message, reasoning: rr.reasoning, program: rr.record, warnings: [], would_status: (sensitiveR || s.approval_program !== false) ? "pending" : "auto_applied", rule: true });
-      const needs = sensitiveR || s.approval_program !== false;
-      let st = needs ? "pending" : "auto_applied"; let pid: string | null = null;
-      if (!needs) {
-        const { data: prog, error: pErr } = await admin.from("programs").insert({ customer_code: customerCode, created_by: user.id, days: rr.record }).select("id").single();
-        if (pErr) { console.error("program insert failed", pErr); st = "pending"; } else pid = String(prog.id);
-      }
+      // εμφανίζεται μόνο του μετά από λίγο (εκτός από τα ευαίσθητα, που τα εγκρίνει ο owner)
+      const delay = Math.max(0, Number(s.auto_apply_seconds ?? 20));
+      const st = "pending"; const pid: string | null = null;
+      const autoAt = sensitiveR ? null : new Date(Date.now() + delay * 1000).toISOString();
       const { data: prop, error: propErr } = await admin.from("ai_proposals").insert({
         app: APP, customer_code: customerCode, user_id: user.id, button_key: buttonKey, status: st,
         version_id: pubV?.id ?? null, version_no: pubV?.version_no ?? null, used_draft: false,
         sensitive: sensitiveR, sensitive_reason: reasonR || null, request_note: [choice ? `[${choice}]` : "", note].filter(Boolean).join(" ") || null,
         message_to_client: rr.message, reasoning: rr.reasoning, proposal: rr.record, applied_program_id: pid,
-        decided_at: st === "auto_applied" ? new Date().toISOString() : null,
+        decided_at: null, auto_apply_at: autoAt,
       }).select("id").single();
       if (propErr) console.error("proposal insert failed", propErr);
-      return json({ status: st, proposal_id: prop?.id ?? null, sensitive: sensitiveR,
-        message: st === "auto_applied" ? rr.message : "Το νέο σου πρόγραμμα ετοιμάστηκε! Ο προπονητής σου θα το ελέγξει και θα εμφανιστεί στα προγράμματά σου." });
+      return json({ status: st, proposal_id: prop?.id ?? null, sensitive: sensitiveR, apply_in: autoAt ? delay : null,
+        message: autoAt ? "Το νέο σου πρόγραμμα ετοιμάζεται και θα εμφανιστεί σε λίγο." : "Το νέο σου πρόγραμμα ετοιμάστηκε! Ο προπονητής σου θα το ελέγξει και θα εμφανιστεί στα προγράμματά σου." });
     }
   }
 

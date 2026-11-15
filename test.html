@@ -8807,18 +8807,40 @@ function aiRenewalOptions(gender){
 async function aiClientLoadLatest(){
   if(!auth.user) return;
   const uid = auth.user.id;
-  const { data, error } = await sb.from('ai_proposals').select('id, status, created_at, decided_at, message_to_client, decision_note')
+  const { data, error } = await sb.from('ai_proposals').select('id, status, created_at, decided_at, message_to_client, decision_note, auto_apply_at')
     .eq('user_id', uid).eq('button_key', 'program_renewal').order('created_at', { ascending:false }).limit(1);
   if(!auth.user || auth.user.id !== uid) return;
   aiClient.latest = error ? null : ((data||[])[0] || null);
   aiClient.loadedFor = uid;
+  aiClientScheduleClaim();
+}
+// Η ανανέωση εμφανίζεται μόνη της: όταν έρθει η ώρα, ζητάμε από τον διακομιστή να την εφαρμόσει
+function aiClientScheduleClaim(){
+  const l = aiClient.latest;
+  if(!l || l.status!=='pending' || !l.auto_apply_at || auth.status!=='client') return;
+  const wait = Math.max(0, new Date(l.auto_apply_at) - Date.now()) + 1200;
+  clearTimeout(aiClient.claimTimer);
+  aiClient.claimTimer = setTimeout(async ()=>{
+    try{
+      const { data } = await sb.functions.invoke('ai-assistant', { body: { action:'claim' } });
+      if(data && data.applied){
+        state.selectedCustomerPrograms = (await loadProgramsFor(auth.customer.code)).sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
+        if(typeof cprofLoad==='function'){ cprof.loadedFor = null; await cprofLoad(true); }
+        await aiClientLoadLatest();
+        toast('✨ Το νέο σου πρόγραμμα είναι έτοιμο!', 4500);
+        if(document.getElementById('client-content') && !document.getElementById('setBox')) renderClientMain();
+      } else if(aiClient.latest && aiClient.latest.status==='pending'){ setTimeout(aiClientLoadLatest, 15000); }
+    }catch(e){ console.warn('claim', e); }
+  }, wait);
 }
 function renderAiClientPanel(){
   if(!auth.customer) return '';
   const l = aiClient.latest;
   const recent = l && (Date.now() - new Date(l.decided_at || l.created_at)) < 14*864e5;
   let status = '';
-  if(l && l.status==='pending') status = `<div class="air-cl-st">⏳ Το νέο σου πρόγραμμα ετοιμάστηκε και το ελέγχει ο προπονητής σου. Θα εμφανιστεί εδώ μόλις εγκριθεί.</div>`;
+  if(l && l.status==='pending') status = l.auto_apply_at
+    ? `<div class="air-cl-st">⏳ Το νέο σου πρόγραμμα ετοιμάζεται και θα εμφανιστεί εδώ σε λίγο.</div>`
+    : `<div class="air-cl-st">⏳ Το νέο σου πρόγραμμα ετοιμάστηκε και το ελέγχει ο προπονητής σου. Θα εμφανιστεί εδώ μόλις εγκριθεί.</div>`;
   else if(l && recent && (l.status==='approved' || l.status==='auto_applied')) status = `<div class="air-cl-st ok">✅ Νέο πρόγραμμα! ${escHtml(l.message_to_client||'')}</div>`;
   else if(l && recent && l.status==='rejected') status = `<div class="air-cl-st bad">Ο προπονητής σου δεν ενέκρινε την ανανέωση${l.decision_note?`: «${escHtml(l.decision_note)}»`:'.'}</div>`;
   const pending = l && l.status==='pending';
@@ -8862,7 +8884,7 @@ function bindAiClientEvents(){
       if(res && res.status==='auto_applied'){
         state.selectedCustomerPrograms = (await loadProgramsFor(auth.customer.code)).sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
       }
-      toast(res && res.status==='auto_applied' ? 'Το νέο σου πρόγραμμα είναι έτοιμο!' : 'Το αίτημα στάλθηκε!', 3500);
+      toast(res && res.status==='auto_applied' ? 'Το νέο σου πρόγραμμα είναι έτοιμο!' : (res && res.apply_in!=null ? 'Το νέο σου πρόγραμμα ετοιμάζεται και θα εμφανιστεί σε λίγο!' : 'Το αίτημα στάλθηκε!'), 3500);
     }catch(err){ toast(err.message || 'Σφάλμα.', 4500); }
     aiClient.busy = false;
     await aiClientLoadLatest();
