@@ -5479,13 +5479,21 @@ function openWorkoutMode(ex, returnFn){
   if(logCode && !state.skipDoneTodayCheck) checkExerciseAlreadyDoneToday(logCode, ex.exercise);
   if(isFreshOpen){
     const primaryEq = (ex.equipment && ex.equipment[0]) || null;
-    state.instructionsModalOpen = true;   // πρώτα οι οδηγίες
-    state.calAltAfterInstr = !!(primaryEq && primaryEq.calcType === 'CALALT_2_5');
-    renderModal();
+    // οι οδηγίες ανοίγουν ΜΟΝΟ με το κόκκινο κουμπί «ΟΔΗΓΙΕΣ ΕΚΤΕΛΕΣΗΣ ΠΡΩΤΟΥ SET»
+    if(primaryEq && primaryEq.calcType === 'CALALT_2_5'){ state.calAltWarningModalOpen = true; renderModal(); }
   }
 }
 async function checkExerciseAlreadyDoneToday(customerCode, exerciseName){
   if(!customerCode || !exerciseName) return;
+  const c = state.workoutNextCtx;
+  if(c && c.src==='client'){
+    const ses = await sessLoad(c);
+    if(ses){
+      const it = (wnProgram(c)||{items:()=>[]}).items(c.dayIndex)[c.itemIndex];
+      const n = it ? Math.max(1, parseInt(it.set,10)||1) : 1;
+      if((Number(ses.progress[c.itemIndex])||0) < n) return;   // δεν έχει τελειώσει ακόμα — όχι «έχει ήδη γίνει»
+    }
+  }
   const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
   const { data, error } = await sb.from('workout_logs').select('id')
     .eq('customer_code', customerCode).eq('exercise', exerciseName)
@@ -5587,19 +5595,7 @@ function startProgAnswer(yes){
   if(m.kind==='resume'){ state.startProgModal = { ...m, kind:'resumeOpen' }; renderModal(); return; }
   renderModal();
   const rec = m.p.record, cardioOnly = rec.subtype==='cardio';
-  if(m.kind==='resumeOpen'){
-    const it = m.resume.item;
-    state.clientNav = { ...state.clientNav, view:'exercise', programId:m.p.id, dayIndex:m.dayIndex, itemIndex:m.resume.index };
-    if(it.type==='cardio'){ renderClientMain(); window.scrollTo(0,0); return; }
-    state.workoutLogContext = { customerCode: auth.customer ? auth.customer.code : null, programName: getProgramNameForRecord(rec) };
-    state.workoutNextCtx = { src:'client', programId:m.p.id, dayIndex:m.dayIndex, itemIndex:m.resume.index };
-    state.skipDoneTodayCheck = true;
-    openWorkoutMode(it, rebuildClientDashboardShell);
-    state.skipDoneTodayCheck = false;
-    timerState.nextSet = m.resume.setN; timerState.lastAdvanceSource = null; timerState.recordedSets = m.resume.setN-1;
-    updateWorkoutTimerUI();
-    return;
-  }
+  if(m.kind==='resumeOpen'){ clientResumeAt(m.p, m.dayIndex, m.resume.index, m.resume.setN || 1); return; }
   state.clientNav = { ...state.clientNav, view:'exercise', programId:m.p.id, dayIndex: cardioOnly ? 0 : m.dayIndex, itemIndex:0 };
   renderClientMain(); window.scrollTo(0,0);
 }
@@ -5624,8 +5620,9 @@ function workoutOpenNext(){
   if(timerState.interval){ clearInterval(timerState.interval); timerState.interval = null; }
   timerState.running = false; if(typeof stopTimerDecimalTicker==='function') stopTimerDecimalTicker();
   if(c.src==='client'){
-    state.clientNav = { ...state.clientNav, view:'exercise', programId:c.programId, dayIndex:n.dayIndex, itemIndex:n.index };
-    if(document.getElementById('client-content') && !document.getElementById('setBox')) renderClientMain(); else rebuildClientDashboardShell();
+    state.clientNav = { ...state.clientNav, programId:c.programId, dayIndex:n.dayIndex };
+    clientGoToExercise(n.index, { cardio:true, prev: !!n.skipPrev });
+    return;
   } else {
     state.tplLibNav = { ...state.tplLibNav, view:'exercise', programId:c.programId, dayIndex:n.dayIndex, itemIndex:n.index };
     if(document.getElementById('client-content') && !document.getElementById('setBox')) renderTplLibMain(); else returnFromWorkoutTplLib();
@@ -5681,6 +5678,72 @@ async function cardioAnswer(done){
   else renderModal();
   sessRefreshCompletion();
 }
+// Σημερινή πρόοδος για ημέρα προγράμματος (από τη μνήμη ή τη βάση)
+async function sessLoad(c){
+  const code = auth.status==='client' && auth.customer ? auth.customer.code : null;
+  if(!code || !c || c.src!=='client') return null;
+  state.sessCache = state.sessCache || {};
+  const k = sessKey(c);
+  if(state.sessCache[k]) return state.sessCache[k];
+  const { data } = await sb.from('workout_sessions').select('progress').eq('customer_code', code).eq('program_id', c.programId)
+    .eq('day_index', c.dayIndex).eq('log_date', athensDateStr()).limit(1);
+  const row = (data||[])[0];
+  if(!row) return null;
+  state.sessCache[k] = { progress: { ...(row.progress||{}) } };
+  return state.sessCache[k];
+}
+// Μετάβαση σε άσκηση της ημέρας με έλεγχους: (α) η προηγούμενη άσκηση έμεινε με set, (β) αερόβιο ακριβώς πριν
+async function clientGoToExercise(idx, skip){
+  skip = skip || {};
+  if(!skip.prev && await clientPrevIncompleteAsk(idx, skip)) return;
+  if(!skip.cardio && await clientAskCardioBefore(idx)) return;
+  clientNavigateToItem(idx);
+}
+function clientNavigateToItem(idx){
+  if(timerState.interval){ clearInterval(timerState.interval); timerState.interval = null; }
+  timerState.running = false; if(typeof stopTimerDecimalTicker==='function') stopTimerDecimalTicker();
+  state.clientNav = { ...state.clientNav, view:'exercise', itemIndex: idx };
+  if(document.getElementById('setBox') || !document.getElementById('client-content')) rebuildClientDashboardShell(); else renderClientMain();
+  window.scrollTo(0,0);
+}
+async function clientPrevIncompleteAsk(idx, skip){
+  const nav = state.clientNav;
+  const c = { src:'client', programId: nav.programId, dayIndex: nav.dayIndex, itemIndex: idx };
+  const P = wnProgram(c); if(!P) return false;
+  const items = P.items(nav.dayIndex);
+  let pi = idx-1; while(pi>=0 && items[pi].type==='cardio') pi--;
+  if(pi < 0) return false;
+  const ses = await sessLoad(c); if(!ses) return false;   // σήμερα δεν έχει ξεκινήσει αυτή η ημέρα
+  const prev = items[pi], n = Math.max(1, parseInt(prev.set,10)||1), d = Number(ses.progress[pi])||0;
+  if(d >= n) return false;
+  const left = n - d;
+  state.choiceModal = { icon:'⏸️', color:'#ffb648', title:'ΥΠΟΛΕΙΠΟΝΤΑΙ SET',
+    html: `<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:12px;">Από την προηγούμενη άσκηση υπολείπονται <b>${left} ${left===1?'set':'set'}</b> (έγιναν ${d} από ${n}).</p>
+      <div style="padding:12px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(3,11,18,.6);margin-bottom:14px;">
+        <div style="font-size:11px;letter-spacing:1.5px;color:var(--cyan-soft);margin-bottom:4px;">ΠΡΟΗΓΟΥΜΕΝΗ — ${escHtml(prev.groupLabel||'')}</div>
+        <div style="font-size:15px;font-weight:600;color:#fff;">${escHtml(prev.exercise||'')}</div>
+      </div>
+      <p style="font-size:14px;color:#eefcff;margin-bottom:14px;">Θες να σου ανοίξω την προηγούμενη άσκηση για να τα εκτελέσεις, ή να μεταβούμε στην επόμενη;</p>`,
+    yes: { label:'ΑΝΟΙΓΜΑ ΠΡΟΗΓΟΥΜΕΝΗΣ', fn: ()=>{ const p = state.selectedCustomerPrograms.find(x=>x.id===nav.programId); if(p) clientResumeAt(p, nav.dayIndex, pi, d+1); } },
+    no:  { label:'ΣΤΗΝ ΕΠΟΜΕΝΗ', fn: ()=>clientGoToExercise(idx, { ...skip, prev:true }) } };
+  renderModal();
+  return true;
+}
+// Άνοιγμα προπόνησης άσκησης από συγκεκριμένο set
+function clientResumeAt(p, dayIndex, idx, setN){
+  const it = getClientDayItems(p.record, dayIndex)[idx]; if(!it) return;
+  if(timerState.interval){ clearInterval(timerState.interval); timerState.interval = null; }
+  state.clientNav = { ...state.clientNav, view:'exercise', programId:p.id, dayIndex, itemIndex:idx };
+  if(it.type==='cardio'){ if(document.getElementById('setBox')) rebuildClientDashboardShell(); else renderClientMain(); window.scrollTo(0,0); return; }
+  state.workoutLogContext = { customerCode: auth.customer ? auth.customer.code : null, programName: getProgramNameForRecord(p.record) };
+  state.workoutNextCtx = { src:'client', programId:p.id, dayIndex, itemIndex:idx };
+  timerState.exerciseKey = null;   // νέο ξεκίνημα της άσκησης
+  state.skipDoneTodayCheck = setN > 1;
+  openWorkoutMode(it, rebuildClientDashboardShell);
+  state.skipDoneTodayCheck = false;
+  timerState.nextSet = setN; timerState.lastAdvanceSource = null; timerState.recordedSets = setN-1;
+  updateWorkoutTimerUI();
+}
 // Άνοιγμα άσκησης με βάρη που έχει ακριβώς πριν αερόβιο (μη δηλωμένο σήμερα): πρώτα «έκανες το αερόβιο;»
 async function clientAskCardioBefore(idx){
   const nav = state.clientNav;
@@ -5693,7 +5756,7 @@ async function clientAskCardioBefore(idx){
   if(await cardioDoneToday(code, cardioKey(P.name, P.label(nav.dayIndex), idx-1, prev.equipment||'ΑΕΡΟΒΙΟ'))) return false;
   state.workoutNextCtx = c;
   state.cardioAskModal = { item: prev, slot: idx-1, programName: P.name, dayLabel: P.label(nav.dayIndex), before: true,
-    next: { dayIndex: nav.dayIndex, index: idx, item: it, ...wnDescribe(it) } };
+    next: { dayIndex: nav.dayIndex, index: idx, item: it, skipPrev: true, ...wnDescribe(it) } };
   renderModal();
   return true;
 }
@@ -6067,7 +6130,7 @@ function renderWorkoutPage(){
       <div class="sub" style="margin-bottom:0;text-transform:uppercase;">${escHtml(ex.groupLabel||'')} · SET ${ex.set} · REP ${escHtml(String(ex.rep))}</div>
 
       <div style="text-align:center;margin-top:16px;">
-        <button class="btn btn-outline" id="timerInstructionsBtn" style="border:2px solid var(--cyan);margin-bottom:10px;display:inline-flex;">ΟΔΗΓΙΕΣ</button>
+        <button class="btn btn-critical" id="timerInstructionsBtn" style="margin-bottom:10px;display:inline-flex;">ΟΔΗΓΙΕΣ ΕΚΤΕΛΕΣΗΣ ΠΡΩΤΟΥ SET</button>
         <br>
         <div id="setBox" class="timer-set-box ${setBoxContent.cls}">${setBoxContent.html}</div>
         <div id="timerRing" class="timer-ring" style="--progress:${progress}">
@@ -6248,7 +6311,7 @@ function renderModal(){
       <div class="modal-overlay" id="instructions-overlay">
         <div class="modal" style="max-width:440px;max-height:88vh;overflow-y:auto;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
-            <h2 style="font-size:18px;margin:0;letter-spacing:1.5px;">ΟΔΗΓΙΕΣ</h2>
+            <h2 style="font-size:17px;margin:0;letter-spacing:1.2px;">ΟΔΗΓΙΕΣ ΕΚΤΕΛΕΣΗΣ ΠΡΩΤΟΥ SET</h2>
             <button id="instructions-close-x" style="background:none;border:none;color:var(--ink-soft);font-size:20px;cursor:pointer;line-height:1;padding:4px;">✕</button>
           </div>
           <ol class="wk-instr">
@@ -6482,6 +6545,24 @@ function renderModal(){
     document.getElementById('firstsetinfo-overlay')?.addEventListener('click', (e)=>{ if(e.target.id==='firstsetinfo-overlay'){ state.firstSetInfoModalOpen=false; renderModal(); } });
     return;
   }
+  if(state.choiceModal){
+    const m = state.choiceModal;
+    root.innerHTML = `<div class="modal-overlay"><div class="modal" style="max-width:420px;text-align:center;">
+      <div style="font-size:38px;margin-bottom:6px;">${m.icon||'❔'}</div>
+      <h2 style="font-size:18px;margin-bottom:10px;color:${m.color||'var(--cyan-soft)'};">${escHtml(m.title||'')}</h2>
+      ${m.html||''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <button class="btn btn-primary" style="justify-content:center;font-size:12.5px;" id="choice-yes">${escHtml(m.yes.label)}</button>
+        <button class="btn btn-outline" style="justify-content:center;font-size:12.5px;" id="choice-no">${escHtml(m.no.label)}</button>
+      </div>
+      <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;font-size:12px;" id="choice-cancel">Άκυρο</button>
+    </div></div>`;
+    const done = fn=>{ state.choiceModal = null; renderModal(); fn && fn(); };
+    document.getElementById('choice-yes').addEventListener('click', ()=>done(m.yes.fn));
+    document.getElementById('choice-no').addEventListener('click', ()=>done(m.no.fn));
+    document.getElementById('choice-cancel').addEventListener('click', ()=>done(null));
+    return;
+  }
   if(state.dayDoneModal){
     root.innerHTML = `
       <div class="modal-overlay"><div class="modal" style="max-width:400px;text-align:center;">
@@ -6586,10 +6667,20 @@ function renderModal(){
           <h2 style="font-size:19px;margin-bottom:14px;color:#ffc465;">Η άσκηση αυτή έχει ήδη πραγματοποιηθεί σήμερα</h2>
           <p style="font-size:11.5px;color:var(--ink-soft);font-style:italic;margin-bottom:18px;">This exercise has already been performed today</p>
           <p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:6px;">Το σωστό είναι να συνεχίσεις με την επόμενη άσκηση - Μυϊκή ομάδα.</p>
-          <p style="font-size:12px;line-height:1.6;color:var(--ink-soft);font-style:italic;margin-bottom:22px;">The right thing to do is to continue with the next exercise - Muscle group.</p>
-          <button class="btn btn-primary" style="width:100%;justify-content:center;" id="alreadydone-close-btn">Κατάλαβα</button>
+          <p style="font-size:12px;line-height:1.6;color:var(--ink-soft);font-style:italic;margin-bottom:16px;">The right thing to do is to continue with the next exercise - Muscle group.</p>
+          ${(()=>{ const n = workoutNextInfo(); state.alreadyDoneNext = (n && !n.none) ? n : null; return state.alreadyDoneNext ? `
+          <div style="padding:12px;border-radius:12px;border:1px solid ${n.item.type==='cardio'?'#39ff88':'var(--line-strong)'};background:rgba(3,11,18,.6);margin-bottom:14px;">
+            <div style="font-size:11px;letter-spacing:1.5px;color:var(--cyan-soft);margin-bottom:4px;">ΕΠΟΜΕΝΗ — ${escHtml(n.group)}</div>
+            <div style="font-size:15px;font-weight:600;color:#fff;">${escHtml(n.name)}</div>
+          </div>
+          <p style="font-size:14px;color:#eefcff;margin-bottom:14px;">Θες να σου ανοίξω την επόμενη άσκηση;</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <button class="btn btn-primary" style="justify-content:center;" id="alreadydone-next">ΝΑΙ</button>
+            <button class="btn btn-outline" style="justify-content:center;" id="alreadydone-close-btn">ΟΧΙ</button>
+          </div>` : `<button class="btn btn-primary" style="width:100%;justify-content:center;" id="alreadydone-close-btn">Κατάλαβα</button>`; })()}
         </div>
       </div>`;
+    document.getElementById('alreadydone-next')?.addEventListener('click', ()=>{ state.alreadyDoneTodayModalOpen=false; state.nextExerciseModal = state.alreadyDoneNext; workoutOpenNext(); });
     document.getElementById('alreadydone-close-btn')?.addEventListener('click', ()=>{ state.alreadyDoneTodayModalOpen=false; renderModal(); });
     document.getElementById('alreadydone-overlay')?.addEventListener('click', (e)=>{ if(e.target.id==='alreadydone-overlay'){ state.alreadyDoneTodayModalOpen=false; renderModal(); } });
     return;
@@ -9568,11 +9659,7 @@ function bindClientNavEvents(){
   });
   document.querySelectorAll('[data-open-item]').forEach(el=>{
     el.addEventListener('click', async ()=>{
-      const idx = parseInt(el.getAttribute('data-open-item'));
-      if(await clientAskCardioBefore(idx)) return;
-      state.clientNav.view = 'exercise';
-      state.clientNav.itemIndex = idx;
-      renderClientMain();
+      clientGoToExercise(parseInt(el.getAttribute('data-open-item')));
     });
   });
   document.querySelectorAll('[data-client-back]').forEach(el=>{
