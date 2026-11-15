@@ -380,7 +380,7 @@ function toProgramRecord(p: any, cat: Catalog, versionNo: number) {
 // ---------------------------------------------------------------------
 // deno-lint-ignore no-explicit-any
 async function customerContext(admin: any, code: string) {
-  const [{ data: cust }, { data: progs }, { data: logs }, { data: props }, { data: prof }, { data: weights }] = await Promise.all([
+  const [{ data: cust }, { data: progs }, { data: logs }, { data: props }, { data: prof }, { data: weights }, { data: checkins }] = await Promise.all([
     admin.from("customers").select("name, dob, created_at").eq("code", code).maybeSingle(),
     admin.from("programs").select("created_at, days").eq("customer_code", code).order("created_at", { ascending: false }).limit(3),
     admin.from("workout_logs").select("created_at, exercise, kg, reps, set_number, failure_quality")
@@ -390,6 +390,7 @@ async function customerContext(admin: any, code: string) {
       .order("created_at", { ascending: false }).limit(3),
     admin.from("client_profiles").select("gender, goal, age, height_cm, weight_kg, body_fat_pct").eq("customer_code", code).maybeSingle(),
     admin.from("weight_logs").select("log_date, weight_kg").eq("customer_code", code).order("log_date", { ascending: false }).limit(10),
+    admin.from("workout_checkins").select("log_date, kind, day_label, answers").eq("customer_code", code).order("created_at", { ascending: false }).limit(12),
   ]);
   let age: number | null = prof?.age ?? null;
   if (age == null && cust?.dob) { const b = new Date(cust.dob); if (!isNaN(+b)) age = Math.floor((Date.now() - +b) / (365.25 * 864e5)); }
@@ -436,6 +437,9 @@ async function customerContext(admin: any, code: string) {
     height_cm: prof?.height_cm ?? null, weight_kg: prof?.weight_kg ?? null, body_fat_pct: prof?.body_fat_pct ?? null,
     // deno-lint-ignore no-explicit-any
     recent_weights: (weights ?? []).map((w: any) => `${w.log_date}: ${w.weight_kg} kg`),
+    // Απαντήσεις του αθλούμενου πριν (pre) / μετά (post) την προπόνηση — πώς νιώθει, κούραση, πόνοι, αξιολόγηση
+    // deno-lint-ignore no-explicit-any
+    recent_checkins: (checkins ?? []).map((c: any) => ({ date: c.log_date, when: c.kind === "pre" ? "πριν" : "μετά", day: c.day_label ?? null, answers: c.answers })),
     member_since: cust?.created_at ? String(cust.created_at).slice(0, 10) : null,
     last_programs: programs,
     training_last_8_weeks: {

@@ -861,6 +861,12 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .cb-start .home-tile-t{font-family:'Commissioner','Rajdhani',sans-serif;font-weight:400;font-size:14.5px;letter-spacing:2px;text-transform:uppercase;line-height:1.3;}
 .cb-start .home-tile-s{font-size:12.5px;color:var(--ink-soft);line-height:1.4;}
 .auth-tabs.client-tabs #client-mode-build{font-family:'Commissioner','Rajdhani',sans-serif;font-weight:400;letter-spacing:1px;}
+.end-workout-btn{width:100%;justify-content:center;min-height:52px;margin-top:12px;border-color:rgba(255,92,92,.6);color:#ff9c9c;font-family:'Commissioner','Rajdhani',sans-serif;font-weight:500;letter-spacing:2px;}
+.ck-q{margin-bottom:14px;}
+.ck-t{font-size:13.5px;font-weight:600;color:#eefcff;margin-bottom:7px;}
+.ck-opts{display:flex;flex-wrap:wrap;gap:6px;}
+.ck-opt{padding:7px 12px;border-radius:999px;border:1px solid var(--line-strong);background:rgba(3,11,18,.55);color:var(--ink);font-family:inherit;font-size:12.5px;cursor:pointer;}
+.ck-opt.on{border-color:var(--cyan);background:rgba(61,216,255,.16);color:var(--cyan-soft);font-weight:700;}
 .hand-badge{display:block;margin:6px auto 0;width:max-content;padding:4px 16px;border-radius:999px;background:rgba(3,11,18,.82);border:1.5px solid var(--cyan);color:#fff;font-size:14px;font-weight:800;letter-spacing:2px;}
 .hand-badge.b{border-color:#fff;color:#ffd23f;animation:handPulse 1.2s ease-in-out infinite;}
 @keyframes handPulse{0%,100%{box-shadow:0 0 0 rgba(255,159,26,0);}50%{box-shadow:0 0 14px rgba(255,159,26,.6);}}
@@ -5575,9 +5581,47 @@ function sessRecordSet(){
   sessSave(c, prog=>{ prog[c.itemIndex] = Math.max(Number(prog[c.itemIndex])||0, doneSets); });
 }
 function sessRefreshCompletion(){ const c = state.workoutNextCtx; if(c && c.src==='client') sessSave(c, null); }
+/* Ερωτήσεις του expert (πριν) και αξιολόγηση (μετά) — αλλάζουν εδώ */
+const CHECKIN_PRE = [
+  { k:'feeling',  q:'Πώς νιώθεις σήμερα;', opts:['Πολύ καλά','Καλά','Μέτρια','Άσχημα'] },
+  { k:'tired',    q:'Νιώθεις κουρασμένος;', opts:['Καθόλου','Λίγο','Αρκετά','Πολύ'] },
+  { k:'energy',   q:'Πώς ένιωσες μετά την προηγούμενη προπόνηση;', opts:['Γεμάτος ενέργεια','Κανονικά','Κουρασμένος','Εξαντλημένος'] },
+  { k:'sore',     q:'Έχεις πιασίματα από την προηγούμενη προπόνηση;', opts:['Όχι','Λίγο','Πολύ'] },
+  { k:'pain',     q:'Νιώθεις κάποιο πόνο στο σώμα;', opts:['Όχι','Ναι'] },
+  { k:'pain_where', q:'Πού;', multi:true, showIf:a=>a.pain==='Ναι', opts:['Αυχένας','Ώμος','Αγκώνας','Καρπός','Πλάτη / Μέση','Ισχίο','Γόνατο','Αστράγαλος','Άλλο'] },
+  { k:'sleep',    q:'Πώς κοιμήθηκες;', opts:['Καλά','Μέτρια','Άσχημα'] },
+];
+const CHECKIN_POST = [
+  { k:'why_stop', q:'Γιατί σταμάτησες νωρίτερα;', showIf:(a,ctx)=>ctx && ctx.stopped, opts:['Κούραση','Πόνος','Δεν είχα χρόνο','Άλλο'] },
+  { k:'difficulty', q:'Πόσο δύσκολη ήταν η προπόνηση;', opts:['Εύκολη','Κανονική','Δύσκολη','Πολύ δύσκολη'] },
+  { k:'feeling_after', q:'Πώς νιώθεις τώρα;', opts:['Πολύ καλά','Καλά','Κουρασμένος','Εξαντλημένος'] },
+  { k:'pain', q:'Ένιωσες πόνο κατά την προπόνηση;', opts:['Όχι','Ναι'] },
+  { k:'pain_where', q:'Πού;', multi:true, showIf:a=>a.pain==='Ναι', opts:['Αυχένας','Ώμος','Αγκώνας','Καρπός','Πλάτη / Μέση','Ισχίο','Γόνατο','Αστράγαλος','Άλλο'] },
+  { k:'enjoy', q:'Σου άρεσε η σημερινή προπόνηση;', opts:['Πολύ','Αρκετά','Λίγο','Καθόλου'] },
+];
+async function checkinExists(code, programId, kind){
+  const { data } = await sb.from('workout_checkins').select('id').eq('customer_code', code).eq('program_id', programId||'').eq('log_date', athensDateStr()).eq('kind', kind).limit(1);
+  return !!(data && data.length);
+}
+async function checkinSave(row){
+  const { error } = await sb.from('workout_checkins').upsert({ ...row, log_date: athensDateStr() }, { onConflict: 'customer_code,program_id,log_date,kind' });
+  if(error) console.error('workout_checkins', error);
+  return !error;
+}
+function openCheckin(kind, ctx, after){
+  state.checkinModal = { kind, ctx: ctx||{}, answers:{}, after };
+  renderModal();
+}
 // «ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ ΓΥΜΝΑΣΤΙΚΗΣ»: ποια ημέρα σειρά — ή συνέχεια από το επόμενο set
-async function startProgramFlow(p){
+async function startProgramFlow(p, skipExpert){
   const code = auth.customer && auth.customer.code; if(!code) return;
+  if(!skipExpert && !(await checkinExists(code, p.id, 'pre'))){
+    state.choiceModal = { icon:'🧑‍🏫', color:'var(--cyan-soft)', title:'ΠΡΙΝ ΞΕΚΙΝΗΣΕΙΣ',
+      html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:16px;">Ο expert του <b>TRANSFORMATION</b> θα ήθελε να σου κάνει κάποιες ερωτήσεις πριν ξεκινήσει η προπόνησή σου.<br><br>Είσαι διατεθειμένος;</p>`,
+      yes:{ label:'ΝΑΙ', fn:()=>openCheckin('pre', { p }, ()=>startProgramFlow(p, true)) },
+      no:{ label:'ΟΧΙ', fn:()=>startProgramFlow(p, true) } };
+    renderModal(); return;
+  }
   const c0 = { src:'client', programId:p.id, dayIndex:0, itemIndex:0 };
   const P = wnProgram(c0); if(!P) return;
   const { data, error } = await sb.from('workout_sessions').select('*').eq('customer_code', code).eq('program_id', p.id)
@@ -5618,6 +5662,67 @@ function startProgAnswer(yes){
   if(m.kind==='resumeOpen'){ clientResumeAt(m.p, m.dayIndex, m.resume.index, m.resume.setN || 1); return; }
   state.clientNav = { ...state.clientNav, view:'exercise', programId:m.p.id, dayIndex: cardioOnly ? 0 : m.dayIndex, itemIndex:0 };
   renderClientMain(); window.scrollTo(0,0);
+}
+// Τι δεν έχει γίνει σήμερα σε μια ημέρα προγράμματος
+async function sessLeftovers(c){
+  const P = wnProgram(c); if(!P) return null;
+  const code = auth.customer && auth.customer.code;
+  const ses = await sessLoad(c);
+  if(code) await cardioDoneToday(code, '');
+  const prog = (ses && ses.progress) || {}, items = P.items(c.dayIndex), left = [];
+  items.forEach((it,i)=>{
+    if(it.type==='cardio'){ if(!(state.cardioDone && state.cardioDone.keys.has(cardioKey(P.name, P.label(c.dayIndex), i, it.equipment||'ΑΕΡΟΒΙΟ')))) left.push(`🏃 Αερόβιο · ${wnDescribe(it).name}`); return; }
+    const n = Math.max(1, parseInt(it.set,10)||1), d = Math.min(n, Number(prog[i])||0);
+    if(d < n) left.push(`${it.exercise} — υπολείπονται ${n-d} από ${n} set`);
+  });
+  return { P, started: !!ses, left };
+}
+// «ΤΕΛΟΣ ΠΡΟΠΟΝΗΣΗΣ»: δείχνει τι δεν έγινε → «θέλεις να σταματήσω;» → αξιολόγηση
+async function endWorkoutFlow(c){
+  const code = auth.status==='client' && auth.customer ? auth.customer.code : null;
+  let info = null;
+  if(c && c.src==='client') info = await sessLeftovers(c);
+  const leftHtml = info && info.left.length
+    ? `<p style="font-size:14px;color:#eefcff;margin-bottom:8px;">Δεν έχουν εκτελεστεί ακόμα:</p>
+       <div style="text-align:left;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,182,72,.5);background:rgba(255,182,72,.07);margin-bottom:14px;font-size:13px;line-height:1.7;max-height:180px;overflow:auto;">${info.left.map(x=>'• '+escHtml(x)).join('<br>')}</div>`
+    : (info ? `<p style="font-size:14px;color:#eefcff;margin-bottom:14px;">Έχουν εκτελεστεί όλα τα set της ημέρας. 👏</p>` : '');
+  const stopped = !!(info && info.left.length);
+  state.choiceModal = { icon:'⏹️', color:'#ffb648', title:'ΤΕΛΟΣ ΠΡΟΠΟΝΗΣΗΣ',
+    html: leftHtml + `<p style="font-size:14px;color:#eefcff;margin-bottom:14px;">Θέλεις να σταματήσω την προπόνηση;</p>`,
+    yes:{ label:'ΝΑΙ, ΣΤΑΜΑΤΑ', fn:()=>{
+      if(timerState.interval){ clearInterval(timerState.interval); timerState.interval = null; }
+      timerState.running = false; if(typeof stopTimerDecimalTicker==='function') stopTimerDecimalTicker();
+      if(!code){ toast('Προεπισκόπηση — δεν καταγράφεται.'); endWorkoutLeave(c); return; }
+      const P = c ? wnProgram(c) : null;
+      state.choiceModal = { icon:'📝', color:'var(--cyan-soft)', title:'ΑΞΙΟΛΟΓΗΣΗ ΠΡΟΠΟΝΗΣΗΣ',
+        html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:16px;">Θέλεις να γίνει η αξιολόγηση της προπόνησης, πώς τα πήγες;</p>`,
+        yes:{ label:'ΝΑΙ', fn:()=>openCheckin('post', { c, P, stopped }, ()=>endWorkoutLeave(c)) },
+        no:{ label:'ΟΧΙ', fn:()=>endWorkoutLeave(c) } };
+      renderModal();
+    } },
+    no:{ label:'ΟΧΙ, ΣΥΝΕΧΙΖΩ', fn:null } };
+  renderModal();
+}
+function endWorkoutLeave(c){
+  if(c && c.src==='client'){
+    const p = (state.selectedCustomerPrograms||[]).find(x=>x.id===c.programId);
+    state.clientNav = { ...state.clientNav, programId:c.programId, view: p && p.record.subtype==='cardio' ? 'items' : 'days', dayIndex: p && p.record.subtype==='cardio' ? 0 : null, itemIndex:null };
+    if(document.getElementById('setBox') || !document.getElementById('client-content')) rebuildClientDashboardShell(); else renderClientMain();
+  } else if(c){
+    state.tplLibNav = { ...state.tplLibNav, view:'days', itemIndex:null };
+    if(document.getElementById('setBox')) returnFromWorkoutTplLib(); else renderTplLibMain();
+  } else if(workoutReturnRender) workoutReturnRender();
+  window.scrollTo(0,0);
+}
+// Η ημέρα της σημερινής προπόνησης ενός προγράμματος (για το «ΤΕΛΟΣ ΠΡΟΠΟΝΗΣΗΣ» της αρχικής σελίδας)
+async function todaySessionCtx(p){
+  const code = auth.customer && auth.customer.code; if(!code) return null;
+  const { data } = await sb.from('workout_sessions').select('day_index, progress').eq('customer_code', code).eq('program_id', p.id).eq('log_date', athensDateStr())
+    .order('updated_at', { ascending:false }).limit(1);
+  const row = (data||[])[0]; if(!row) return null;
+  state.sessCache = state.sessCache || {};
+  state.sessCache[[p.id, row.day_index, athensDateStr()].join('|')] = { progress: { ...(row.progress||{}) } };
+  return { src:'client', programId:p.id, dayIndex:row.day_index, itemIndex:0 };
 }
 // Η επόμενη άσκηση μετά από αυτή που μόλις τελείωσε — αν τελείωσε η ημέρα, η πρώτη της επόμενης ημέρας
 function workoutNextInfo(){
@@ -6244,7 +6349,8 @@ function renderWorkoutPage(){
 
       <div class="calc-message" id="calcMessage"></div>
       <button class="calc-reset-btn" id="calcResetBtn">ΜΗΔΕΝΙΣΜΟΣ</button>
-    </div>`;
+    </div>
+    <button class="btn btn-outline end-workout-btn" id="workoutEndBtn">⏹ ΤΕΛΟΣ ΠΡΟΠΟΝΗΣΗΣ</button>`;
   const container = document.getElementById('main');
   if(container) container.innerHTML = `<div class="mobile-preview-frame">${html}</div>`;
   bindWorkoutPageEvents();
@@ -6253,6 +6359,7 @@ function bindWorkoutPageEvents(){
   document.getElementById('workout-back')?.addEventListener('click', ()=>closeWorkoutPage());
   document.getElementById('timerInstructionsBtn')?.addEventListener('click', ()=>{ state.instructionsModalOpen=true; renderModal(); });
   document.getElementById('prevWorkoutsBtn')?.addEventListener('click', ()=>{ state.previousWorkoutsModalOpen=true; renderModal(); });
+  document.getElementById('workoutEndBtn')?.addEventListener('click', ()=>endWorkoutFlow(state.workoutNextCtx));
   document.getElementById('firstSetInfoBtn')?.addEventListener('click', ()=>{ state.firstSetInfoModalOpen=true; renderModal(); });
   document.getElementById('startBtn')?.addEventListener('click', startWorkoutTimer);
   document.getElementById('stopBtn')?.addEventListener('click', stopWorkoutTimer);
@@ -6586,6 +6693,51 @@ function renderModal(){
     document.getElementById('firstsetinfo-overlay')?.addEventListener('click', (e)=>{ if(e.target.id==='firstsetinfo-overlay'){ state.firstSetInfoModalOpen=false; renderModal(); } });
     return;
   }
+  if(state.checkinModal){
+    const m = state.checkinModal, list = m.kind==='pre' ? CHECKIN_PRE : CHECKIN_POST, a = m.answers;
+    const qs = list.filter(q=>!q.showIf || q.showIf(a, m.ctx));
+    root.innerHTML = `<div class="modal-overlay"><div class="modal ck-modal" style="max-width:460px;max-height:90vh;overflow-y:auto;">
+      <h2 style="font-size:17px;margin:0 0 4px;letter-spacing:1.2px;color:var(--cyan-soft);">${m.kind==='pre' ? 'ΕΡΩΤΗΣΕΙΣ ΤΟΥ EXPERT' : 'ΑΞΙΟΛΟΓΗΣΗ ΠΡΟΠΟΝΗΣΗΣ'}</h2>
+      <div style="font-size:12px;color:var(--ink-soft);margin-bottom:14px;">${m.kind==='pre' ? 'Οι απαντήσεις σου βοηθούν τον expert να σου δώσει τις σωστές συμβουλές.' : 'Πες μας πώς τα πήγες σήμερα.'}</div>
+      ${qs.map(q=>`<div class="ck-q"><div class="ck-t">${escHtml(q.q)}</div><div class="ck-opts">${q.opts.map(o=>{ const on = q.multi ? (a[q.k]||[]).includes(o) : a[q.k]===o;
+        return `<button type="button" class="ck-opt ${on?'on':''}" data-ck-k="${q.k}" data-ck-v="${escAttr(o)}" data-ck-multi="${q.multi?1:0}">${escHtml(o)}</button>`; }).join('')}</div></div>`).join('')}
+      <div class="ck-q"><div class="ck-t">Θέλεις να προσθέσεις κάτι;</div>
+        <textarea id="ck-note" rows="2" maxlength="400" placeholder="προαιρετικό" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);font-family:inherit;font-size:14px;">${escHtml(a.note||'')}</textarea></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:6px;">
+        <button class="btn btn-primary" style="justify-content:center;" id="ck-save">ΑΠΟΘΗΚΕΥΣΗ</button>
+        <button class="btn btn-outline" style="justify-content:center;" id="ck-skip">ΠΑΡΑΛΕΙΨΗ</button>
+      </div>
+    </div></div>`;
+    root.querySelectorAll('[data-ck-k]').forEach(el=>el.addEventListener('click', ()=>{
+      const k = el.getAttribute('data-ck-k'), v = el.getAttribute('data-ck-v');
+      a.note = document.getElementById('ck-note').value;
+      if(el.getAttribute('data-ck-multi')==='1'){ const arr = a[k]||[]; a[k] = arr.includes(v) ? arr.filter(x=>x!==v) : [...arr, v]; }
+      else a[k] = (a[k]===v ? undefined : v);
+      const y = (root.querySelector('.ck-modal')||{}).scrollTop || 0;   // να μη «πηδάει» στην αρχή
+      renderModal();
+      const mm = root.querySelector('.ck-modal'); if(mm) mm.scrollTop = y;
+    }));
+    const finish = async save=>{
+      a.note = (document.getElementById('ck-note').value||'').trim();
+      state.checkinModal = null; renderModal();
+      if(save){
+        const code = auth.customer && auth.customer.code;
+        const ctx = m.ctx||{}, c = ctx.c, P = ctx.P || (c ? wnProgram(c) : null);
+        const clean = {}; Object.entries(a).forEach(([k,v])=>{ if(v!==undefined && v!=='' && !(Array.isArray(v) && !v.length)) clean[k]=v; });
+        if(m.kind==='post' && ctx.stopped) clean.stopped_early = true;
+        if(code){
+          const ok = await checkinSave({ customer_code: code, program_id: (ctx.p && ctx.p.id) || (c && c.programId) || '', kind: m.kind,
+            program_name: ctx.p ? (getProgramNameForRecord(ctx.p.record)||null) : (P ? P.name : null),
+            day_label: c && P ? (P.label(c.dayIndex)||null) : null, answers: clean });
+          toast(ok ? (m.kind==='pre' ? 'Ευχαριστούμε! Καλή προπόνηση 💪' : 'Ευχαριστούμε για την αξιολόγηση!') : 'Δεν αποθηκεύτηκε. Δοκίμασε ξανά.');
+        }
+      }
+      m.after && m.after();
+    };
+    document.getElementById('ck-save').addEventListener('click', ()=>finish(true));
+    document.getElementById('ck-skip').addEventListener('click', ()=>finish(false));
+    return;
+  }
   if(state.firstSetInstrOpen){
     root.innerHTML = `
       <div class="modal-overlay" id="fsi-overlay">
@@ -6627,10 +6779,16 @@ function renderModal(){
       <div class="modal-overlay"><div class="modal" style="max-width:400px;text-align:center;">
         <div style="font-size:42px;margin-bottom:8px;">🏁</div>
         <h2 style="font-size:19px;margin-bottom:10px;color:#2bd96b;">Η ΠΡΟΠΟΝΗΣΗ ΤΗΣ ΗΜΕΡΑΣ ΟΛΟΚΛΗΡΩΘΗΚΕ</h2>
-        <p style="font-size:14px;color:#eefcff;margin-bottom:18px;">Μπράβο! Τα λέμε στην επόμενη προπόνηση.</p>
-        <button class="btn btn-primary" style="width:100%;justify-content:center;" id="daydone-ok">Κατάλαβα</button>
+        <p style="font-size:14px;color:#eefcff;margin-bottom:14px;">Μπράβο! Θέλεις να γίνει η αξιολόγηση της προπόνησης, πώς τα πήγες;</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <button class="btn btn-primary" style="justify-content:center;" id="daydone-eval">ΝΑΙ</button>
+          <button class="btn btn-outline" style="justify-content:center;" id="daydone-ok">ΟΧΙ</button>
+        </div>
       </div></div>`;
     document.getElementById('daydone-ok').addEventListener('click', ()=>{ state.dayDoneModal = false; renderModal(); });
+    document.getElementById('daydone-eval').addEventListener('click', ()=>{ state.dayDoneModal = false; const c = state.workoutNextCtx;
+      if(auth.status!=='client'){ renderModal(); return toast('Προεπισκόπηση — δεν καταγράφεται.'); }
+      openCheckin('post', { c, P: c ? wnProgram(c) : null, stopped:false }, null); });
     return;
   }
   if(state.startProgModal){
@@ -9607,7 +9765,8 @@ function renderClientDaysListView(p, record){
         </button>`;
       }).join('')}
     </div>
-    ${auth.status==='client' ? `<button class="btn btn-primary start-prog-btn" id="client-start-program">ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ ΓΥΜΝΑΣΤΙΚΗΣ</button>` : ''}`;
+    ${auth.status==='client' ? `<button class="btn btn-primary start-prog-btn" id="client-start-program">ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ ΓΥΜΝΑΣΤΙΚΗΣ</button>
+    <button class="btn btn-outline end-workout-btn" id="client-end-program">⏹ ΤΕΛΟΣ ΠΡΟΠΟΝΗΣΗΣ</button>` : ''}`;
 }
 
 function renderClientItemsListView(p, record, dayIndex){
@@ -9704,6 +9863,13 @@ function bindClientNavEvents(){
       };
       renderClientMain();
     });
+  });
+  document.getElementById('client-end-program')?.addEventListener('click', async ()=>{
+    const p = state.selectedCustomerPrograms.find(x=>x.id===state.clientNav.programId); if(!p) return;
+    const c = await todaySessionCtx(p);
+    if(!c) return toast('Δεν έχεις ξεκινήσει προπόνηση σήμερα σε αυτό το πρόγραμμα.');
+    state.workoutNextCtx = c;
+    endWorkoutFlow(c);
   });
   document.getElementById('client-start-program')?.addEventListener('click', ()=>{
     const p = state.selectedCustomerPrograms.find(x=>x.id===state.clientNav.programId);
