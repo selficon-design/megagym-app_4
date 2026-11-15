@@ -7034,6 +7034,8 @@ function renderTplLibProgramsView(){
   const hasSub = (TPL_CATEGORIES[topCategory]||[]).length>0;
   const progs = state.tplTemplates
     .filter(t=>t.gender===gender && t.top_category===topCategory && (hasSub ? t.sub_category===subCategory : true))
+    // η παλιά έκδοση δεν έχει υποκατηγορίες στην αύξηση μυϊκού ιστού: δείχνει μόνο «ΓΥΜΝΑΖΕΙ ΟΛΟ ΤΟ ΣΩΜΑ»
+    .filter(t=>hasSub || t.top_category!=='ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ' || !t.sub_category || t.sub_category==='ΓΥΜΝΑΖΕΙ ΟΛΟ ΤΟ ΣΩΜΑ' || t.sub_category==='ΓΕΝΙΚΟ')
     .sort((a,b)=> (a.sort_order||0)-(b.sort_order||0));
   const backTarget = hasSub ? 'subcat' : 'topcat';
   return `
