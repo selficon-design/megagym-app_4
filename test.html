@@ -3670,7 +3670,7 @@ function renderTplAddMuscleForm(af){
       <div class="field"><label class="lbl-all">Set ${tplApplyAllBtn('set')}</label><div class="chip-row">${TPL_SET_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.set===v?'active':''}" data-tpl-af-set="${v}">${v}</button>`).join('')}</div>${tplApplyDaysPanel('set')}</div>
       <div class="field"><label class="lbl-all">Rep ${tplApplyAllBtn('rep')}</label><div class="chip-row">${TPL_REP_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.rep===v?'active':''}" data-tpl-af-rep="${escAttr(v)}" style="font-size:11px;">${escHtml(v)}</button>`).join('')}</div>${tplApplyDaysPanel('rep')}</div>
       <div class="field"><label class="lbl-all">Διάλειμμα ${tplApplyAllBtn('rest')}</label><div class="chip-row">${TPL_REST_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.rest===v?'active':''}" data-tpl-af-rest="${escAttr(v)}">${escHtml(v)}</button>`).join('')}</div>${tplApplyDaysPanel('rest')}</div>
-      <div class="field"><label class="lbl-all">Τέμπο ${tplApplyAllBtn('tempo')}</label><div class="chip-row">${TPL_TEMPO_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.tempo===v?'active':''}" data-tpl-af-tempo="${escAttr(v)}">${escHtml(v)}</button>`).join('')}</div>${tplApplyDaysPanel('tempo')}</div>
+      <div class="field"><label class="lbl-all">Τέμπο ${tplApplyAllBtn('tempo')}</label>${tplMedLocked() ? `<div class="med-note">🩺 Λόγω ιατρικού ιστορικού: μόνο tempo 1-2-1</div>` : ''}<div class="chip-row">${(tplMedLocked() ? [MED_TEMPO] : TPL_TEMPO_OPTIONS).map(v=>`<button type="button" class="kcal-btn ${af.tempo===v?'active':''}" data-tpl-af-tempo="${escAttr(v)}">${escHtml(v)}</button>`).join('')}</div>${tplApplyDaysPanel('tempo')}</div>
       <div class="field"><label class="lbl-all">Ένταση ${tplApplyAllBtn('failure')}</label>${tplMedLocked() ? `<div class="med-note">🩺 Λόγω ιατρικού ιστορικού: μόνο UNTIL FAILURE -3</div>` : ''}<div class="chip-row">${(tplMedLocked() ? [MED_FAILURE] : FAILURE_OPTIONS).map(v=>`<button type="button" class="kcal-btn ${af.failure===v?'active':''}" data-tpl-af-failure="${v}">${failureLabel(v)}</button>`).join('')}</div>${tplApplyDaysPanel('failure')}</div>
       ${(af.exercise && af.exercise!=='ΆΛΛΟ' && EQUIPMENT_BY_EXERCISE[af.exercise]) ? `
       <div class="field">
@@ -3861,7 +3861,7 @@ function bindTplBuilderEvents(){
       b.lastEdited = null;
       b.addForm = type==='cardio'
         ? { dayIndex:di, type:'cardio', equipment:'', mode:'steady', speedLow:'', speedHigh:'', incline:'', intensity:'', minutes:'', drillEveryMinutes:'', editIndex:null }
-        : { dayIndex:di, type:'muscle', groupLabel:'', exercise:'', customExercise:'', set:4, rep:TPL_REP_OPTIONS[3], rest:TPL_REST_OPTIONS[2], tempo:DEFAULT_TEMPO, failure: tplMedLocked() ? MED_FAILURE : 0,
+        : { dayIndex:di, type:'muscle', groupLabel:'', exercise:'', customExercise:'', set:4, rep:TPL_REP_OPTIONS[3], rest:TPL_REST_OPTIONS[2], tempo: tplMedLocked() ? MED_TEMPO : DEFAULT_TEMPO, failure: tplMedLocked() ? MED_FAILURE : 0,
             equipment:[], editIndex:null };
       renderTplFormArea();
     });
@@ -3988,7 +3988,7 @@ function bindTplBuilderEvents(){
       if(!exerciseName){ toast('Συμπλήρωσε το όνομα της άσκησης.'); return; }
       const newItem = {
         type:'muscle', groupLabel: af.groupLabel, exercise: exerciseName,
-        set: af.set, rep: af.rep, rest: af.rest, tempo: af.tempo, failure: tplMedLocked() ? Math.min(Number(af.failure)||0, MED_FAILURE) : af.failure,
+        set: af.set, rep: af.rep, rest: af.rest, tempo: tplMedLocked() ? MED_TEMPO : af.tempo, failure: tplMedLocked() ? Math.min(Number(af.failure)||0, MED_FAILURE) : af.failure,
         equipment: tplEquipForExercise(exerciseName, af.equipment)
       };
       if(af.editIndex!==null && af.editIndex!==undefined){
@@ -9266,8 +9266,12 @@ const CPROF_GOALS = ['ΑΥΞΗΣΗ ΜΥΪΚΟΥ ΙΣΤΟΥ','ΚΑΥΣΗ ΛΙΠΟ
 function cprofGender(){ return cprof.data && cprof.data.gender || null; }
 // Ιατρικός κανόνας: καρδιολογικό πρόβλημα ή υψηλή πίεση → UNTIL FAILURE μόνο -3
 function medCap(){ return auth.status==='client' && !!(cprof.data && (cprof.data.heart_problem || cprof.data.high_blood_pressure)); }
-const MED_FAILURE = -3;
-function medCapItem(it){ return (medCap() && it && it.type!=='cardio' && (it.failure===undefined || it.failure===null || Number(it.failure) > MED_FAILURE)) ? { ...it, failure: MED_FAILURE } : it; }
+const MED_FAILURE = -3, MED_TEMPO = '1-2-1';
+function medCapItem(it){
+  if(!medCap() || !it || it.type==='cardio') return it;
+  const f = (it.failure===undefined || it.failure===null || Number(it.failure) > MED_FAILURE) ? MED_FAILURE : it.failure;
+  return { ...it, failure: f, tempo: MED_TEMPO };   // ιατρικός κανόνας: -3 και tempo 1-2-1
+}
 function cprofMyProgramId(){ return cprof.data && cprof.data.my_program_id || null; }
 async function cprofLoad(){
   const code = auth.customer && auth.customer.code; if(!code) return;
@@ -9451,7 +9455,7 @@ function medSummary(){
   const d = cprof.data || {};
   if(d.heart_problem==null && d.high_blood_pressure==null) return 'Δεν έχει συμπληρωθεί';
   const items = [d.heart_problem ? 'Καρδιολογικό' : '', d.high_blood_pressure ? 'Υψηλή πίεση' : ''].filter(Boolean);
-  return items.length ? items.join(' · ') + ' — UNTIL FAILURE μόνο -3' : 'Συμπληρωμένο';
+  return items.length ? items.join(' · ') + ' — UNTIL FAILURE -3 · tempo 1-2-1' : 'Συμπληρωμένο';
 }
 function renderClientMedical(){
   const box = document.getElementById('client-content'); if(!box) return;
@@ -9466,7 +9470,7 @@ function renderClientMedical(){
       <div class="med-q"><div class="med-t">Έχετε κάποιο καρδιολογικό πρόβλημα;</div><div class="chip-row">${yn('heart_problem', true)}${yn('heart_problem', false)}</div></div>
       <div class="med-q"><div class="med-t">Έχετε υψηλή πίεση;</div><div class="chip-row">${yn('high_blood_pressure', true)}${yn('high_blood_pressure', false)}</div></div>
       ${risk ? `<div class="med-q"><div class="med-t">Σας επιτρέπει ο γιατρός σας (ο καρδιολόγος σας) να γυμνάζεστε με αντιστάσεις ή βάρη;</div><div class="chip-row">${yn('doctor_allows_weights','ΝΑΙ')}${yn('doctor_allows_weights','ΟΧΙ')}</div></div>
-        <div class="med-info">Για λόγους ασφαλείας, σε <b>όλα</b> τα προγράμματα —και σε αυτά του TRANSFORMATION και στα δικά σου— το <b>UNTIL FAILURE θα είναι -3</b>: σταματάς κάθε set έχοντας ακόμα 3 επαναλήψεις «στα πόδια σου».</div>` : ''}
+        <div class="med-info">Για λόγους ασφαλείας, σε <b>όλα</b> τα προγράμματα —και σε αυτά του TRANSFORMATION και στα δικά σου— το <b>UNTIL FAILURE θα είναι -3</b> (σταματάς κάθε set έχοντας ακόμα 3 επαναλήψεις «στα πόδια σου») και το <b>tempo 1-2-1</b>.</div>` : ''}
       ${risk && m.doctor_allows_weights==='ΟΧΙ' ? `<div class="med-warn">⚠️ Μην κάνεις ασκήσεις με αντιστάσεις ή βάρη χωρίς την έγκριση του καρδιολόγου σου. Μίλησε με τον γυμναστή σου για ένα κατάλληλο πρόγραμμα.</div>` : ''}
       <button class="btn btn-critical" id="cm-save" style="width:100%;justify-content:center;margin-top:10px;">${ICON.save}Αποθήκευση</button>
     </div>`;
@@ -9482,7 +9486,7 @@ function renderClientMedical(){
     if(r && !m.doctor_allows_weights) return toast('Απάντησε αν σου επιτρέπει ο καρδιολόγος σου να γυμνάζεσαι με βάρη.');
     const ok = await cprofSave({ heart_problem: m.heart_problem, high_blood_pressure: m.high_blood_pressure, doctor_allows_weights: r ? m.doctor_allows_weights : null });
     if(!ok) return toast('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.');
-    toast(r ? 'Αποθηκεύτηκε. Σε όλα τα προγράμματα το UNTIL FAILURE θα είναι -3.' : 'Αποθηκεύτηκε.', 4000);
+    toast(r ? 'Αποθηκεύτηκε. Σε όλα τα προγράμματα: UNTIL FAILURE -3 και tempo 1-2-1.' : 'Αποθηκεύτηκε.', 4000);
     cprof.view = 'form'; cprof.medDraft = null; renderClientProfile();
   });
 }
@@ -10056,7 +10060,7 @@ function openTplEditor(id){
 function tplLibCurrentProgram(){
   const t = state.tplTemplates.find(t=>t.id===state.tplLibNav.programId) || null;
   if(!t || !medCap()) return t;
-  // ιατρικός κανόνας: όλα τα UNTIL FAILURE γίνονται -3 για αυτόν τον αθλούμενο
+  // ιατρικός κανόνας: UNTIL FAILURE -3 και tempo 1-2-1 για αυτόν τον αθλούμενο
   return { ...t, data: { ...t.data, days: (t.data.days||[]).map(d=>({ ...d, items: (d.items||[]).map(medCapItem) })) } };
 }
 function mapTemplateToCustomRecord(t){
@@ -10281,7 +10285,7 @@ async function submitClientProgram(){
   const top = b.topCategory==='ΚΑΥΣΗΣ ΛΙΠΟΥΣ' ? 'ΚΑΥΣΗΣ ΛΙΠΟΥΣ' : 'ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ';
   const all = b.days.flatMap(d=>d.items), hasW = all.some(i=>i.type==='muscle'), hasC = all.some(i=>i.type==='cardio');
   const sub = top==='ΚΑΥΣΗΣ ΛΙΠΟΥΣ' ? (hasW && hasC ? 'ΚΑΥΣΗ ΛΙΠΟΥΣ ΜΕ ΒΑΡΗ ΚΑΙ ΑΕΡΟΒΙΟ' : (hasC ? 'ΚΑΥΣΗ ΛΙΠΟΥΣ ΜΕ ΑΕΡΟΒΙΟ' : 'ΚΑΥΣΗ ΛΙΠΟΥΣ ΜΕ ΒΑΡΗ')) : '';
-  if(medCap()) b.days.forEach(d=>d.items.forEach(it=>{ if(it.type!=='cardio' && !(Number(it.failure) <= MED_FAILURE)) it.failure = MED_FAILURE; }));   // ιατρικός κανόνας
+  if(medCap()) b.days.forEach(d=>d.items.forEach(it=>{ if(it.type!=='cardio'){ if(!(Number(it.failure) <= MED_FAILURE)) it.failure = MED_FAILURE; it.tempo = MED_TEMPO; } }));   // ιατρικός κανόνας
   const record = mapTemplateToCustomRecord({ name, top_category: top, sub_category: sub, description: b.description||'', data:{ days: b.days } });
   record.fromClientBuilder = true; record.fromTemplate = false; record.customName = name;
   const editId = b.editProgramId;

@@ -150,7 +150,7 @@ function medicalText(ctx: any): string {
   const m = ctx?.medical; if (!m) return "";
   const lines: string[] = [];
   if (m.heart_problem || m.high_blood_pressure) {
-    lines.push(`ΙΑΤΡΙΚΟ (ΥΠΟΧΡΕΩΤΙΚΟ): ο αθλούμενος δήλωσε ${[m.heart_problem ? "καρδιολογικό πρόβλημα" : "", m.high_blood_pressure ? "υψηλή πίεση" : ""].filter(Boolean).join(" και ")}. Το UNTIL FAILURE δεν επιτρέπεται να είναι πάνω από -3 σε ΚΑΜΙΑ άσκηση και ΚΑΝΕΝΑ set — μόνο -3. Αν το πρόγραμμα έχει -2, -1 ή 0, πρότεινε αλλαγή σε -3 και εξήγησε ότι είναι για λόγους υγείας.`);
+    lines.push(`ΙΑΤΡΙΚΟ (ΥΠΟΧΡΕΩΤΙΚΟ): ο αθλούμενος δήλωσε ${[m.heart_problem ? "καρδιολογικό πρόβλημα" : "", m.high_blood_pressure ? "υψηλή πίεση" : ""].filter(Boolean).join(" και ")}. Το UNTIL FAILURE δεν επιτρέπεται να είναι πάνω από -3 σε ΚΑΜΙΑ άσκηση και ΚΑΝΕΝΑ set — μόνο -3. Το tempo είναι ΠΑΝΤΑ 1-2-1. Αν το πρόγραμμα έχει -2, -1 ή 0 ή άλλο tempo, πρότεινε αλλαγή σε -3 / 1-2-1 και εξήγησε ότι είναι για λόγους υγείας.`);
   }
   if (m.cardiologist_allows_weights === "ΟΧΙ") {
     lines.push("ΙΑΤΡΙΚΟ: ο αθλούμενος δήλωσε ότι ο καρδιολόγος του ΔΕΝ του επιτρέπει άσκηση με αντιστάσεις/βάρη. Μην προτείνεις πρόγραμμα με βάρη· θεώρησέ το ευαίσθητο θέμα (sensitive) και παράπεμψε στον γυμναστή και στον γιατρό.");
@@ -174,7 +174,7 @@ function validateSuggestions(list: any, record: any, cat: Catalog, o: Opts, capF
     return null;
   };
   const allowed: Record<string, string[]> = {
-    set: o.set.map(String), rep: o.rep, rest: o.rest, tempo: o.tempo, failure: failOpts, minutes: o.minutes.map(String),
+    set: o.set.map(String), rep: o.rep, rest: o.rest, tempo: capFailure ? ["1-2-1"] : o.tempo, failure: failOpts, minutes: o.minutes.map(String),
   };
   // deno-lint-ignore no-explicit-any
   const out: any[] = [];
@@ -360,7 +360,7 @@ function toProgramRecord(p: any, cat: Catalog, versionNo: number, capFailure = f
       }
       let failure = failOpts.includes(Number(g?.failure)) ? Number(g.failure) : -2;
       if (capFailure && failure > -3) failure = -3;   // ιατρικός κανόνας
-      groups.push({ groupLabel: cat.groups[grp.key].label, exercise: ex, set, rep, rest, failure, equipment: [] });
+      groups.push({ groupLabel: cat.groups[grp.key].label, exercise: ex, set, rep, rest, failure, equipment: [], ...(capFailure ? { tempo: "1-2-1" } : {}) });
     });
     if (groups.length) days.push({ label: cat.day_labels[days.length] || `ΗΜΕΡΑ ${di + 1}`, groups });
   });
