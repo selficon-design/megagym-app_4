@@ -865,6 +865,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .wk-instr li{font-size:14px;line-height:1.55;color:#eefcff;padding-left:4px;}
 .wk-instr li::marker{color:var(--cyan-soft);font-weight:700;}
 .wk-instr b{color:#ffd23f;font-weight:600;}
+.wk-instr .wk-important{color:#ff4d4d;font-weight:800;letter-spacing:.5px;}
+.wk-instr li:last-child{padding:8px 10px;border:1px solid rgba(255,77,77,.5);border-radius:10px;background:rgba(255,77,77,.08);margin-left:-4px;}
 .start-prog-btn{width:100%;justify-content:center;min-height:58px;margin-top:20px;font-family:'Commissioner','Rajdhani',sans-serif;font-weight:500;font-size:15px;letter-spacing:2px;}
 .cb-guide-sec{margin-top:12px;}
 .cb-guide-sec h3{font-size:14px;color:var(--cyan-soft);margin:0 0 8px;letter-spacing:.3px;}
@@ -5456,7 +5458,8 @@ const WORKOUT_INSTRUCTIONS = [
   'Εκτέλεσε την άσκηση.',
   'Μόλις τελειώσεις το set, πήγαινε πιο πάνω και πάτα το <b>χρονόμετρο (START)</b>, για να ξεκινήσει να μετράει.',
   'Πήγαινε μετά κάτω στον <b>υπολογιστή κιλών</b> και γράψε πόσα κιλά έβαλες και πόσες επαναλήψεις έβγαλες.',
-  'Πάτα <b>«Υπολογισμός κιλών επόμενου set»</b> και θα σου πει πόσα κιλά να βάλεις στο επόμενο set.'
+  'Πάτα <b>«Υπολογισμός κιλών επόμενου set»</b> και θα σου πει πόσα κιλά να βάλεις στο επόμενο set.',
+  '<span class="wk-important">ΣΗΜΑΝΤΙΚΟ:</span> Αν έχεις ξαναεκτελέσει την ίδια άσκηση, μπορείς να πας στον υπολογιστή κιλών και να πατήσεις <b>«ΠΡΟΗΓΟΥΜΕΝΕΣ ΠΡΟΠΟΝΗΣΕΙΣ»</b>, για να δεις πόσα κιλά <b>έπρεπε να είχες βάλει στο πρώτο set</b>. Βάλε τα ίδια.'
 ];
 document.addEventListener('click', e=>{
   const b = e.target.closest && e.target.closest('[data-firstset-instr]');
