@@ -5457,7 +5457,7 @@ function renderTrainerExercisePreviewPage(){
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
               <button class="btn eq-action-btn" ${eq.exercisePhotoUrl?`data-trainerprev-eqphoto="${escAttr(eq.exercisePhotoUrl)}"`:'disabled'}>ΑΣΚΗΣΗ</button>
               <button class="btn eq-action-btn" ${eq.videoUrl?`data-trainerprev-eqvideo="${escAttr(eq.videoUrl)}"`:'disabled'}>VIDEO</button>
-              <button class="btn eq-action-btn" style="grid-column:span 2;" data-exinfo="${escAttr(JSON.stringify({exercise:item.exercise,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,eq:eq}))}">ΔΕΙΤΕ ΤΗΝ ΑΣΚΗΣΗ</button>
+              <button class="btn eq-action-btn" style="grid-column:span 2;" data-exinfo="${escAttr(JSON.stringify({exercise:item.exercise,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,eq:eq}))}">ΟΔΗΓΙΕΣ ΓΙΑ ΤΗΝ ΕΚΤΕΛΕΣΗ</button>
             </div>
           </div>
         </div>`).join('')}
@@ -9906,7 +9906,7 @@ function renderClientExerciseView(item){
               <button class="btn eq-action-btn" ${eq.videoUrl?`data-clientlib-eqvideo="${escAttr(eq.videoUrl)}"`:'disabled'}>VIDEO</button>
               <button class="btn eq-action-btn tall" data-clientlib-eqworkout="${escAttr(JSON.stringify({exercise:item.exercise,groupLabel:item.groupLabel,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,equipment:[eq]}))}">ΧΡΟΝΟΜΕΤΡΟ</button>
               <button class="btn eq-action-btn tall" data-clientlib-eqworkout="${escAttr(JSON.stringify({exercise:item.exercise,groupLabel:item.groupLabel,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,equipment:[eq]}))}">ΥΠΟΛΟΓΙΣΤΗΣ<br>KG</button>
-              <button class="btn eq-action-btn" style="grid-column:span 2;" data-exinfo="${escAttr(JSON.stringify({exercise:item.exercise,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,eq:eq}))}">ΔΕΙΤΕ ΤΗΝ ΑΣΚΗΣΗ</button>
+              <button class="btn eq-action-btn" style="grid-column:span 2;" data-exinfo="${escAttr(JSON.stringify({exercise:item.exercise,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,eq:eq}))}">ΟΔΗΓΙΕΣ ΓΙΑ ΤΗΝ ΕΚΤΕΛΕΣΗ</button>
             </div>
           </div>
         </div>`).join('')}
@@ -10518,7 +10518,7 @@ function renderTplLibExerciseView(){
               <button class="btn eq-action-btn" ${eq.videoUrl?`data-tpllib-eqvideo="${escAttr(eq.videoUrl)}"`:'disabled'}>VIDEO</button>
               <button class="btn eq-action-btn tall" data-tpllib-eqworkout="${it.exercise?escAttr(JSON.stringify({exercise:it.exercise,groupLabel:it.groupLabel,set:it.set,rep:it.rep,rest:it.rest,tempo:it.tempo,failure:it.failure,equipment:[eq]})):''}">ΧΡΟΝΟΜΕΤΡΟ</button>
               <button class="btn eq-action-btn tall" data-tpllib-eqworkout="${it.exercise?escAttr(JSON.stringify({exercise:it.exercise,groupLabel:it.groupLabel,set:it.set,rep:it.rep,rest:it.rest,tempo:it.tempo,failure:it.failure,equipment:[eq]})):''}">ΥΠΟΛΟΓΙΣΤΗΣ<br>KG</button>
-              <button class="btn eq-action-btn" style="grid-column:span 2;" data-exinfo="${escAttr(JSON.stringify({exercise:it.exercise,set:it.set,rep:it.rep,rest:it.rest,tempo:it.tempo,failure:it.failure,eq:eq}))}">ΔΕΙΤΕ ΤΗΝ ΑΣΚΗΣΗ</button>
+              <button class="btn eq-action-btn" style="grid-column:span 2;" data-exinfo="${escAttr(JSON.stringify({exercise:it.exercise,set:it.set,rep:it.rep,rest:it.rest,tempo:it.tempo,failure:it.failure,eq:eq}))}">ΟΔΗΓΙΕΣ ΓΙΑ ΤΗΝ ΕΚΤΕΛΕΣΗ</button>
             </div>
           </div>
         </div>`).join('')}
