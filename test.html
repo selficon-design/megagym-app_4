@@ -580,6 +580,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .home-s{font-size:11.5px;color:var(--ink-soft);}
 .client-card.new-prog{position:relative;border:2px solid #ff3b3b !important;box-shadow:0 0 18px rgba(255,59,59,.45) !important;margin-top:14px;}
 .new-prog-badge{position:absolute;top:-11px;left:14px;padding:3px 10px;border-radius:999px;background:#ff3b3b;color:#fff;font-size:10.5px;font-weight:800;letter-spacing:1px;box-shadow:0 0 10px rgba(255,59,59,.6);}
+.tpl-personal-sub{color:#ffd23f;font-weight:700;}
 .tpl-personal{font-size:11px;font-weight:600;color:var(--accent);text-transform:none;letter-spacing:0;margin-top:2px;}
 .myprog-badge{margin-left:auto;flex-shrink:0;padding:3px 9px;border-radius:999px;background:rgba(255,210,63,.18);color:#ffd23f;font-size:10.5px;font-weight:800;white-space:nowrap;}
 .cp-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
@@ -2447,7 +2448,13 @@ function normalizeStoredProgram(stored){
     fromAI: !!stored.fromAI,
     aiVersion: stored.aiVersion || null,
     fromClientBuilder: !!stored.fromClientBuilder,   // «Φτιάχνω δικό μου πρόγραμμα»
-    customName: stored.customName || ''
+    customName: stored.customName || '',
+    aiChecked: stored.aiChecked || null,
+    // από ποιο έτοιμο πρόγραμμα / ανανέωση προήλθε
+    templateId: stored.templateId || null, templateGender: stored.templateGender || null,
+    templateTop: stored.templateTop || null, templateSub: stored.templateSub || null,
+    fromRenewal: !!stored.fromRenewal, renewedAt: stored.renewedAt || null,
+    failureOffset: Number(stored.failureOffset) || 0
   };
 }
 async function loadProgramsFor(code){
@@ -9667,7 +9674,7 @@ function renderClientProgramsListView(){
             ${isNew ? `<span class="new-prog-badge">🆕 ΝΕΟ ΠΡΟΓΡΑΜΜΑ</span>` : ''}
             <div class="client-avatar">${progs.length-i}</div>
             <div class="client-meta">
-              <div class="name">${mine ? `${escHtml(p.record.customName || p.record.templateName || 'Το πρόγραμμά μου')} <span class="mine-badge">🛠 ΔΙΚΟ ΜΟΥ</span><div style="font-size:11px;font-weight:600;color:var(--cyan-soft);text-transform:none;letter-spacing:0;">${escHtml(categoryBadgeLabel(p.record))}</div>` : ''}${mine ? '' : escHtml(fromTpl && p.record.templateName ? p.record.templateName : categoryBadgeLabel(p.record))}${fromAI?' <span style="color:var(--cyan);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· ✨ AI</span>':''}${fromTpl?'<div class="tpl-personal">Πρόγραμμα TRANSFORMATION · διαμορφωμένο ειδικά για σένα</div>':''}</div>
+              <div class="name">${mine ? `${escHtml(p.record.customName || p.record.templateName || 'Το πρόγραμμά μου')} <span class="mine-badge">🛠 ΔΙΚΟ ΜΟΥ</span><div style="font-size:11px;font-weight:600;color:var(--cyan-soft);text-transform:none;letter-spacing:0;">${escHtml(categoryBadgeLabel(p.record))}</div>` : ''}${mine ? '' : escHtml(fromTpl && p.record.templateName ? p.record.templateName : categoryBadgeLabel(p.record))}${fromAI?' <span style="color:var(--cyan);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">· ✨ AI</span>':''}${fromTpl?`<div class="tpl-personal">Πρόγραμμα TRANSFORMATION, διαμορφωμένο ειδικά για σένα${tplSubNice(p.record)?` · <span class="tpl-personal-sub">${escHtml(tplSubNice(p.record))}</span>`:''}</div>`:''}</div>
               <div class="sub">${d.toLocaleDateString('el-GR')} · ${d.toLocaleTimeString('el-GR',{hour:'2-digit',minute:'2-digit'})}</div>
             </div>
             ${cprofMyProgramId()===p.id ? `<span class="myprog-badge" title="Αυτό είναι «Το πρόγραμμά μου»">⭐ Το πρόγραμμά μου</span>` : ''}
@@ -9677,6 +9684,27 @@ function renderClientProgramsListView(){
     </div>`;
 }
 
+// Η κατηγορία του προγράμματος με κανονικά γράμματα (π.χ. «Με έμφαση στο πάνω μέρος του σώματος»)
+const TPL_SUB_NICE = {
+  'ΓΥΜΝΑΖΕΙ ΟΛΟ ΤΟ ΣΩΜΑ':'Γυμνάζει όλο το σώμα',
+  'ΜΕ ΕΜΦΑΣΗ ΣΤΟ ΠΑΝΩ ΜΕΡΟΣ ΤΟΥ ΣΩΜΑΤΟΣ':'Με έμφαση στο πάνω μέρος του σώματος',
+  'ΜΕ ΕΜΦΑΣΗ ΣΤΟ ΚΑΤΩ ΜΕΡΟΣ ΤΟΥ ΣΩΜΑΤΟΣ':'Με έμφαση στο κάτω μέρος του σώματος',
+  'ΜΕ ΑΚΟΜΗ ΠΕΡΙΣΣΟΤΕΡΗ ΕΜΦΑΣΗ ΣΤΟ ΚΑΤΩ ΜΕΡΟΣ ΤΟΥ ΣΩΜΑΤΟΣ':'Με ακόμη περισσότερη έμφαση στο κάτω μέρος του σώματος',
+  'ΜΕ ΑΚΟΜΗ ΠΕΡΙΣΣΟΤΕΡΗ ΕΜΦΑΣΗ ΣΤΟ ΠΑΝΩ ΜΕΡΟΣ ΤΟΥ ΣΩΜΑΤΟΣ':'Με ακόμη περισσότερη έμφαση στο πάνω μέρος του σώματος',
+  'ΚΑΥΣΗ ΛΙΠΟΥΣ ΜΕ ΒΑΡΗ':'Καύση λίπους με βάρη', 'ΚΑΥΣΗ ΛΙΠΟΥΣ ΜΕ ΑΕΡΟΒΙΟ':'Καύση λίπους με αερόβιο',
+  'ΚΑΥΣΗ ΛΙΠΟΥΣ ΜΕ ΒΑΡΗ ΚΑΙ ΑΕΡΟΒΙΟ':'Καύση λίπους με βάρη και αερόβιο'
+};
+function tplSubNice(r){
+  if(!r) return '';
+  let sub = r.templateSub;
+  if(!sub && r.templateName && state.tplTemplates){   // παλιά αποθηκευμένα: βρες την κατηγορία από το όνομα
+    const t = state.tplTemplates.find(x=>x.name===r.templateName && (!r.templateGender || x.gender===r.templateGender) && (x.sub_category==='ΓΥΜΝΑΖΕΙ ΟΛΟ ΤΟ ΣΩΜΑ' || !x.sub_category))
+           || state.tplTemplates.find(x=>x.name===r.templateName);
+    sub = t && t.sub_category;
+  }
+  if(!sub && r.category==='muscle' && r.fromTemplate) sub = 'ΓΥΜΝΑΖΕΙ ΟΛΟ ΤΟ ΣΩΜΑ';
+  return sub ? (TPL_SUB_NICE[sub] || sub) : '';
+}
 /* «ΝΕΟ ΠΡΟΓΡΑΜΜΑ»: πρόγραμμα από ανανέωση/AI που δεν έχει ανοίξει ακόμα σε αυτή τη συσκευή */
 function progSeenKey(){ return 'forma_seen_progs_' + ((auth.customer && auth.customer.code) || ''); }
 function progSeenSet(){ try{ return new Set(JSON.parse(localStorage.getItem(progSeenKey())||'[]')); }catch(_){ return new Set(); } }
