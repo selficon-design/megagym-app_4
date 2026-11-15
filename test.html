@@ -565,6 +565,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .air-cl-opt{text-align:left;padding:11px 13px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(3,11,18,.5);color:var(--ink);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;}
 .air-cl-advice{margin:-2px 0 12px;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,182,72,.55);background:rgba(255,182,72,.08);font-size:13px;line-height:1.55;color:#eefcff;}
 .air-cl-advice b{color:#ffd23f;}
+.air-cl-advice .air-cl-final{display:block;color:#ffd23f;font-weight:800;}
 .air-cl-note{display:block;margin:3px 0 0 16px;font-size:11.5px;font-weight:500;color:#ffb648;}
 .air-cl-opt.on{border-color:var(--cyan);background:rgba(61,216,255,.14);color:var(--cyan-soft);box-shadow:0 0 12px rgba(61,216,255,.3);}
 .pact-toggle{flex:0 0 auto;padding:7px 12px;font-size:12.5px;white-space:nowrap;}
@@ -8792,8 +8793,8 @@ const AI_RENEWAL_ADVICE = `<b>💡 Αν θέλεις να έχεις τα μέγ
 Δεν είναι μόνο οι μυϊκές ομάδες και οι μύες που θέλεις να γυμνάσεις· είναι και η <b>παραγωγή ορμονών</b>, που είναι σημαντική γιατί αυτή είναι που ενισχύει τα αποτελέσματα.<br><br>
 Ένα κλασικό παράδειγμα: αν θέλεις μεγάλα χέρια, θα πρέπει να γυμνάζεις τα πόδια. Το έλεγε ο Άρνολντ Σβαρτσενέγκερ — και είναι αλήθεια, για πολλούς λόγους.<br><br>
 Καλό λοιπόν είναι να γυμνάζουμε <b>όλο το σώμα</b> σύμφωνα με τα πρωτόκολλα TRANSFORMATION. Θα έχουμε καλύτερα αποτελέσματα και στους μεμονωμένους μύες.<br><br>
-Οι expert του TRANSFORMATION λένε: <b>«πήγαινε το πρόγραμμα καθ’ ύψος και όχι κατά πλάτος»</b>. Δηλαδή, κάνε λιγότερες ασκήσεις με μεγαλύτερη ένταση. Οπότε, μην ακολουθείς την ψευδαίσθηση ότι πολλές ασκήσεις δίνουν καλύτερο αποτέλεσμα.<br><br>
-Βέβαια, αν επιμένεις, στείλε το αίτημά σου για νέο πρόγραμμα και θα κάνουμε το καλύτερο δυνατό, για να έχεις ένα δυνατό και αποτελεσματικό πρόγραμμα, διαμορφωμένο σύμφωνα με την πολύτιμη γνώση των <b>expert του TRANSFORMATION!</b>`;
+Οι Expert του TRANSFORMATION λένε: <b>«πήγαινε το πρόγραμμα καθ’ ύψος και όχι κατά πλάτος»</b>. Δηλαδή, κάνε λιγότερες ασκήσεις με μεγαλύτερη ένταση. Οπότε, μην ακολουθείς την ψευδαίσθηση ότι οι πολλές ασκήσεις δίνουν καλύτερο αποτέλεσμα.<br><br>
+<b class="air-cl-final">Βέβαια, αν επιμένεις, στείλε το αίτημά σου για νέο πρόγραμμα και θα κάνουμε το καλύτερο δυνατό, για να έχεις ένα δυνατό και αποτελεσματικό πρόγραμμα, διαμορφωμένο σύμφωνα με την πολύτιμη γνώση των Expert του TRANSFORMATION!</b>`;
 function aiRenewalOptions(gender){
   const part = gender==='ΓΥΝΑΙΚΑ' ? 'κάτω μέρος του σώματος' : 'πάνω μέρος του σώματος';
   return [
