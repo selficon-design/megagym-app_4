@@ -142,8 +142,23 @@ function describeProgram(r: any, cat: Catalog): string {
 }
 // Ελέγχει τις αλλαγές του AI: σωστή ημέρα/άσκηση και τιμές ΜΟΝΟ από τις επιτρεπτές
 // deno-lint-ignore no-explicit-any
-function validateSuggestions(list: any, record: any, cat: Catalog, o: Opts) {
-  const failOpts = (cat.failure_options?.length ? cat.failure_options : [0, -1, -2, -3]).map(String);
+// Ιατρικός κανόνας: καρδιολογικό πρόβλημα ή υψηλή πίεση → UNTIL FAILURE μόνο -3
+// deno-lint-ignore no-explicit-any
+function medicalCap(ctx: any): boolean { return !!(ctx?.medical?.heart_problem || ctx?.medical?.high_blood_pressure); }
+// deno-lint-ignore no-explicit-any
+function medicalText(ctx: any): string {
+  const m = ctx?.medical; if (!m) return "";
+  const lines: string[] = [];
+  if (m.heart_problem || m.high_blood_pressure) {
+    lines.push(`ΙΑΤΡΙΚΟ (ΥΠΟΧΡΕΩΤΙΚΟ): ο αθλούμενος δήλωσε ${[m.heart_problem ? "καρδιολογικό πρόβλημα" : "", m.high_blood_pressure ? "υψηλή πίεση" : ""].filter(Boolean).join(" και ")}. Το UNTIL FAILURE δεν επιτρέπεται να είναι πάνω από -3 σε ΚΑΜΙΑ άσκηση και ΚΑΝΕΝΑ set — μόνο -3. Αν το πρόγραμμα έχει -2, -1 ή 0, πρότεινε αλλαγή σε -3 και εξήγησε ότι είναι για λόγους υγείας.`);
+  }
+  if (m.cardiologist_allows_weights === "ΟΧΙ") {
+    lines.push("ΙΑΤΡΙΚΟ: ο αθλούμενος δήλωσε ότι ο καρδιολόγος του ΔΕΝ του επιτρέπει άσκηση με αντιστάσεις/βάρη. Μην προτείνεις πρόγραμμα με βάρη· θεώρησέ το ευαίσθητο θέμα (sensitive) και παράπεμψε στον γυμναστή και στον γιατρό.");
+  }
+  return lines.join("\n");
+}
+function validateSuggestions(list: any, record: any, cat: Catalog, o: Opts, capFailure = false) {
+  const failOpts = (cat.failure_options?.length ? cat.failure_options : [0, -1, -2, -3]).filter((v) => !capFailure || v <= -3).map(String);
   // deno-lint-ignore no-explicit-any
   const days: any[] = Array.isArray(record?.days) ? record.days : [];
   // στοιχεία ημέρας με τη σειρά που τα βλέπει ο αθλούμενος
@@ -314,7 +329,7 @@ ${groups}
 // Έλεγχος & μετατροπή του προγράμματος του AI στη μορφή της εφαρμογής
 // ---------------------------------------------------------------------
 // deno-lint-ignore no-explicit-any
-function toProgramRecord(p: any, cat: Catalog, versionNo: number) {
+function toProgramRecord(p: any, cat: Catalog, versionNo: number, capFailure = false) {
   const warnings: string[] = [];
   const lookup = new Map<string, { key: string; ex: Map<string, string> }>();
   for (const [k, g] of Object.entries(cat.groups)) {
@@ -343,7 +358,8 @@ function toProgramRecord(p: any, cat: Catalog, versionNo: number) {
         if (!sr) { warnings.push(`Μη έγκυρα σετ για «${ex}»`); return; }
         rep = sr.rep; rest = sr.rest;
       }
-      const failure = failOpts.includes(Number(g?.failure)) ? Number(g.failure) : -2;
+      let failure = failOpts.includes(Number(g?.failure)) ? Number(g.failure) : -2;
+      if (capFailure && failure > -3) failure = -3;   // ιατρικός κανόνας
       groups.push({ groupLabel: cat.groups[grp.key].label, exercise: ex, set, rep, rest, failure, equipment: [] });
     });
     if (groups.length) days.push({ label: cat.day_labels[days.length] || `ΗΜΕΡΑ ${di + 1}`, groups });
@@ -388,7 +404,7 @@ async function customerContext(admin: any, code: string) {
       .order("created_at", { ascending: false }).limit(1500),
     admin.from("ai_proposals").select("created_at, status, decision_note").eq("customer_code", code)
       .order("created_at", { ascending: false }).limit(3),
-    admin.from("client_profiles").select("gender, goal, age, height_cm, weight_kg, body_fat_pct").eq("customer_code", code).maybeSingle(),
+    admin.from("client_profiles").select("gender, goal, age, height_cm, weight_kg, body_fat_pct, heart_problem, high_blood_pressure, doctor_allows_weights").eq("customer_code", code).maybeSingle(),
     admin.from("weight_logs").select("log_date, weight_kg").eq("customer_code", code).order("log_date", { ascending: false }).limit(10),
     admin.from("workout_checkins").select("log_date, kind, day_label, answers").eq("customer_code", code).order("created_at", { ascending: false }).limit(12),
   ]);
@@ -434,6 +450,12 @@ async function customerContext(admin: any, code: string) {
     age,
     gender: prof?.gender ?? null,                       // ΑΝΔΡΑΣ | ΓΥΝΑΙΚΑ (όπως το δήλωσε ο αθλούμενος)
     goal: prof?.goal ?? null,                           // ο στόχος με τα λόγια του αθλούμενου
+    medical: {                                          // ιατρικό ιστορικό (όπως το δήλωσε ο αθλούμενος)
+      heart_problem: prof?.heart_problem ?? null,
+      high_blood_pressure: prof?.high_blood_pressure ?? null,
+      cardiologist_allows_weights: prof?.doctor_allows_weights ?? null,
+      max_until_failure: (prof?.heart_problem || prof?.high_blood_pressure) ? -3 : null,
+    },
     height_cm: prof?.height_cm ?? null, weight_kg: prof?.weight_kg ?? null, body_fat_pct: prof?.body_fat_pct ?? null,
     // deno-lint-ignore no-explicit-any
     recent_weights: (weights ?? []).map((w: any) => `${w.log_date}: ${w.weight_kg} kg`),
@@ -510,6 +532,7 @@ ${groups}
   const userText = [
     "Πατήθηκε το κουμπί: «Έλεγχος προγράμματος».",
     note ? `Ο αθλούμενος έγραψε: «${note}»` : "Ο αθλούμενος δεν έγραψε κάτι.",
+    medicalText(ctx),
     `ΤΟ ΠΡΟΓΡΑΜΜΑ ΠΡΟΣ ΕΛΕΓΧΟ:\n${describeProgram(record, cat)}`,
     `Ιστορικό αθλούμενου (JSON):\n${JSON.stringify(ctx).slice(0, 30_000)}`,
   ].join("\n\n");
@@ -551,7 +574,7 @@ ${groups}
   await admin.from("ai_usage").insert({ user_id: user.id, kind: "program_check" });
 
   const sensitive = out.sensitive === true || out.verdict === "unsafe";
-  const suggestions = sensitive ? [] : validateSuggestions(out.suggestions, record, cat, o);
+  const suggestions = sensitive ? [] : validateSuggestions(out.suggestions, record, cat, o, medicalCap(ctx));
   const good = (Array.isArray(out.good) ? out.good : []).slice(0, 8).map((g: unknown) => String(g ?? "").slice(0, 300)).filter(Boolean);
   return json({
     verdict: sensitive ? "unsafe" : (suggestions.length ? "improve" : "ok"),
@@ -662,6 +685,7 @@ Deno.serve(async (req) => {
     `Πατήθηκε το κουμπί: «${BUTTONS[buttonKey].label}».`,
     choice ? `Ο πελάτης επέλεξε από τη λίστα: «${choice}».${CHOICE_HINT[choiceKey] ? " Τι σημαίνει: " + CHOICE_HINT[choiceKey] : ""}` : "Ο πελάτης δεν επέλεξε κάτι από τη λίστα.",
     note ? `Ο πελάτης έγραψε: «${note}»` : "Ο πελάτης δεν έγραψε κάτι.",
+    medicalText(ctx),
     `Στοιχεία πελάτη (JSON):\n${JSON.stringify(ctx).slice(0, 40_000)}`,
   ].join("\n\n");
 
@@ -692,7 +716,7 @@ Deno.serve(async (req) => {
   const out = (ai.content ?? []).find((c: any) => c.type === "tool_use")?.input;
   if (!out?.program) return fail(502, "ai_error", "Το AI δεν επέστρεψε πρόγραμμα. Δοκίμασε ξανά.");
 
-  const { record, warnings } = toProgramRecord(out.program, cat, version.version_no);
+  const { record, warnings } = toProgramRecord(out.program, cat, version.version_no, medicalCap(ctx));
   if (!record) return fail(502, "ai_invalid", "Το AI έδωσε πρόγραμμα που δεν πέρασε τον έλεγχο. Δοκίμασε ξανά.");
 
   let sensitive = out.sensitive === true;
