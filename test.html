@@ -2447,8 +2447,21 @@ async function loadWorkoutLogs(customerCode, sinceISO){
 }
 async function logCardioDone(entry){
   const { error } = await sb.from('cardio_logs').insert(entry);
+  if(error && (error.code==='23505' || /duplicate|unique/i.test(error.message||''))) return true;   // είχε ήδη καταγραφεί σήμερα
   if(error) console.error('logCardioDone error:', error);
   return !error;
+}
+// Ημερομηνία Ελλάδας (ΕΕΕΕ-ΜΜ-ΗΗ)
+function athensDateStr(d){ return new Intl.DateTimeFormat('en-CA', { timeZone:'Europe/Athens', year:'numeric', month:'2-digit', day:'2-digit' }).format(d||new Date()); }
+function cardioKey(programName, dayLabel, slot, equipment){ return [programName||'', dayLabel||'', slot==null?-1:slot, equipment||''].join('|'); }
+// Έχει ήδη καταγραφεί σήμερα αυτό το αερόβιο;
+async function cardioDoneToday(code, key){
+  const today = athensDateStr();
+  if(!state.cardioDone || state.cardioDone.date!==today || state.cardioDone.code!==code){
+    const { data, error } = await sb.from('cardio_logs').select('program_name, day_label, slot, equipment, log_date').eq('customer_code', code).eq('log_date', today);
+    state.cardioDone = { date: today, code, keys: new Set((error?[]:(data||[])).map(r=>cardioKey(r.program_name, r.day_label, r.slot, r.equipment))) };
+  }
+  return state.cardioDone.keys.has(key);
 }
 async function loadAnnouncements(){
   const { data, error } = await sb.from('announcements').select('*').order('created_at', { ascending:false });
@@ -5529,12 +5542,20 @@ function cardioNextLabel(src){
   if(!n || n.none) return '✓ ΤΕΛΟΣ ΗΜΕΡΑΣ';
   return n.newDay ? 'ΕΠΟΜΕΝΗ ΗΜΕΡΑ →' : 'ΕΠΟΜΕΝΗ ΑΣΚΗΣΗ →';
 }
-function cardioNextFlow(src){
+async function cardioNextFlow(src){
   const nav = src==='client' ? state.clientNav : state.tplLibNav;
   state.workoutNextCtx = { src, programId: nav.programId, dayIndex: nav.dayIndex, itemIndex: nav.itemIndex };
   const P = wnProgram(state.workoutNextCtx); if(!P) return;
   const it = P.items(nav.dayIndex)[nav.itemIndex]; if(!it) return;
-  state.cardioAskModal = { item: it, programName: P.name, dayLabel: P.label(nav.dayIndex), next: workoutNextInfo() };
+  const ask = { item: it, slot: nav.itemIndex, programName: P.name, dayLabel: P.label(nav.dayIndex), next: workoutNextInfo() };
+  // Αν έχει ήδη δηλωθεί σήμερα, δεν ξαναρωτάμε — πάμε κατευθείαν στην επόμενη
+  const code = auth.status==='client' && auth.customer ? auth.customer.code : null;
+  if(code && await cardioDoneToday(code, cardioKey(ask.programName, ask.dayLabel, ask.slot, it.equipment||'ΑΕΡΟΒΙΟ'))){
+    toast('Το αερόβιο αυτό έχει ήδη καταγραφεί σήμερα.');
+    if(ask.next && !ask.next.none){ state.nextExerciseModal = ask.next; workoutOpenNext(); }
+    return;
+  }
+  state.cardioAskModal = ask;
   renderModal();
 }
 async function cardioAnswer(done){
@@ -5542,8 +5563,10 @@ async function cardioAnswer(done){
   if(done){
     const code = auth.status==='client' && auth.customer ? auth.customer.code : null;
     if(code){
-      const ok = await logCardioDone({ customer_code: code, program_name: a.programName || null, day_label: a.dayLabel || null,
-        equipment: a.item.equipment || 'ΑΕΡΟΒΙΟ', minutes: Number(String(a.item.minutes||'').replace(',','.')) || null });
+      const equipment = a.item.equipment || 'ΑΕΡΟΒΙΟ';
+      const ok = await logCardioDone({ customer_code: code, program_name: a.programName || null, day_label: a.dayLabel || null, slot: a.slot,
+        equipment, minutes: Number(String(a.item.minutes||'').replace(',','.')) || null, log_date: athensDateStr() });
+      if(ok && state.cardioDone && state.cardioDone.code===code) state.cardioDone.keys.add(cardioKey(a.programName, a.dayLabel, a.slot, equipment));
       toast(ok ? 'Το αερόβιο καταγράφηκε στο ημερολόγιο.' : 'Δεν καταγράφηκε το αερόβιο. Δοκίμασε ξανά.');
     } else toast('Προεπισκόπηση — δεν καταγράφεται σε ημερολόγιο πελάτη.');
   }
