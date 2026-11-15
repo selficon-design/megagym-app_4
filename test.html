@@ -5458,6 +5458,10 @@ const WORKOUT_INSTRUCTIONS = [
   'Πήγαινε μετά κάτω στον <b>υπολογιστή κιλών</b> και γράψε πόσα κιλά έβαλες και πόσες επαναλήψεις έβγαλες.',
   'Πάτα <b>«Υπολογισμός κιλών επόμενου set»</b> και θα σου πει πόσα κιλά να βάλεις στο επόμενο set.'
 ];
+document.addEventListener('click', e=>{
+  const b = e.target.closest && e.target.closest('[data-firstset-instr]');
+  if(b){ state.firstSetInstrOpen = true; renderModal(); }
+});
 function openWorkoutMode(ex, returnFn){
   const key = ex.exercise+'|'+ex.set+'|'+ex.rep+'|'+ex.rest;
   const maxRest = parseRestSeconds(ex.rest);
@@ -6130,7 +6134,7 @@ function renderWorkoutPage(){
       <div class="sub" style="margin-bottom:0;text-transform:uppercase;">${escHtml(ex.groupLabel||'')} · SET ${ex.set} · REP ${escHtml(String(ex.rep))}</div>
 
       <div style="text-align:center;margin-top:16px;">
-        <button class="btn btn-critical" id="timerInstructionsBtn" style="margin-bottom:10px;display:inline-flex;">ΟΔΗΓΙΕΣ ΕΚΤΕΛΕΣΗΣ ΠΡΩΤΟΥ SET</button>
+        <button class="btn btn-outline" id="timerInstructionsBtn" style="border:2px solid var(--cyan);margin-bottom:10px;display:inline-flex;">Οδηγίες / Instructions</button>
         <br>
         <div id="setBox" class="timer-set-box ${setBoxContent.cls}">${setBoxContent.html}</div>
         <div id="timerRing" class="timer-ring" style="--progress:${progress}">
@@ -6309,15 +6313,14 @@ function renderModal(){
   if(state.instructionsModalOpen){
     root.innerHTML = `
       <div class="modal-overlay" id="instructions-overlay">
-        <div class="modal" style="max-width:440px;max-height:88vh;overflow-y:auto;">
+        <div class="modal" style="max-width:380px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
-            <h2 style="font-size:17px;margin:0;letter-spacing:1.2px;">ΟΔΗΓΙΕΣ ΕΚΤΕΛΕΣΗΣ ΠΡΩΤΟΥ SET</h2>
+            <h2 style="font-size:17px;margin:0;">Οδηγίες / Instructions</h2>
             <button id="instructions-close-x" style="background:none;border:none;color:var(--ink-soft);font-size:20px;cursor:pointer;line-height:1;padding:4px;">✕</button>
           </div>
-          <ol class="wk-instr">
-            ${WORKOUT_INSTRUCTIONS.map(t=>`<li>${t}</li>`).join('')}
-          </ol>
-          <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:16px;" id="instructions-close-btn">Κατάλαβα</button>
+          <p style="font-size:14px;line-height:1.6;color:#eefcff;margin:0 0 10px;">Στο τέλος κάθε Set πάτα το <strong>START</strong>. Όταν τελειώσει ο χρόνος ξεκινάς το επόμενο Set.</p>
+          <p style="font-size:12px;line-height:1.6;color:var(--ink-soft);margin:0;font-style:italic;">At the end of each Set press <strong>START</strong>. When the time runs out you begin the next Set.</p>
+          <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:18px;" id="instructions-close-btn">Κατάλαβα</button>
         </div>
       </div>`;
     const closeInstr = ()=>{ state.instructionsModalOpen=false; if(state.calAltAfterInstr){ state.calAltAfterInstr=false; state.calAltWarningModalOpen=true; } renderModal(); };
@@ -6543,6 +6546,24 @@ function renderModal(){
     document.getElementById('firstsetinfo-close-x')?.addEventListener('click', ()=>{ state.firstSetInfoModalOpen=false; renderModal(); });
     document.getElementById('firstsetinfo-close-btn')?.addEventListener('click', ()=>{ state.firstSetInfoModalOpen=false; renderModal(); });
     document.getElementById('firstsetinfo-overlay')?.addEventListener('click', (e)=>{ if(e.target.id==='firstsetinfo-overlay'){ state.firstSetInfoModalOpen=false; renderModal(); } });
+    return;
+  }
+  if(state.firstSetInstrOpen){
+    root.innerHTML = `
+      <div class="modal-overlay" id="fsi-overlay">
+        <div class="modal" style="max-width:440px;max-height:88vh;overflow-y:auto;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+            <h2 style="font-size:17px;margin:0;letter-spacing:1.2px;">ΟΔΗΓΙΕΣ ΕΚΤΕΛΕΣΗΣ ΠΡΩΤΟΥ SET</h2>
+            <button id="fsi-x" style="background:none;border:none;color:var(--ink-soft);font-size:20px;cursor:pointer;line-height:1;padding:4px;">✕</button>
+          </div>
+          <ol class="wk-instr">${WORKOUT_INSTRUCTIONS.map(t=>`<li>${t}</li>`).join('')}</ol>
+          <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:16px;" id="fsi-ok">Κατάλαβα</button>
+        </div>
+      </div>`;
+    const close = ()=>{ state.firstSetInstrOpen = false; renderModal(); };
+    document.getElementById('fsi-x').addEventListener('click', close);
+    document.getElementById('fsi-ok').addEventListener('click', close);
+    document.getElementById('fsi-overlay').addEventListener('click', e=>{ if(e.target.id==='fsi-overlay') close(); });
     return;
   }
   if(state.choiceModal){
@@ -9607,7 +9628,8 @@ function renderClientExerciseView(item){
         <div class="calc-field-box"><label>Ένταση</label><div class="val" style="font-size:15px;">${escHtml(failureLabel(item.failure))}</div></div>
       </div>
       <div class="info-card"><div class="lbl">Τι σημαίνει η Ένταση (UNTIL FAILURE)</div><div class="txt">${escHtml(FAILURE_EXPLANATION)}</div></div>
-      <button class="btn btn-critical" style="width:100%;justify-content:center;" id="client-start-exercise">▶ Έναρξη Προπόνησης</button>
+      <button class="btn btn-critical" style="width:100%;justify-content:center;" data-firstset-instr="1">ΟΔΗΓΙΕΣ ΕΚΤΕΛΕΣΗΣ ΠΡΩΤΟΥ SET</button>
+      ${!(item.equipment||[]).length ? `<button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:8px;" id="client-start-exercise">▶ Έναρξη Προπόνησης</button>` : ''}
     </div>
     ${(item.equipment&&item.equipment.length) ? `
       <div class="eq-section-title">Προτεινόμενος Εξοπλισμός</div>
@@ -10207,7 +10229,8 @@ function renderTplLibExerciseView(){
       </div>
       <div class="calc-field-box" style="margin-bottom:14px;"><label>Ένταση</label><div class="val" style="font-size:15px;">${escHtml(failureLabel(it.failure))}</div></div>
       <div class="info-card"><div class="lbl">Τι σημαίνει η Ένταση (UNTIL FAILURE)</div><div class="txt">${escHtml(FAILURE_EXPLANATION)}</div></div>
-      <button class="btn btn-critical" style="width:100%;justify-content:center;margin-top:6px;" id="tpllib-start-exercise">▶ Έναρξη Προπόνησης</button>
+      <button class="btn btn-critical" style="width:100%;justify-content:center;margin-top:6px;" data-firstset-instr="1">ΟΔΗΓΙΕΣ ΕΚΤΕΛΕΣΗΣ ΠΡΩΤΟΥ SET</button>
+      ${!(it.equipment||[]).length ? `<button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:8px;" id="tpllib-start-exercise">▶ Έναρξη Προπόνησης</button>` : ''}
     </div>
     ${(it.equipment&&it.equipment.length) ? `
       <div class="eq-section-title">Προτεινόμενος Εξοπλισμός</div>
