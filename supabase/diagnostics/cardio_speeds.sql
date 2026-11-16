@@ -1,6 +1,6 @@
 -- Τιμές αερόβιων στα έτοιμα προγράμματα (όχι προσωπικά δεδομένα): ομαδοποίηση ανά τιμές
 select t.gender, i.it->>'equipment' as eq, i.it->>'mode' as mode,
-       coalesce(i.it->>'speedLow','') as lo, coalesce(i.it->>'speedHigh','') as hi,
+       coalesce(i.it->>'speedLow','') as lo, coalesce(i.it->>'speedLowMax','') as lomax,
        coalesce(i.it->>'incline','') as incl, coalesce(i.it->>'minutes','') as mins,
        coalesce(i.it->>'drillEveryMinutes','') as every, count(*) as n
 from public.template_programs t
