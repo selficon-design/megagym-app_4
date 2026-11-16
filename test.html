@@ -361,7 +361,7 @@ input,select{font-family:inherit;}
   border:2px solid var(--line-strong);background:rgba(13,31,48,.4);cursor:pointer;margin-bottom:8px;
   transition:border-color .12s, background .12s;
 }
-.client-card:hover{border-color:var(--cyan);box-shadow:0 0 40px rgba(0,200,255,.45);}
+@media (hover:hover) and (pointer:fine){ .client-card:hover{border-color:var(--cyan);box-shadow:0 0 40px rgba(0,200,255,.45);} }
 .client-card.active{border-color:var(--accent);background:var(--accent-soft);}
 .client-avatar{
   width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg, var(--cyan), #123049);color:#04121c;
@@ -543,7 +543,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
   border-radius:14px;background:rgba(13,31,48,.5);text-align:left;width:100%;
   transition:border-color .15s, background .15s, transform .1s;
 }
-.role-btn:hover{border-color:var(--accent);background:var(--accent-soft);transform:translateY(-1px);box-shadow:0 0 40px rgba(255,159,26,.5);}
+/* στο κινητό το «hover» κολλάει στο κουμπί που βρίσκεται κάτω από το δάχτυλο μετά την αλλαγή οθόνης — μόνο με ποντίκι */
+@media (hover:hover) and (pointer:fine){ .role-btn:hover{border-color:var(--accent);background:var(--accent-soft);transform:translateY(-1px);box-shadow:0 0 40px rgba(255,159,26,.5);} }
 .role-btn .ricon{
   width:38px;height:38px;border-radius:50%;background:var(--steel-soft);
   display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--cyan-soft);
@@ -573,7 +574,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .pact-bar{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08);}
 .home-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .home-tile{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:18px 16px;min-height:132px;border-radius:18px;border:1.5px solid var(--line-strong);background:linear-gradient(160deg,rgba(13,31,48,.85),rgba(3,11,18,.85));color:var(--ink);cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:transform .12s,border-color .12s;}
-.home-tile:hover{transform:translateY(-2px);border-color:var(--cyan);}
+@media (hover:hover) and (pointer:fine){ .home-tile:hover{transform:translateY(-2px);border-color:var(--cyan);} }
 .home-tile.star{border-color:rgba(255,210,63,.6);background:linear-gradient(160deg,rgba(60,48,8,.6),rgba(3,11,18,.85));}
 .home-ic{font-size:30px;line-height:1;}
 .home-t{font-weight:800;font-size:15px;color:#fff;}
