@@ -581,6 +581,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .home-s{font-size:11.5px;color:var(--ink-soft);}
 .client-card.new-prog{position:relative;border:2px solid #ff3b3b !important;box-shadow:0 0 18px rgba(255,59,59,.45) !important;margin-top:14px;}
 .new-prog-badge{position:absolute;top:-11px;left:14px;padding:3px 10px;border-radius:999px;background:#ff3b3b;color:#fff;font-size:10.5px;font-weight:800;letter-spacing:1px;box-shadow:0 0 10px rgba(255,59,59,.6);}
+.done-check{order:9;margin-left:auto;align-self:center;flex-shrink:0;width:26px;height:26px;border-radius:7px;background:#22c55e;border:1.5px solid #7dffaf;color:#fff;font-size:17px;font-weight:900;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(34,197,94,.55);}
 .tpl-personal-sub{color:#ffd23f;font-weight:700;}
 .tpl-personal{font-size:11px;font-weight:600;color:var(--accent);text-transform:none;letter-spacing:0;margin-top:2px;}
 .myprog-badge{margin-left:auto;flex-shrink:0;padding:3px 9px;border-radius:999px;background:rgba(255,210,63,.18);color:#ffd23f;font-size:10.5px;font-weight:800;white-space:nowrap;}
@@ -5598,6 +5599,7 @@ async function sessSave(c, mutate){
   await cardioDoneToday(code, '');   // φόρτωσε τα σημερινά αερόβια για τον υπολογισμό
   const r = sessCalc(P, c.dayIndex, cur.progress);
   state.sessCache[k] = cur;
+  if(r.completed){ state.daysDoneToday = state.daysDoneToday || {}; state.daysDoneToday[c.programId+'|'+c.dayIndex+'|'+athensDateStr()] = true; }
   const { error } = await sb.from('workout_sessions').upsert({ customer_code: code, program_id: c.programId, day_index: c.dayIndex, day_label: P.label(c.dayIndex) || null,
     log_date: athensDateStr(), progress: cur.progress, total_sets: r.total, done_sets: r.done, completed: r.completed, updated_at: new Date().toISOString() },
     { onConflict: 'customer_code,program_id,log_date,day_index' });
@@ -9880,6 +9882,53 @@ function bindProgramCheck(p, record){
     redraw();
   });
 }
+/* ✓ στις ασκήσεις/ημέρες που εκτελέστηκαν σήμερα (από την πρόοδο της προπόνησης και τα αερόβια) */
+function doneCheckHtml(done){ return done ? `<span class="done-check" title="Εκτελέστηκε σήμερα">✓</span>` : ''; }
+function clientDoneEnsure(p, dayIndex){
+  const code = auth.status==='client' && auth.customer ? auth.customer.code : null; if(!code || !p) return;
+  const today = athensDateStr(), key = p.id+'|'+today;
+  state.doneLoaded = state.doneLoaded || {};
+  if(state.doneLoaded[key]) return;
+  state.doneLoaded[key] = 'loading';
+  Promise.all([
+    sb.from('workout_sessions').select('day_index, progress, completed').eq('customer_code', code).eq('program_id', p.id).eq('log_date', today),
+    cardioDoneToday(code, '')
+  ]).then(([res])=>{
+    state.sessCache = state.sessCache || {}; state.daysDoneToday = state.daysDoneToday || {};
+    (res.data||[]).forEach(r=>{
+      const k = [p.id, r.day_index, today].join('|');
+      const cur = state.sessCache[k] || { progress:{} };
+      Object.entries(r.progress||{}).forEach(([i,v])=>{ cur.progress[i] = Math.max(Number(cur.progress[i])||0, Number(v)||0); });
+      state.sessCache[k] = cur;
+      if(r.completed) state.daysDoneToday[p.id+'|'+r.day_index+'|'+today] = true;
+    });
+    state.doneLoaded[key] = true;
+    const v = state.clientNav && state.clientNav.view;
+    if(document.getElementById('client-content') && !document.getElementById('setBox') && (v==='days' || v==='items') && state.clientNav.programId===p.id) renderClientMain();
+  }).catch(()=>{ state.doneLoaded[key] = false; });
+}
+function clientItemDone(p, dayIndex, i, item){
+  if(auth.status!=='client') return false;
+  clientDoneEnsure(p, dayIndex);
+  const today = athensDateStr();
+  if(item.type==='cardio'){
+    const P = wnProgram({ src:'client', programId:p.id, dayIndex, itemIndex:i });
+    return !!(P && state.cardioDone && state.cardioDone.keys.has(cardioKey(P.name, P.label(dayIndex), i, item.equipment||'ΑΕΡΟΒΙΟ')));
+  }
+  const ses = state.sessCache && state.sessCache[[p.id, dayIndex, today].join('|')];
+  const n = Math.max(1, parseInt(item.set,10)||1);
+  return !!(ses && (Number(ses.progress[i])||0) >= n);
+}
+function clientDayDone(pid, dayIndex){
+  if(auth.status!=='client') return false;
+  const p = (state.selectedCustomerPrograms||[]).find(x=>x.id===pid); if(!p) return false;
+  clientDoneEnsure(p, dayIndex);
+  const today = athensDateStr();
+  if(state.daysDoneToday && state.daysDoneToday[pid+'|'+dayIndex+'|'+today]) return true;
+  // ή όλα τα στοιχεία της ημέρας έχουν ✓
+  const items = getClientDayItems(p.record, dayIndex);
+  return items.length > 0 && items.every((it,i)=>clientItemDone(p, dayIndex, i, it));
+}
 function renderClientDaysListView(p, record){
   const days = record.days || [];
   return `
@@ -9901,7 +9950,7 @@ function renderClientDaysListView(p, record){
         const hasCardio = d.cardioSlots && d.cardioSlots.length>0;
         const sub = groupNames + (hasCardio ? (groupNames?' + Αερόβιο':'Αερόβιο') : '');
         return `<button class="role-btn" data-open-day="${i}" style="align-items:flex-start;">
-          <div class="ricon">${ICON.plan}</div>
+          ${doneCheckHtml(clientDayDone(p.id, i))}
           <div class="rtext"><div class="rt1">${escHtml(d.label)}</div><div class="rt2">${escHtml(sub)}</div><div class="rt2">${dayDurationHtml(getClientDayItems(record, i))}</div></div>
         </button>`;
       }).join('')}
@@ -9925,12 +9974,12 @@ function renderClientItemsListView(p, record, dayIndex){
         items.map((item,i)=>{
           if(item.type==='muscle'){
             return `<button class="role-btn" data-open-item="${i}" style="align-items:flex-start;">
-              <div class="ricon">${ICON.plan}</div>
+              ${doneCheckHtml(clientItemDone(p, dayIndex, i, item))}
               <div class="rtext"><div class="rt1">${escHtml(item.groupLabel)} ${durBadge(item)}</div><div class="rt2">${escHtml(item.exercise)}</div></div>
             </button>`;
           }
           return `<button class="role-btn cardio-neon" data-open-item="${i}" style="align-items:flex-start;">
-            <div class="ricon">${ICON.plan}</div>
+            ${doneCheckHtml(clientItemDone(p, dayIndex, i, item))}
             <div class="rtext"><div class="rt1">🏃 ${escHtml(item.equipment||'Αερόβιο')} ${durBadge(item)}</div><div class="rt2">Αερόβια άσκηση</div></div>
           </button>`;
         }).join('')
@@ -10518,7 +10567,6 @@ function renderTplLibDaysView(){
         const muscleNames = d.items.filter(it=>it.type==='muscle').map(it=>tplLabelNow(it.groupLabel)).filter((v,idx,a)=>a.indexOf(v)===idx);
         const hasCardio = d.items.some(it=>it.type==='cardio');
         return `<button class="role-btn" data-tpllib-day="${i}" style="align-items:flex-start;">
-          <div class="ricon">${ICON.plan}</div>
           <div class="rtext"><div class="rt1">${escHtml(d.label)}</div><div class="rt2">${escHtml(muscleNames.join(', '))}${hasCardio?(muscleNames.length?' + Αερόβιο':'Αερόβιο'):''}</div><div class="rt2">${dayDurationHtml(d.items)}</div></div>
         </button>`;
       }).join('')}
@@ -10537,12 +10585,10 @@ function renderTplLibItemsView(){
       ${day.items.map((it,i)=>{
         if(it.type==='muscle'){
           return `<button class="role-btn" data-tpllib-item="${i}" style="align-items:flex-start;">
-            <div class="ricon">${ICON.plan}</div>
             <div class="rtext"><div class="rt1">${escHtml(tplLabelNow(it.groupLabel))} ${durBadge(it)}</div><div class="rt2">${escHtml(it.exercise)}</div></div>
           </button>`;
         }
         return `<button class="role-btn cardio-neon" data-tpllib-item="${i}" style="align-items:flex-start;">
-          <div class="ricon">${ICON.plan}</div>
           <div class="rtext"><div class="rt1">🏃 ${escHtml(it.equipment)} ${durBadge(it)}</div><div class="rt2">Αερόβια άσκηση</div></div>
         </button>`;
       }).join('')}
