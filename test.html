@@ -587,6 +587,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .done-check{order:9;margin-left:auto;align-self:center;flex-shrink:0;width:26px;height:26px;border-radius:7px;background:#22c55e;border:1.5px solid #7dffaf;color:#fff;font-size:17px;font-weight:900;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(34,197,94,.55);}
 .proghead-txt{font-size:13px;font-weight:600;color:var(--accent);margin-top:4px;line-height:1.4;}
 .proghead-details{margin-top:12px;}
+.proghead-photo{width:100%;aspect-ratio:16/9;background:rgba(3,11,18,.5);overflow:hidden;}
+.proghead-photo img{width:100%;height:100%;object-fit:cover;display:block;}
 .proghead-details .tpl-sum{font-size:12.5px;margin:0 0 12px;}
 .proghead-toggle{display:block;width:100%;margin-top:10px;padding:9px 12px;border-radius:10px;border:1px solid rgba(61,216,255,.35);background:rgba(61,216,255,.08);color:var(--cyan-soft,#8fe3ff);font:600 12.5px inherit;font-family:inherit;cursor:pointer;}
 .tpl-personal-sub{color:#ffd23f;font-weight:700;}
@@ -9865,7 +9867,8 @@ function openClientBuilderWith(record, opts){
     name: opts.name, numDays: tplDays.length, days: tplDays,
     description: record.instructions || '',
     topCategory: record.category==='fatburn' ? 'ΚΑΥΣΗΣ ΛΙΠΟΥΣ' : 'ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ',
-    editProgramId: opts.editId || null, ownerCode: auth.customer && auth.customer.code
+    editProgramId: opts.editId || null, ownerCode: auth.customer && auth.customer.code,
+    fromTplName: opts.fromTplName || ''
   });
   if(!b.editProgramId) state.cbSavedDraft = null;
   else state.cbSavedDraft = state.clientBuilder;   // το πρόχειρο νέου προγράμματος μένει στην άκρη
@@ -10032,25 +10035,34 @@ function renderClientDayButtons(p, record, days){
       }).join('')}
     </div>`;
 }
+// Φωτογραφία για τα «δικά μου» προγράμματα. Όταν διαλέξουμε την τελική, μπαίνει εδώ το link της.
+const OWN_PROGRAM_PHOTO = '';
+function ownProgramPhoto(){
+  if(OWN_PROGRAM_PHOTO) return OWN_PROGRAM_PHOTO;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#06263a"/><stop offset="1" stop-color="#03111c"/></linearGradient><linearGradient id="o" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffb347"/><stop offset="1" stop-color="#ff7a00"/></linearGradient></defs><rect width="800" height="450" fill="url(#g)"/><g fill="none" stroke="#3dd8ff" stroke-opacity=".18" stroke-width="2"><circle cx="680" cy="80" r="140"/><circle cx="120" cy="400" r="170"/></g><g transform="translate(400 150)" fill="url(#o)"><rect x="-120" y="-10" width="240" height="20" rx="6"/><rect x="-150" y="-45" width="30" height="90" rx="8"/><rect x="120" y="-45" width="30" height="90" rx="8"/><rect x="-185" y="-30" width="30" height="60" rx="8"/><rect x="155" y="-30" width="30" height="60" rx="8"/></g><text x="400" y="290" text-anchor="middle" font-family="Arial, sans-serif" font-size="58" font-weight="800" fill="#ffffff" letter-spacing="4">ΔΙΚΟ ΜΟΥ</text><text x="400" y="360" text-anchor="middle" font-family="Arial, sans-serif" font-size="58" font-weight="800" fill="#ffb347" letter-spacing="4">ΠΡΟΓΡΑΜΜΑ</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
 function progHeadClosed(){ try{ return localStorage.getItem('forma_proghead_closed')==='1'; }catch(_){ return false; } }
 function renderClientDaysListView(p, record){
   const days = record.days || [];
-  const fromTpl = !!(record.fromTemplate || record.templateId || record.templateName);
+  const own = !!record.fromClientBuilder;
+  const fromTpl = !own && !!(record.fromTemplate || record.templateId || record.templateName);
   if(fromTpl) clientEnsureTemplates();
   const t = fromTpl ? clientSourceTemplate(record) : null;
   const tail = auth.status==='client' ? `<button class="btn btn-primary start-prog-btn" id="client-start-program">ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ ΓΥΜΝΑΣΤΙΚΗΣ</button>
     <button class="btn btn-outline end-workout-btn" id="client-end-program">⏹ ΤΕΛΟΣ ΠΡΟΠΟΝΗΣΗΣ</button>` : '';
-  if(fromTpl){
-    const closed = progHeadClosed(), sub = tplSubNice(record);
+  if(fromTpl || own){
+    const closed = progHeadClosed(), sub = own ? '' : tplSubNice(record);
+    const photo = own ? ownProgramPhoto() : (t && t.photo_url);
     const s = t && t.data && t.data.sessions, nx = t && tplNextOf(t);
     return `
     <div class="auth-back" data-client-back="programs">${ICON.back}Όλα τα προγράμματα</div>
     <div class="panel" style="margin-bottom:18px;overflow:hidden;">
-      ${t && t.photo_url ? tplPhotoBlock(t.photo_url) : ''}
+      ${own ? `<div class="proghead-photo"><img src="${escAttr(photo)}" alt=""></div>` : (photo ? tplPhotoBlock(photo) : '')}
       <div class="pad">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
           <div><h2 style="font-size:20px;">${escHtml(record.customName || record.templateName || (t && t.name) || categoryBadgeLabel(record))}</h2>
-            <div class="proghead-txt">Πρόγραμμα TRANSFORMATION, διαμορφωμένο ειδικά για σένα${sub ? ` · <span class="tpl-personal-sub">${escHtml(sub)}</span>` : ''}</div></div>
+            <div class="proghead-txt">${own ? `🛠 Δικό μου πρόγραμμα · <span class="tpl-personal-sub">${escHtml(record.category==='fatburn' ? 'Καύση λίπους' : 'Αύξηση μυϊκού ιστού')}</span>` : `Πρόγραμμα TRANSFORMATION, διαμορφωμένο ειδικά για σένα${sub ? ` · <span class="tpl-personal-sub">${escHtml(sub)}</span>` : ''}`}</div></div>
           ${clientActionsToggleHtml(p)}
         </div>
         ${closed ? '' : `
@@ -10390,18 +10402,19 @@ function cbLeaveEdit(goToPrograms){
 }
 function cbSaveDraft(){
   try{ const b = state.clientBuilder; if(!b || b.editProgramId) return;   // η διόρθωση δεν πειράζει το πρόχειρο
-    localStorage.setItem(cbDraftKey(), JSON.stringify({ name:b.name, numDays:b.numDays, days:b.days, description:b.description, topCategory:b.topCategory })); }catch(_){}
+    localStorage.setItem(cbDraftKey(), JSON.stringify({ name:b.name, numDays:b.numDays, days:b.days, description:b.description, topCategory:b.topCategory, fromTplName:b.fromTplName||'' })); }catch(_){}
 }
 function cbLoadDraft(){
   try{ const d = JSON.parse(localStorage.getItem(cbDraftKey()) || 'null'); if(!d || !Array.isArray(d.days)) return null;
-    const b = freshClientBuilder(); Object.assign(b, { name:d.name||'', numDays:d.numDays||d.days.length, days:d.days, description:d.description||'', topCategory: d.topCategory || b.topCategory }); return b; }catch(_){ return null; }
+    const b = freshClientBuilder(); Object.assign(b, { name:d.name||'', numDays:d.numDays||d.days.length, days:d.days, description:d.description||'', topCategory: d.topCategory || b.topCategory, fromTplName: d.fromTplName||'' }); return b; }catch(_){ return null; }
 }
 function renderClientBuilderMeta(b){
   return `
     ${b.editProgramId ? `<div class="calc-type-box" style="text-align:center;">✎ ΔΙΟΡΘΩΣΗ ΠΡΟΓΡΑΜΜΑΤΟΣ — «${escHtml(b.name)}»</div>` : ''}
     <div class="panel pad" style="margin-bottom:18px;">
       <div class="section-title"><span class="dot"></span>Το πρόγραμμά μου</div>
-      <div class="field"><label>Όνομα προγράμματος</label><input type="text" id="tpl-name" value="${escAttr(b.name)}" placeholder="π.χ. Το πρόγραμμά μου — 3 ημέρες" maxlength="80"></div>
+      <div class="field ${b.fromTplName && (!(b.name||'').trim() || cbNameIsTemplate(b.name, b)) ? 'field-missing' : ''}"><label>Όνομα προγράμματος${b.fromTplName ? ' <span style="color:#ff8b90;text-transform:none;letter-spacing:0;">— υποχρεωτικό</span>' : ''}</label><input type="text" id="tpl-name" value="${escAttr(b.name)}" placeholder="${b.fromTplName ? 'Γράψε δικό σου όνομα, π.χ. «Δικό μου Νο 1»' : 'π.χ. Το πρόγραμμά μου — 3 ημέρες'}" maxlength="80">
+        ${b.fromTplName ? `<div class="food-note" style="margin:6px 0 0;">Ξεκίνησες από το έτοιμο «${escHtml(b.fromTplName)}». Για να το αποθηκεύσεις πρέπει να του δώσεις <b>δικό σου όνομα</b>.</div>` : ''}</div>
       <div class="field">
         <label>Στόχος</label>
         <div class="goal-grid">
@@ -10433,6 +10446,13 @@ function cbStarterTemplate(){
   const muscle = pool.filter(t=>t.top_category==='ΑΥΞΗΣΗ ΜΥΙΚΟΥ ΙΣΤΟΥ').sort(tplOrderCmp);
   if(muscle.length) return muscle[0];
   return pool.sort(tplOrderCmp)[0] || null;
+}
+// Το όνομα του δικού σου προγράμματος δεν μπορεί να είναι το όνομα έτοιμου προγράμματος (π.χ. «BEGINNER 1»)
+function cbNameNorm(x){ return String(x||'').toLocaleUpperCase('el-GR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\(?\s*(ΔΙΚΟ ΜΟΥ|ΑΝΤΙΓΡΑΦΟ)\s*\)?/g,'').replace(/[^A-ZΑ-Ω0-9]/g,''); }
+function cbNameIsTemplate(name, b){
+  const n = cbNameNorm(name); if(!n) return false;
+  const names = (state.tplTemplates||[]).map(t=>t.name).concat(b && b.fromTplName ? [b.fromTplName] : []);
+  return names.some(x=>cbNameNorm(x)===n);
 }
 function cbIsBlank(b){ return !!b && !b.editProgramId && !(b.name||'').trim() && !b.days.some(d=>d.items.length); }
 function renderClientBuilderStart(box){
@@ -10475,9 +10495,9 @@ function renderClientBuilderStart(box){
     const tt = cbStarterTemplate(); if(!tt) return toast('Δεν βρέθηκε έτοιμο πρόγραμμα.');
     const record = mapTemplateToCustomRecord(tt);
     state.cbStarted = true;
-    openClientBuilderWith(record, { name: (tt.name || 'Πρόγραμμα') + ' (δικό μου)' });
+    openClientBuilderWith(record, { name: '', fromTplName: tt.name || '' });
     renderClientBuilder();
-    toast(`Το «${tt.name}» άνοιξε στον builder — άλλαξέ το όπως θέλεις.`, 4000);
+    toast(`Το «${tt.name}» άνοιξε στον builder — δώσε του δικό σου όνομα και άλλαξέ το όπως θέλεις.`, 4500);
   });
 }
 // Οδηγίες χρήσης του builder (κείμενο μέσα στην εφαρμογή)
@@ -10544,7 +10564,8 @@ function renderClientBuilder(){
 async function submitClientProgram(){
   const b = state.clientBuilder; if(!b || !auth.customer) return;
   const name = (b.name||'').trim();
-  if(!name){ toast('Δώσε ένα όνομα στο πρόγραμμά σου.'); document.getElementById('tpl-name')?.focus(); return; }
+  if(!name){ toast(b.fromTplName ? 'Δώσε δικό σου όνομα στο πρόγραμμα — χωρίς όνομα δεν αποθηκεύεται.' : 'Δώσε ένα όνομα στο πρόγραμμά σου.'); const el = document.getElementById('tpl-name'); el?.closest('.field')?.classList.add('field-missing'); el?.focus(); return; }
+  if(cbNameIsTemplate(name, b)){ toast('Μετονόμασέ το: δεν μπορεί να λέγεται όπως το έτοιμο πρόγραμμα «'+(b.fromTplName||name)+'». Δώσε δικό σου όνομα.', 4500); const el = document.getElementById('tpl-name'); el?.closest('.field')?.classList.add('field-missing'); el?.focus(); return; }
   const filled = b.days.filter(d=>d.items.length);
   if(!filled.length){ toast('Πρόσθεσε τουλάχιστον μία άσκηση.'); return; }
   const noTime = []; b.days.forEach(d=>d.items.forEach(it=>{ if(it.type==='cardio' && !it.minutes) noTime.push(d.label); }));
