@@ -583,6 +583,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .new-prog-badge{position:absolute;top:-11px;left:14px;padding:3px 10px;border-radius:999px;background:#ff3b3b;color:#fff;font-size:10.5px;font-weight:800;letter-spacing:1px;box-shadow:0 0 10px rgba(255,59,59,.6);}
 .cardio-howto{font-size:13px;line-height:1.6;color:#eefcff;margin-top:12px;padding:10px 12px;border-radius:10px;border:1px solid rgba(57,255,136,.4);background:rgba(57,255,136,.06);}
 .cardio-howto b{color:#39ff88;}
+.dbox-num{align-self:center;flex-shrink:0;min-width:30px;font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:800;color:var(--cyan-soft,#8fe3ff);line-height:1;text-align:left;}
 .done-check{order:9;margin-left:auto;align-self:center;flex-shrink:0;width:26px;height:26px;border-radius:7px;background:#22c55e;border:1.5px solid #7dffaf;color:#fff;font-size:17px;font-weight:900;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(34,197,94,.55);}
 .tpl-personal-sub{color:#ffd23f;font-weight:700;}
 .tpl-personal{font-size:11px;font-weight:600;color:var(--accent);text-transform:none;letter-spacing:0;margin-top:2px;}
@@ -2262,7 +2263,7 @@ function buildDays(numDays, fixedSetRep){
 function buildCardioSlots(n){
   const arr = [];
   for(let i=0;i<n;i++){
-    arr.push({ id:'cs'+i, equipment:'', mode:'steady', speedLow:'', speedHigh:'', incline:'', intensity:'', minutes:'', drillEveryMinutes:'' });
+    arr.push({ id:'cs'+i, equipment:'', mode:'steady', speedLow:'', speedLowMax:'', speedHigh:'', speedHighMax:'', incline:'', intensity:'', minutes:'', drillEveryMinutes:'' });
   }
   return arr;
 }
@@ -2964,7 +2965,7 @@ const INTENSITY_GRAPH_BASE64="PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ImVsIj4KPGhlYW
 function buildIntensityGraphHtml(slot){
   const duration = Math.max(1, Math.round(Number(slot.minutes)||30));
   const lowSpeed = Number(slot.speedLow)||5;
-  const highSpeed = Number(slot.speedHigh)||8;
+  const highSpeed = Number(slot.speedHigh)||Number(slot.speedHighMax)||8;
   const incline = Number(slot.incline)||0;
   const isDrill = slot.mode==='drill';
   const drillEvery = isDrill ? Math.max(1, Math.round(Number(slot.drillEveryMinutes)||5)) : 0;
@@ -3744,8 +3745,7 @@ function renderTplAddCardioForm(af){
             <button type="button" class="${af.mode==='drill'?'active':''}" data-tpl-af-cmode="drill">DRILL</button>
           </div>
         </div>
-        <div class="field"><label>Ταχύτητα μικρή (3-6 km/h)</label><input type="number" step="0.1" id="tpl-af-cspeedlow" value="${escAttr(af.speedLow||'')}" style="width:100%;padding:9px 11px;border-radius:10px;border:1.5px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);"></div>
-        <div class="field"><label>Ταχύτητα μεγάλη (6-10 km/h)</label><input type="number" step="0.1" id="tpl-af-cspeedhigh" value="${escAttr(af.speedHigh||'')}" style="width:100%;padding:9px 11px;border-radius:10px;border:1.5px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);"></div>
+        ${af.mode==='drill' ? `<div class="field"><label>Αργή ταχύτητα (km/h) — από / έως</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><input type="number" step="0.1" id="tpl-af-cspeedlow" placeholder="από π.χ. 3" value="${escAttr(af.speedLow||'')}" style="width:100%;padding:9px 11px;border-radius:10px;border:1.5px solid var(--line);font-size:14px;"><input type="number" step="0.1" id="tpl-af-cspeedlowmax" placeholder="έως π.χ. 6" value="${escAttr(af.speedLowMax||'')}" style="width:100%;padding:9px 11px;border-radius:10px;border:1.5px solid var(--line);font-size:14px;"></div></div><div class="field"><label>Γρήγορη ταχύτητα DRILL (km/h) — από / έως</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><input type="number" step="0.1" id="tpl-af-cspeedhigh" placeholder="από π.χ. 6" value="${escAttr(af.speedHigh||'')}" style="width:100%;padding:9px 11px;border-radius:10px;border:1.5px solid var(--line);font-size:14px;"><input type="number" step="0.1" id="tpl-af-cspeedhighmax" placeholder="έως π.χ. 8" value="${escAttr(af.speedHighMax||'')}" style="width:100%;padding:9px 11px;border-radius:10px;border:1.5px solid var(--line);font-size:14px;"></div></div>` : `<div class="field"><label>Ταχύτητα (km/h) — από / έως</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><input type="number" step="0.1" id="tpl-af-cspeedlow" placeholder="από π.χ. 3" value="${escAttr(af.speedLow||'')}" style="width:100%;padding:9px 11px;border-radius:10px;border:1.5px solid var(--line);font-size:14px;"><input type="number" step="0.1" id="tpl-af-cspeedlowmax" placeholder="έως π.χ. 6" value="${escAttr(af.speedLowMax||'')}" style="width:100%;padding:9px 11px;border-radius:10px;border:1.5px solid var(--line);font-size:14px;"></div></div>`}
         <div class="field"><label>Κλίση (0-2%)</label><input type="number" step="0.5" id="tpl-af-cincline" value="${escAttr(af.incline||'')}" style="width:100%;padding:9px 11px;border-radius:10px;border:1.5px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);"></div>
         ${af.mode==='drill' ? `<div class="field"><label>Χρόνος μεταξύ των DRILL (λεπτά)</label><input type="number" step="1" min="1" id="tpl-af-cdrillevery" value="${escAttr(af.drillEveryMinutes||'')}" style="width:100%;padding:9px 11px;border-radius:10px;border:1.5px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);"></div>`:''}
       `:`
@@ -3887,7 +3887,7 @@ function bindTplBuilderEvents(){
       const type = el.getAttribute('data-tpl-addtype');
       b.lastEdited = null;
       b.addForm = type==='cardio'
-        ? { dayIndex:di, type:'cardio', equipment:'', mode:'steady', speedLow:'', speedHigh:'', incline:'', intensity:'', minutes:'', drillEveryMinutes:'', editIndex:null }
+        ? { dayIndex:di, type:'cardio', equipment:'', mode:'steady', speedLow:'', speedLowMax:'', speedHigh:'', speedHighMax:'', incline:'', intensity:'', minutes:'', drillEveryMinutes:'', editIndex:null }
         : { dayIndex:di, type:'muscle', groupLabel:'', exercise:'', customExercise:'', set:4, rep:TPL_REP_OPTIONS[3], rest:TPL_REST_OPTIONS[2], tempo: tplMedLocked() ? MED_TEMPO : DEFAULT_TEMPO, failure: tplMedLocked() ? MED_FAILURE : 0,
             equipment:[], editIndex:null };
       renderTplFormArea();
@@ -3904,7 +3904,7 @@ function bindTplBuilderEvents(){
       b.lastEdited = null;
       state.tplApplyAllConfirm = null; state.tplApplyAllDone = null; state.tplApplyDays = null; state.tplApplyDaysDone = null;
       b.addForm = it.type==='cardio'
-        ? { dayIndex:di, type:'cardio', equipment:it.equipment, mode:it.mode, speedLow:it.speedLow, speedHigh:it.speedHigh, incline:it.incline, intensity:it.intensity, minutes:it.minutes, drillEveryMinutes:it.drillEveryMinutes, editIndex:ii }
+        ? { dayIndex:di, type:'cardio', equipment:it.equipment, mode:it.mode, speedLow:it.speedLow, speedLowMax:it.speedLowMax||'', speedHigh:it.speedHigh, speedHighMax:it.speedHighMax||'', incline:it.incline, intensity:it.intensity, minutes:it.minutes, drillEveryMinutes:it.drillEveryMinutes, editIndex:ii }
         : { dayIndex:di, type:'muscle', groupLabel:tplLabelNow(it.groupLabel), exercise:it.exercise, customExercise:'', set:it.set, rep:it.rep, rest:it.rest, tempo:it.tempo, failure:it.failure,
             equipment: tplEquipForExercise(it.exercise, it.equipment).map(e=>({...e})), editIndex:ii };
       renderTplFormArea();
@@ -4035,6 +4035,8 @@ function bindTplBuilderEvents(){
     document.querySelectorAll('[data-tpl-af-cminutes]').forEach(el=>el.addEventListener('click', ()=>{ af.minutes=el.getAttribute('data-tpl-af-cminutes'); renderTplFormArea(); }));
     const sl = document.getElementById('tpl-af-cspeedlow'); if(sl) sl.addEventListener('input', ()=>{ af.speedLow = sl.value; });
     const sh = document.getElementById('tpl-af-cspeedhigh'); if(sh) sh.addEventListener('input', ()=>{ af.speedHigh = sh.value; });
+    const slm = document.getElementById('tpl-af-cspeedlowmax'); if(slm) slm.addEventListener('input', ()=>{ af.speedLowMax = slm.value; });
+    const shm = document.getElementById('tpl-af-cspeedhighmax'); if(shm) shm.addEventListener('input', ()=>{ af.speedHighMax = shm.value; });
     const inc = document.getElementById('tpl-af-cincline'); if(inc) inc.addEventListener('input', ()=>{ af.incline = inc.value; });
     const dre = document.getElementById('tpl-af-cdrillevery'); if(dre) dre.addEventListener('input', ()=>{ af.drillEveryMinutes = dre.value; });
     const csubmit = document.getElementById('tpl-af-csubmit');
@@ -4046,7 +4048,7 @@ function bindTplBuilderEvents(){
         return;
       }
       const newItem = {
-        type:'cardio', equipment: af.equipment, mode: af.mode, speedLow: af.speedLow, speedHigh: af.speedHigh,
+        type:'cardio', equipment: af.equipment, mode: af.mode, speedLow: af.speedLow, speedLowMax: af.speedLowMax||'', speedHigh: af.mode==='drill' ? af.speedHigh : '', speedHighMax: af.mode==='drill' ? (af.speedHighMax||'') : '',
         incline: af.incline, intensity: af.intensity, minutes: af.minutes, drillEveryMinutes: af.drillEveryMinutes
       };
       if(af.editIndex!==null && af.editIndex!==undefined){
@@ -4576,6 +4578,13 @@ function getFilteredDays(){ return getFilteredDaysGeneric(state.days); }
    BUILDER — κοινές βοηθητικές συναρτήσεις (αερόβιο)
    =================================================================== */
 function isCardioSlotFilled(slot){ return !!slot.equipment; }
+// «3 – 6 km/h», «3 km/h» ή «—»
+function speedRangeTxt(a, b){
+  const x = String(a??'').trim(), y = String(b??'').trim();
+  if(x && y && x!==y) return x+' – '+y+' km/h';
+  if(x || y) return (x||y)+' km/h';
+  return '—';
+}
 function isTreadmillEq(e){ return String(e||'').trim().toLocaleUpperCase('el-GR') === 'ΔΙΑΔΡΟΜΟΣ'; }
 // Όλα τα στοιχεία του αερόβιου σε κουτάκια (λειτουργία, ταχύτητες, κλίση, DRILL, ένταση, διάρκεια)
 function cardioDetailsHtml(slot){
@@ -4584,27 +4593,40 @@ function cardioDetailsHtml(slot){
   if(tm){
     parts.push(box('Λειτουργία', slot.mode==='drill' ? 'DRILL' : 'ΣΤΑΘΕΡΗ'));
     parts.push(box('Διάρκεια', slot.minutes ? escHtml(String(slot.minutes))+' λεπτά' : '—'));
-    parts.push(box(slot.mode==='drill' ? 'Ταχύτητα μικρή' : 'Ταχύτητα', slot.speedLow ? escHtml(String(slot.speedLow))+' km/h' : '—'));
-    if(slot.mode==='drill') parts.push(box('Ταχύτητα μεγάλη (DRILL)', slot.speedHigh ? escHtml(String(slot.speedHigh))+' km/h' : '—'));
+    parts.push(box(slot.mode==='drill' ? 'Αργή ταχύτητα' : 'Ταχύτητα', escHtml(speedRangeTxt(slot.speedLow, slot.speedLowMax))));
+    if(slot.mode==='drill') parts.push(box('Γρήγορη ταχύτητα (DRILL)', escHtml(speedRangeTxt(slot.speedHigh, slot.speedHighMax))));
     parts.push(box('Κλίση', (slot.incline!==undefined && slot.incline!=='' && slot.incline!==null) ? escHtml(String(slot.incline))+'%' : '—'));
     if(slot.mode==='drill') parts.push(box('DRILL κάθε', slot.drillEveryMinutes ? escHtml(String(slot.drillEveryMinutes))+' λεπτά' : '—'));
   } else {
     parts.push(box('Ένταση', slot.intensity ? escHtml(slot.intensity) : '—'));
     parts.push(box('Διάρκεια', slot.minutes ? escHtml(String(slot.minutes))+' λεπτά' : '—'));
   }
-  let text = tm ? (slot.mode==='drill' ? TREADMILL_DRILL_TEXT : TREADMILL_STEADY_TEXT) : '';
-  const ev = parseFloat(slot.drillEveryMinutes);
-  if(tm && slot.mode==='drill' && ev && ev!==5) text = text.replace('κάθε 5 λεπτά', 'κάθε '+ev+' λεπτά').replace('για 5 λεπτά', 'για '+ev+' λεπτά');
+  const text = cardioHowtoText(slot);
   return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 4px;">${parts.join('')}</div>
     ${text ? `<div class="cardio-howto"><b>Πώς το κάνεις:</b> ${escHtml(text)}</div>` : ''}`;
+}
+// Κείμενο «Πώς το κάνεις» προσαρμοσμένο στο πρόγραμμα (διάστημα DRILL, εύρος ταχυτήτων)
+function cardioHowtoText(slot){
+  if(!isTreadmillEq(slot.equipment)) return '';
+  const drill = slot.mode==='drill';
+  let text = drill ? TREADMILL_DRILL_TEXT : TREADMILL_STEADY_TEXT;
+  const ev = parseFloat(slot.drillEveryMinutes);
+  if(drill && ev && ev!==5) text = text.replace('κάθε 5 λεπτά', 'κάθε '+ev+' λεπτά').replace('για 5 λεπτά', 'για '+ev+' λεπτά');
+  const lo = speedRangeTxt(slot.speedLow, slot.speedLowMax), hi = speedRangeTxt(slot.speedHigh, slot.speedHighMax);
+  if(drill){
+    text += ' Προσπαθήστε να πηγαίνετε με τη μεγαλύτερη ταχύτητα που μπορείτε μέσα στο εύρος που αναφέρει το πρόγραμμα, τόσο στην αργή ταχύτητα'+(lo!=='—'?' ('+lo+')':'')+' όσο και στη γρήγορη ταχύτητα του DRILL'+(hi!=='—'?' ('+hi+')':'')+'.';
+  } else {
+    text += ' Προσπαθήστε να πηγαίνετε με τη μεγαλύτερη ταχύτητα που μπορείτε μέσα στο εύρος που αναφέρει το πρόγραμμα'+(lo!=='—'?' ('+lo+')':'')+'.';
+  }
+  return text;
 }
 function describeCardioSlot(slot){
   const isTreadmill = isTreadmillEq(slot.equipment);
   const lines = [];
   if(isTreadmill){
     lines.push(slot.mode==='drill' ? 'Αεροβική άσκηση με DRILL' : 'Σταθερή ταχύτητα');
-    if(slot.speedLow) lines.push('Ταχύτητα μικρή: '+slot.speedLow+' km/h');
-    if(slot.speedHigh) lines.push('Ταχύτητα μεγάλη: '+slot.speedHigh+' km/h');
+    if(slot.speedLow || slot.speedLowMax) lines.push((slot.mode==='drill' ? 'Αργή ταχύτητα: ' : 'Ταχύτητα: ')+speedRangeTxt(slot.speedLow, slot.speedLowMax));
+    if(slot.mode==='drill' && (slot.speedHigh || slot.speedHighMax)) lines.push('Γρήγορη ταχύτητα: '+speedRangeTxt(slot.speedHigh, slot.speedHighMax));
     if(slot.incline) lines.push('Κλίση: '+slot.incline+'%');
     if(slot.mode==='drill' && slot.drillEveryMinutes) lines.push('Χρόνος μεταξύ DRILL: '+slot.drillEveryMinutes+' λεπτά');
   } else {
@@ -4615,7 +4637,7 @@ function describeCardioSlot(slot){
     ...slot, // διατηρούμε όλα τα αρχικά αριθμητικά πεδία (mode, speedLow, speedHigh, incline, minutes, drillEveryMinutes) ώστε να είναι διαθέσιμα αργότερα για το γράφημα έντασης
     equipment: slot.equipment,
     lines,
-    instruction: isTreadmill ? (slot.mode==='drill' ? TREADMILL_DRILL_TEXT : TREADMILL_STEADY_TEXT) : ''
+    instruction: cardioHowtoText(slot)
   };
 }
 function getFilteredCardioSlots(slots){
@@ -4876,8 +4898,10 @@ function renderCardioSlot(slot, idx, dayIdx){
               <option value="steady" ${slot.mode==='steady'?'selected':''}>Σταθερή ταχύτητα</option>
               <option value="drill" ${slot.mode==='drill'?'selected':''}>Αεροβική με DRILL</option>
             </select>
-            <input type="number" step="0.1" data-cardio-speedlow data-cday="${dayAttr}" data-cidx="${idx}" placeholder="Ταχ. μικρή 3-6.5" value="${escAttr(slot.speedLow)}" style="width:150px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--line);font-size:12.5px;">
-            <input type="number" step="0.1" data-cardio-speedhigh data-cday="${dayAttr}" data-cidx="${idx}" placeholder="Ταχ. μεγάλη 6-9" value="${escAttr(slot.speedHigh)}" style="width:150px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--line);font-size:12.5px;">
+            <input type="number" step="0.1" data-cardio-speedlow data-cday="${dayAttr}" data-cidx="${idx}" placeholder="${slot.mode==='drill'?'Αργή από':'Ταχ. από'}" value="${escAttr(slot.speedLow)}" style="width:110px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--line);font-size:12.5px;">
+            <input type="number" step="0.1" data-cardio-speedlowmax data-cday="${dayAttr}" data-cidx="${idx}" placeholder="${slot.mode==='drill'?'Αργή έως':'Ταχ. έως'}" value="${escAttr(slot.speedLowMax||'')}" style="width:110px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--line);font-size:12.5px;">
+            ${slot.mode==='drill' ? `<input type="number" step="0.1" data-cardio-speedhigh data-cday="${dayAttr}" data-cidx="${idx}" placeholder="Γρήγορη από" value="${escAttr(slot.speedHigh)}" style="width:110px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--line);font-size:12.5px;">
+            <input type="number" step="0.1" data-cardio-speedhighmax data-cday="${dayAttr}" data-cidx="${idx}" placeholder="Γρήγορη έως" value="${escAttr(slot.speedHighMax||'')}" style="width:110px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--line);font-size:12.5px;">` : ''}
             <input type="number" step="0.5" data-cardio-incline data-cday="${dayAttr}" data-cidx="${idx}" placeholder="Κλίση 0-2%" value="${escAttr(slot.incline)}" style="width:130px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--line);font-size:12.5px;">
             ${slot.mode==='drill' ? `<input type="number" step="1" min="1" data-cardio-drillevery data-cday="${dayAttr}" data-cidx="${idx}" placeholder="Χρόνος μεταξύ DRILL (λεπτά)" value="${escAttr(slot.drillEveryMinutes)}" style="width:190px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--line);font-size:12.5px;">`:''}
           ` : `
@@ -4892,7 +4916,7 @@ function renderCardioSlot(slot, idx, dayIdx){
             ${CARDIO_MINUTES.map(m=>`<option value="${m}" ${String(slot.minutes)===String(m)?'selected':''}>${m} λεπτά</option>`).join('')}
           </select>
         </div>
-        ${isTreadmill ? `<div class="hidden-note" style="background:var(--steel-soft);color:var(--cyan-soft);margin-top:8px;max-width:520px;">${escHtml(slot.mode==='drill'?TREADMILL_DRILL_TEXT:TREADMILL_STEADY_TEXT)}</div>`:''}
+        ${isTreadmill ? `<div class="hidden-note" style="background:var(--steel-soft);color:var(--cyan-soft);margin-top:8px;max-width:520px;">${escHtml(cardioHowtoText(slot))}</div>`:''}
         `:''}
       </div>
     </div>`;
@@ -4949,7 +4973,7 @@ function renderCardioPreviewTable(slots, title){
     ${title?`<div style="font-family:'Orbitron';font-weight:600;font-size:14px;letter-spacing:0.03em;color:var(--cyan-soft);margin-bottom:6px;">${escHtml(title)}</div>`:''}
     <table class="pp-table">
       <thead><tr><th>Όργανο</th><th>Λεπτομέρειες</th></tr></thead>
-      <tbody>${slots.map(s=>`<tr><td>${escHtml(s.equipment)}</td><td>${s.lines.map(escHtml).join(' · ')}</td></tr>`).join('')}</tbody>
+      <tbody>${slots.map(s=>`<tr><td>${escHtml(s.equipment)}</td><td>${describeCardioSlot(s).lines.map(escHtml).join(' · ')}</td></tr>`).join('')}</tbody>
     </table>
   </div>`;
 }
@@ -5190,6 +5214,15 @@ function bindBuilderEvents(){
       render(true);
     });
   });
+  [['speedlowmax','speedLowMax'],['speedhighmax','speedHighMax']].forEach(([attr,key])=>{
+    document.querySelectorAll('[data-cardio-'+attr+']').forEach(el=>{
+      el.addEventListener('input', ()=>{
+        const slots = cardioSlotsFor(el.getAttribute('data-cday'));
+        slots[parseInt(el.getAttribute('data-cidx'))][key] = el.value;
+        render(true);
+      });
+    });
+  });
   document.querySelectorAll('[data-cardio-incline]').forEach(el=>{
     el.addEventListener('input', ()=>{
       const slots = cardioSlotsFor(el.getAttribute('data-cday'));
@@ -5299,10 +5332,10 @@ function pdfCardioBlock(slots, title){
       <table class="pp-table">
         <thead><tr><th>Όργανο</th><th>Λεπτομέρειες</th></tr></thead>
         <tbody>
-          ${slots.map(s=>`<tr><td>${escHtml(s.equipment)}</td><td>${s.lines.map(escHtml).join(' · ')}</td></tr>`).join('')}
+          ${slots.map(s=>`<tr><td>${escHtml(s.equipment)}</td><td>${describeCardioSlot(s).lines.map(escHtml).join(' · ')}</td></tr>`).join('')}
         </tbody>
       </table>
-      ${slots.filter(s=>s.instruction).map(s=>`<p style="font-size:10.5px;color:#3A3F45;line-height:1.5;margin:6px 0 0;">${escHtml(s.instruction)}</p>`).join('')}
+      ${slots.filter(s=>cardioHowtoText(s)).map(s=>`<p style="font-size:10.5px;color:#3A3F45;line-height:1.5;margin:6px 0 0;">${escHtml(cardioHowtoText(s))}</p>`).join('')}
     </div>`;
 }
 function buildPrintHtml(record, client){
@@ -9978,6 +10011,7 @@ function renderClientDaysListView(p, record){
         const sub = groupNames + (hasCardio ? (groupNames?' + Αερόβιο':'Αερόβιο') : '');
         return `<button class="role-btn" data-open-day="${i}" style="align-items:flex-start;">
           ${doneCheckHtml(clientDayDone(p.id, i))}
+          <span class="dbox-num">${i+1}.</span>
           <div class="rtext"><div class="rt1">${escHtml(d.label)}</div><div class="rt2">${escHtml(sub)}</div><div class="rt2">${dayDurationHtml(getClientDayItems(record, i))}</div></div>
         </button>`;
       }).join('')}
@@ -10238,7 +10272,7 @@ function mapTemplateToCustomRecord(t){
       groupLabel: it.groupLabel, exercise: it.exercise, set: it.set, rep: it.rep, rest: it.rest, tempo: it.tempo || '', failure: it.failure, equipment: it.equipment||[]
     }));
     const cardioSlots = d.items.filter(it=>it.type==='cardio').map(it=>({
-      equipment: it.equipment, mode: it.mode, speedLow: it.speedLow, speedHigh: it.speedHigh, incline: it.incline, intensity: it.intensity, minutes: it.minutes, drillEveryMinutes: it.drillEveryMinutes
+      equipment: it.equipment, mode: it.mode, speedLow: it.speedLow, speedLowMax: it.speedLowMax, speedHigh: it.speedHigh, speedHighMax: it.speedHighMax, incline: it.incline, intensity: it.intensity, minutes: it.minutes, drillEveryMinutes: it.drillEveryMinutes
     }));
     return { label: d.label, groups, cardioSlots, topSection:'weights', order: (d.items||[]).filter(it=>it.type==='muscle'||it.type==='cardio').map(it=>it.type==='cardio'?'c':'w') };
   });
@@ -10591,6 +10625,7 @@ function renderTplLibDaysView(){
         const muscleNames = d.items.filter(it=>it.type==='muscle').map(it=>tplLabelNow(it.groupLabel)).filter((v,idx,a)=>a.indexOf(v)===idx);
         const hasCardio = d.items.some(it=>it.type==='cardio');
         return `<button class="role-btn" data-tpllib-day="${i}" style="align-items:flex-start;">
+          <span class="dbox-num">${i+1}.</span>
           <div class="rtext"><div class="rt1">${escHtml(d.label)}</div><div class="rt2">${escHtml(muscleNames.join(', '))}${hasCardio?(muscleNames.length?' + Αερόβιο':'Αερόβιο'):''}</div><div class="rt2">${dayDurationHtml(d.items)}</div></div>
         </button>`;
       }).join('')}

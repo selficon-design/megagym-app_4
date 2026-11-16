@@ -613,7 +613,7 @@ function templateToRecord(t: any, capFailure: boolean, offset = 0) {
     });
     // deno-lint-ignore no-explicit-any
     const cardioSlots = items.filter((it: any) => it.type === "cardio").map((it: any) => ({
-      equipment: it.equipment, mode: it.mode, speedLow: it.speedLow, speedHigh: it.speedHigh, incline: it.incline,
+      equipment: it.equipment, mode: it.mode, speedLow: it.speedLow, speedLowMax: it.speedLowMax, speedHigh: it.speedHigh, speedHighMax: it.speedHighMax, incline: it.incline,
       intensity: it.intensity, minutes: it.minutes, drillEveryMinutes: it.drillEveryMinutes }));
     // deno-lint-ignore no-explicit-any
     return { label: d.label, groups, cardioSlots, topSection: "weights", order: items.filter((it: any) => it.type === "muscle" || it.type === "cardio" || !it.type).map((it: any) => it.type === "cardio" ? "c" : "w") };
