@@ -581,6 +581,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .home-s{font-size:11.5px;color:var(--ink-soft);}
 .client-card.new-prog{position:relative;border:2px solid #ff3b3b !important;box-shadow:0 0 18px rgba(255,59,59,.45) !important;margin-top:14px;}
 .new-prog-badge{position:absolute;top:-11px;left:14px;padding:3px 10px;border-radius:999px;background:#ff3b3b;color:#fff;font-size:10.5px;font-weight:800;letter-spacing:1px;box-shadow:0 0 10px rgba(255,59,59,.6);}
+.cardio-howto{font-size:13px;line-height:1.6;color:#eefcff;margin-top:12px;padding:10px 12px;border-radius:10px;border:1px solid rgba(57,255,136,.4);background:rgba(57,255,136,.06);}
+.cardio-howto b{color:#39ff88;}
 .done-check{order:9;margin-left:auto;align-self:center;flex-shrink:0;width:26px;height:26px;border-radius:7px;background:#22c55e;border:1.5px solid #7dffaf;color:#fff;font-size:17px;font-weight:900;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(34,197,94,.55);}
 .tpl-personal-sub{color:#ffd23f;font-weight:700;}
 .tpl-personal{font-size:11px;font-weight:600;color:var(--accent);text-transform:none;letter-spacing:0;margin-top:2px;}
@@ -1252,6 +1254,9 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
   background:rgba(76,208,255,.14);border:2px solid rgba(61,216,255,.5);border-radius:11px;
   padding:14px;margin-bottom:8px;box-shadow:inset 0 0 8px rgba(0,180,255,.08);
 }
+.cardio-box{background:rgba(76,208,255,.10);border:1.5px solid rgba(61,216,255,.45);border-radius:11px;padding:10px 12px;}
+.cardio-box label{display:block;font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700;color:var(--cyan-soft,#8fe3ff);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+.cardio-box .val{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:800;color:#fff;line-height:1.15;}
 .calc-input-box .val{font-family:'Rajdhani',sans-serif;font-size:32px;font-weight:800;color:#ffffff;text-align:center;}
 .calc-thinking{font-size:19px;color:var(--cyan-soft);display:inline-flex;align-items:center;gap:2px;}
 .calc-dots span{animation:calcDotBlink 1.1s infinite; opacity:0;}
@@ -4571,8 +4576,30 @@ function getFilteredDays(){ return getFilteredDaysGeneric(state.days); }
    BUILDER — κοινές βοηθητικές συναρτήσεις (αερόβιο)
    =================================================================== */
 function isCardioSlotFilled(slot){ return !!slot.equipment; }
+function isTreadmillEq(e){ return String(e||'').trim().toLocaleUpperCase('el-GR') === 'ΔΙΑΔΡΟΜΟΣ'; }
+// Όλα τα στοιχεία του αερόβιου σε κουτάκια (λειτουργία, ταχύτητες, κλίση, DRILL, ένταση, διάρκεια)
+function cardioDetailsHtml(slot){
+  const tm = isTreadmillEq(slot.equipment), box = (l,v,wide)=>`<div class="cardio-box" ${wide?'style="grid-column:1 / -1;"':''}><label>${l}</label><div class="val">${v}</div></div>`;
+  const parts = [];
+  if(tm){
+    parts.push(box('Λειτουργία', slot.mode==='drill' ? 'DRILL' : 'ΣΤΑΘΕΡΗ'));
+    parts.push(box('Διάρκεια', slot.minutes ? escHtml(String(slot.minutes))+' λεπτά' : '—'));
+    parts.push(box(slot.mode==='drill' ? 'Ταχύτητα μικρή' : 'Ταχύτητα', slot.speedLow ? escHtml(String(slot.speedLow))+' km/h' : '—'));
+    if(slot.mode==='drill') parts.push(box('Ταχύτητα μεγάλη (DRILL)', slot.speedHigh ? escHtml(String(slot.speedHigh))+' km/h' : '—'));
+    parts.push(box('Κλίση', (slot.incline!==undefined && slot.incline!=='' && slot.incline!==null) ? escHtml(String(slot.incline))+'%' : '—'));
+    if(slot.mode==='drill') parts.push(box('DRILL κάθε', slot.drillEveryMinutes ? escHtml(String(slot.drillEveryMinutes))+' λεπτά' : '—'));
+  } else {
+    parts.push(box('Ένταση', slot.intensity ? escHtml(slot.intensity) : '—'));
+    parts.push(box('Διάρκεια', slot.minutes ? escHtml(String(slot.minutes))+' λεπτά' : '—'));
+  }
+  let text = tm ? (slot.mode==='drill' ? TREADMILL_DRILL_TEXT : TREADMILL_STEADY_TEXT) : '';
+  const ev = parseFloat(slot.drillEveryMinutes);
+  if(tm && slot.mode==='drill' && ev && ev!==5) text = text.replace('κάθε 5 λεπτά', 'κάθε '+ev+' λεπτά').replace('για 5 λεπτά', 'για '+ev+' λεπτά');
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 4px;">${parts.join('')}</div>
+    ${text ? `<div class="cardio-howto"><b>Πώς το κάνεις:</b> ${escHtml(text)}</div>` : ''}`;
+}
 function describeCardioSlot(slot){
-  const isTreadmill = slot.equipment === 'Διάδρομος';
+  const isTreadmill = isTreadmillEq(slot.equipment);
   const lines = [];
   if(isTreadmill){
     lines.push(slot.mode==='drill' ? 'Αεροβική άσκηση με DRILL' : 'Σταθερή ταχύτητα');
@@ -9994,12 +10021,9 @@ function renderClientExerciseView(item){
     return `
       <div class="auth-back" data-client-back="items">${ICON.back}Πίσω</div>
       <div class="panel pad">
-        <div class="section-title"><span class="dot"></span>${escHtml(desc.equipment)}</div>
-        <table class="pp-table"><tbody>
-          ${desc.lines.map(l=>`<tr><td>${escHtml(l)}</td></tr>`).join('')}
-        </tbody></table>
-        ${desc.instruction ? `<p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin-top:14px;">${escHtml(desc.instruction)}</p>`:''}
-        ${(item.equipment==='Διάδρομος' || item.equipment==='ΔΙΑΔΡΟΜΟΣ') ? `<button class="btn eq-action-btn" style="width:100%;min-height:52px;margin-top:16px;" id="client-open-intensity-graph">ΓΡΑΦΗΜΑ ΕΝΤΑΣΗΣ</button>`:''}
+        <div class="section-title"><span class="dot"></span>🏃 ${escHtml(desc.equipment)}</div>
+        ${cardioDetailsHtml(item)}
+        ${isTreadmillEq(item.equipment) ? `<button class="btn eq-action-btn" style="width:100%;min-height:52px;margin-top:16px;" id="client-open-intensity-graph">ΓΡΑΦΗΜΑ ΕΝΤΑΣΗΣ</button>`:''}
         <button class="btn btn-primary" style="width:100%;justify-content:center;min-height:52px;margin-top:12px;" id="client-cardio-next">${cardioNextLabel('client')}</button>
       </div>`;
   }
@@ -10607,10 +10631,9 @@ function renderTplLibExerciseView(){
     return `
       <div class="auth-back" data-tpllib-back="items">${ICON.back}Πίσω</div>
       <div class="panel pad">
-        <div class="section-title"><span class="dot"></span>${escHtml(desc.equipment)}</div>
-        <table class="pp-table"><tbody>${desc.lines.map(l=>`<tr><td>${escHtml(l)}</td></tr>`).join('')}</tbody></table>
-        ${desc.instruction ? `<p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin-top:14px;">${escHtml(desc.instruction)}</p>`:''}
-        ${it.equipment==='ΔΙΑΔΡΟΜΟΣ' ? `<button class="btn eq-action-btn" style="width:100%;min-height:52px;margin-top:16px;" id="tpllib-open-intensity-graph">ΓΡΑΦΗΜΑ ΕΝΤΑΣΗΣ</button>`:''}
+        <div class="section-title"><span class="dot"></span>🏃 ${escHtml(desc.equipment)}</div>
+        ${cardioDetailsHtml(it)}
+        ${isTreadmillEq(it.equipment) ? `<button class="btn eq-action-btn" style="width:100%;min-height:52px;margin-top:16px;" id="tpllib-open-intensity-graph">ΓΡΑΦΗΜΑ ΕΝΤΑΣΗΣ</button>`:''}
         <button class="btn btn-primary" style="width:100%;justify-content:center;min-height:52px;margin-top:12px;" id="tpllib-cardio-next">${cardioNextLabel('tpllib')}</button>
       </div>`;
   }
