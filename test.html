@@ -703,6 +703,17 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .lib-cat-grid{display:grid;grid-template-columns:150px 1fr;gap:14px;align-items:start;}
 @media (max-width:560px){ .lib-cat-grid{grid-template-columns:1fr;} .lib-cat.sub{margin-left:0;} }
 .lib-thumb{width:100%;aspect-ratio:1/1;border-radius:10px;border:1px solid var(--line);overflow:hidden;background:rgba(3,11,18,.5);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--ink-soft);text-align:center;}
+.tpl-photo-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;}
+.tpl-photo-ctrl{flex:1 1 260px;min-width:0;}
+.tpl-photo-side{flex:0 1 380px;width:100%;}
+.tpl-bigprev-lbl{margin:0 0 6px;font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--cyan-soft,#8fe3ff);}
+.tpl-bigprev{width:100%;max-width:460px;aspect-ratio:1/1;border-radius:12px;border:1.5px solid rgba(61,216,255,.4);overflow:hidden;background:rgba(3,11,18,.6);display:flex;align-items:center;justify-content:center;cursor:zoom-in;}
+.tpl-bigprev img{width:100%;height:100%;object-fit:contain;display:block;}
+.tpl-bigprev-empty,.tpl-bigprev-err{font-size:13px;color:var(--ink-soft);padding:20px;text-align:center;}
+.tpl-bigprev-err{color:#ff8b90;font-weight:600;}
+.tpl-photo-full{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;}
+.tpl-photo-full img{max-width:100%;max-height:100%;object-fit:contain;}
+.tpl-photo-full-x{position:absolute;top:16px;right:16px;padding:8px 14px;border-radius:10px;background:rgba(255,255,255,.12);color:#fff;font-weight:700;font-size:13px;}
 .lib-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
 .lib-cat-t{font-size:13px;color:#dffaff;}
 .fdb-form input[type=text]{width:100%;}
@@ -1667,6 +1678,11 @@ function tplProgramSummary(t){
   const mn = Math.min(...secs), mx = Math.max(...secs);
   const durTxt = !secs.length ? '' : (mn===mx ? fmtDur(mn) : `${fmtDur(mn)} – ${fmtDur(mx)}`);
   return { line: parts.filter(Boolean).join(' · '), dur: durTxt };
+}
+// Μεγάλη προεπισκόπηση φωτογραφίας προγράμματος στον builder
+function tplBigPrevInner(url){
+  return url ? `<img src="${escAttr(url)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'tpl-bigprev-err',textContent:'⚠ Η φωτογραφία δεν φορτώνει — έλεγξε το link'}))">`
+             : '<span class="tpl-bigprev-empty">Δεν έχει μπει φωτογραφία ακόμα</span>';
 }
 function tplSummaryHtml(t){
   const s = tplProgramSummary(t); if(!s.line && !s.dur) return '';
@@ -3796,11 +3812,19 @@ function renderTplMetaForm(b){
       <div class="field"><label>Φωτογραφία Κατηγορίας</label><div class="food-note" style="margin:0;">Οι φωτογραφίες των κατηγοριών μπαίνουν πλέον μία φορά, στην καρτέλα <b>«Κατηγορίες Βιβλιοθήκης»</b> του μενού.</div></div>
       <div class="field"><label>Ονομασία Προγράμματος</label><input type="text" id="tpl-name" value="${escAttr(b.name)}" placeholder="π.χ. ΑΝΔΡΙΚΟ ΠΡΟΓΡΑΜΜΑ 4 ΗΜΕΡΩΝ"></div>
       <div class="field"><label>Φωτογραφία Προγράμματος</label>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
-          <div class="lib-thumb" id="tpl-photo-prev" style="width:84px;">${b.photo ? `<img src="${escAttr(b.photo)}" alt="">` : '<span>—</span>'}</div>
-          ${libUploadButton('tpl-photo', 'programs')}
-        </div>
-        <input type="text" id="tpl-photo" value="${escAttr(b.photo)}" placeholder="ή επικόλλησε link https://..."></div>
+        <div class="tpl-photo-row">
+          <div class="tpl-photo-ctrl">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+              <div class="lib-thumb" id="tpl-photo-prev" style="width:84px;">${b.photo ? `<img src="${escAttr(b.photo)}" alt="">` : '<span>—</span>'}</div>
+              ${libUploadButton('tpl-photo', 'programs')}
+            </div>
+            <input type="text" id="tpl-photo" value="${escAttr(b.photo)}" placeholder="ή επικόλλησε link https://...">
+          </div>
+          <div class="tpl-photo-side">
+            <div class="tpl-bigprev-lbl">ΠΡΟΕΠΙΣΚΟΠΗΣΗ — έτσι θα τη βλέπει ο αθλούμενος (πάτα για πλήρη οθόνη)</div>
+            <div class="tpl-bigprev" id="tpl-photo-big">${tplBigPrevInner(b.photo)}</div>
+          </div>
+        </div></div>
       <div class="field">
         <label>Αριθμός Ημερών</label>
         <div class="chip-row">${[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>`<button class="plate-btn ${b.numDays===n?'active':''}" data-tpl-days="${n}" style="--size:36px;font-size:12px;">${n}</button>`).join('')}</div>
@@ -3878,7 +3902,18 @@ function bindTplBuilderEvents(){
   if(subcatSel) subcatSel.addEventListener('change', ()=>{ b.subCategory = subcatSel.value; if(!b.id){ state.tplCatView = tplCatKey(b.gender, b.topCategory, b.subCategory); renderTplGenderSwitch(); renderTplListArea(); } });
   bindText('tpl-topcatphoto','topCategoryPhoto');
   bindText('tpl-name','name'); bindText('tpl-photo','photo');
-  bindLibUploadButtons((inputId, url)=>{ if(inputId==='tpl-photo'){ const pv = document.getElementById('tpl-photo-prev'); if(pv) pv.innerHTML = `<img src="${escAttr(url)}" alt="">`; } });
+  const setPhotoPrev = (url)=>{
+    const pv = document.getElementById('tpl-photo-prev'); if(pv) pv.innerHTML = url ? `<img src="${escAttr(url)}" alt="">` : '<span>—</span>';
+    const big = document.getElementById('tpl-photo-big'); if(big) big.innerHTML = tplBigPrevInner(url);
+  };
+  bindLibUploadButtons((inputId, url)=>{ if(inputId==='tpl-photo') setPhotoPrev(url); });
+  document.getElementById('tpl-photo')?.addEventListener('input', e=>setPhotoPrev(e.target.value.trim()));
+  document.getElementById('tpl-photo-big')?.addEventListener('click', ()=>{
+    const url = (document.getElementById('tpl-photo')?.value||'').trim(); if(!url) return;
+    const ov = document.createElement('div'); ov.className = 'tpl-photo-full';
+    ov.innerHTML = `<img src="${escAttr(url)}" alt=""><div class="tpl-photo-full-x">✕ Κλείσιμο</div>`;
+    ov.addEventListener('click', ()=>ov.remove()); document.body.appendChild(ov);
+  });
   bindText('tpl-description','description'); bindText('tpl-results','results'); bindText('tpl-nutrition','nutrition'); bindText('tpl-notes','notes');
   const sortEl = document.getElementById('tpl-sortorder');
   if(sortEl) sortEl.addEventListener('input', ()=>{ b.sortOrder = parseInt(sortEl.value)||0; });
