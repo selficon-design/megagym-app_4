@@ -11378,54 +11378,114 @@ function tplXlsxSheetName(g, top, sub, used){
   n = n.replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,31).trim();
   let k = n, i = 2; while(used.has(k)){ k = n.slice(0,28)+' '+(i++); } used.add(k); return k;
 }
+// Χρώμα ανά μυϊκή ομάδα (ARGB χωρίς #)
+const TPL_XLSX_COLORS = [
+  [/ΣΤΗΘ|CHEST/i, 'FFF176', 'Στήθος'], [/ΡΑΧΙΑΙ|BACK MUSCLES/i, 'D7B899', 'Ραχιαίοι'], [/ΠΛΑΤ|BAC[KΚ]/i, 'FFB74D', 'Πλάτη'],
+  [/ΔΙΚΕΦ|BICEPS/i, '64B5F6', 'Δικέφαλοι'], [/ΓΑΜΠ|CALVES/i, '81C784', 'Γάμπες'], [/ΤΡΙΚΕΦ|TRICEPS/i, 'F48FB1', 'Τρικέφαλοι'],
+  [/ΩΜ|SHOULDER/i, 'BA68C8', 'Ώμοι'], [/ΓΛΟΥΤ|GLUTE/i, 'FF8A65', 'Γλουτοί'], [/ΠΟΔ|LEGS|ΜΗΡ/i, 'E57373', 'Πόδια'],
+  [/ΚΟΙΛ|ABS/i, '4DD0E1', 'Κοιλιακοί'], [/ΠΗΧ|FOREARM/i, 'B0BEC5', 'Πήχεις']
+];
+const TPL_XLSX_CARDIO = 'C5E1A5', TPL_XLSX_EXTRA = ['FFE0B2','D1C4E9','B2DFDB','F0F4C3','FFCDD2','CFD8DC','DCEDC8','F8BBD0'];
+function tplXlsxColor(group, isCardio, extra){
+  if(isCardio) return TPL_XLSX_CARDIO;
+  const g = String(group||''); if(!g) return null;
+  const hit = TPL_XLSX_COLORS.find(([re])=>re.test(g)); if(hit) return hit[1];
+  if(!extra.has(g)) extra.set(g, TPL_XLSX_EXTRA[extra.size % TPL_XLSX_EXTRA.length]);
+  return extra.get(g);
+}
+const xmlEsc = x => String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// Το δωρεάν SheetJS δεν γράφει χρώματα: γράφουμε το αρχείο και μετά βάζουμε εμείς styles.xml + στυλ ανά γραμμή.
+function xlsxColorize(X, data, colors, sheetRowStyles){
+  const cfb = X.CFB.read(new Uint8Array(data), { type:'array' });
+  const fills = colors.map(c=>`<fill><patternFill patternType="solid"><fgColor rgb="FF${c}"/><bgColor indexed="64"/></patternFill></fill>`).join('');
+  const xfs = colors.map((c,i)=>`<xf numFmtId="0" fontId="0" fillId="${3+i}" borderId="1" applyFill="1" applyBorder="1"/>`).join('');
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font></fonts>
+<fills count="${3+colors.length}"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F3A4D"/><bgColor indexed="64"/></patternFill></fill>${fills}</fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFBDBDBD"/></left><right style="thin"><color rgb="FFBDBDBD"/></right><top style="thin"><color rgb="FFBDBDBD"/></top><bottom style="thin"><color rgb="FFBDBDBD"/></bottom><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="${3+colors.length}"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>${xfs}</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+  const put = (path, txt)=>{ const e = X.CFB.find(cfb, path); if(e){ e.content = new TextEncoder().encode(txt); e.size = e.content.length; } else X.CFB.utils.cfb_add(cfb, path, new TextEncoder().encode(txt)); };
+  const get = path => { const e = X.CFB.find(cfb, path); return e ? new TextDecoder().decode(e.content) : null; };
+  put('/xl/styles.xml', styles);
+  sheetRowStyles.forEach((rowStyle, idx)=>{
+    const path = '/xl/worksheets/sheet'+(idx+1)+'.xml'; let xml = get(path); if(!xml) return;
+    xml = xml.replace(/<c r="([A-Z]+)(\d+)"((?: [a-z]+="[^"]*")*)/g, (m, col, row, attrs)=>{
+      const st = rowStyle[row]; attrs = attrs.replace(/ s="\d+"/, '');
+      return `<c r="${col}${row}"${st!=null ? ` s="${st}"` : ''}${attrs}`;
+    });
+    put(path, xml);
+  });
+  return X.CFB.write(cfb, { fileType:'zip', type:'array' });
+}
 async function exportTemplatesXlsx(){
   const X = await loadXlsx();
   const list = (state.tplTemplates||[]).slice().sort((a,b)=>String(a.gender).localeCompare(String(b.gender),'el') || String(a.top_category).localeCompare(String(b.top_category),'el') || String(a.sub_category||'').localeCompare(String(b.sub_category||''),'el') || tplOrderCmp(a,b));
   if(!list.length){ toast('Δεν υπάρχουν προγράμματα.'); return; }
+  const W = TPL_XLSX_HEAD.length, pad = r => r.concat(Array(Math.max(0, W - r.length)).fill(''));
+  const colors = [], colorIdx = c => { let i = colors.indexOf(c); if(i<0){ colors.push(c); i = colors.length-1; } return 3+i; };
+  const extra = new Map();
   const groups = new Map();
   const eqTxt = eq => (Array.isArray(eq)?eq:[]).map(e=> typeof e==='string' ? e : (e && (e.name||e.label||e.equipment)) || '').filter(Boolean).join(', ');
   list.forEach(t=>{
     const key = [t.gender||'', t.top_category||'', t.sub_category||''].join('|');
-    if(!groups.has(key)) groups.set(key, []);
-    const rows = groups.get(key);
+    if(!groups.has(key)) groups.set(key, { rows:[], styles:[], ids:new Set() });
+    const G = groups.get(key);
+    if(G.rows.length){ G.rows.push(pad([])); G.styles.push(null); }   // κενή γραμμή ανάμεσα στα προγράμματα
+    G.ids.add(t.id);
     const days = (t.data && t.data.days) || [];
     const sig = days.map(d=>(d.items||[]).map(it=> it.type==='cardio' ? 'C:'+(it.equipment||'') : (it.exercise||'')).join('¦'));
     days.forEach((d, di)=>{
       const same = sig.findIndex((x,j)=> j<di && x && x===sig[di]);
       const base = [t.id, t.gender||'', t.top_category||'', t.sub_category||'', t.sort_order||'', t.name||'', t.is_published?'ΝΑΙ':'ΟΧΙ', days.length, di+1, d.label||'', same>=0 ? same+1 : ''];
       const items = d.items || [];
-      if(!items.length) rows.push(base.concat(['', '(κενή ημέρα)']));
+      if(!items.length){ G.rows.push(pad(base.concat(['', '(κενή ημέρα)']))); G.styles.push(null); }
       items.forEach((it, ii)=>{
+        const c = tplXlsxColor(it.groupLabel, it.type==='cardio', extra);
+        G.styles.push(c ? colorIdx(c) : null);
         if(it.type==='cardio'){
-          rows.push(base.concat([ii+1, 'ΑΕΡΟΒΙΟ', '', '', '', '', '', '', '', '', it.equipment||'', it.mode==='drill'?'DRILL':'ΣΤΑΘΕΡΗ', it.minutes||'', it.speedLow||'', it.speedLowMax||'', it.mode==='drill'?(it.speedHigh||''):'', it.mode==='drill'?(it.speedHighMax||''):'', it.incline||'', it.mode==='drill'?(it.drillEveryMinutes||''):'']));
+          G.rows.push(pad(base.concat([ii+1, 'ΑΕΡΟΒΙΟ', '', '', '', '', '', '', '', '', it.equipment||'', it.mode==='drill'?'DRILL':'ΣΤΑΘΕΡΗ', it.minutes||'', it.speedLow||'', it.speedLowMax||'', it.mode==='drill'?(it.speedHigh||''):'', it.mode==='drill'?(it.speedHighMax||''):'', it.incline||'', it.mode==='drill'?(it.drillEveryMinutes||''):''])));
         } else {
-          rows.push(base.concat([ii+1, 'ΑΣΚΗΣΗ', it.groupLabel||'', it.exercise||it.customExercise||'', it.set??'', it.rep||'', it.rest||'', it.tempo||'', it.failure??'', eqTxt(it.equipment)]));
+          G.rows.push(pad(base.concat([ii+1, 'ΑΣΚΗΣΗ', it.groupLabel||'', it.exercise||it.customExercise||'', it.set??'', it.rep||'', it.rest||'', it.tempo||'', it.failure??'', eqTxt(it.equipment)])));
         }
       });
     });
   });
   const wb = X.utils.book_new(); const used = new Set();
   const info = [['ΕΤΟΙΜΑ ΠΡΟΓΡΑΜΜΑΤΑ TRANSFORMATION — εξαγωγή '+new Date().toLocaleString('el-GR')],[],
-    ['Κάθε φύλλο είναι μία κατηγορία. Κάθε γραμμή είναι μία άσκηση ή ένα αερόβιο, με τη σειρά που εμφανίζεται στην ημέρα.'],
+    ['Κάθε φύλλο είναι μία κατηγορία. Κάθε γραμμή είναι μία άσκηση ή ένα αερόβιο, με τη σειρά που εμφανίζεται στην ημέρα. Μία κενή γραμμή χωρίζει τα προγράμματα.'],
     ['Η στήλη «ΙΔΙΑ ΑΣΚΗΣΕΙΣ ΜΕ ΗΜΕΡΑ» δείχνει όταν μια ημέρα έχει ακριβώς τις ίδιες ασκήσεις με προηγούμενη ημέρα του ίδιου προγράμματος.'],
     ['Μην αλλάζεις τη στήλη «ID ΠΡΟΓΡΑΜΜΑΤΟΣ» — με αυτήν αναγνωρίζεται το πρόγραμμα αν το ξαναφορτώσουμε.'],[],
     ['ΦΥΛΛΟ','ΠΡΟΓΡΑΜΜΑΤΑ','ΓΡΑΜΜΕΣ']];
-  const sheets = [];
-  groups.forEach((rows, key)=>{
+  const infoStyles = { 1: 2, 7: 1 };
+  const sheets = [], sheetStyles = [];
+  groups.forEach((G, key)=>{
     const [g, top, sub] = key.split('|');
     const name = tplXlsxSheetName(g, top, sub, used);
-    const ws = X.utils.aoa_to_sheet([TPL_XLSX_HEAD].concat(rows));
+    const ws = X.utils.aoa_to_sheet([TPL_XLSX_HEAD].concat(G.rows));
     ws['!cols'] = TPL_XLSX_HEAD.map((h,i)=>({ wch: i===0?10 : [5,14].includes(i)?28 : i===20?34 : Math.max(8, Math.min(22, h.length+2)) }));
-    ws['!autofilter'] = { ref: X.utils.encode_range({ s:{r:0,c:0}, e:{r:rows.length, c:TPL_XLSX_HEAD.length-1} }) };
-    ws['!freeze'] = { xSplit:0, ySplit:1 };
-    sheets.push([name, ws]);
-    info.push([name, new Set(rows.map(r=>r[0])).size, rows.length]);
+    ws['!autofilter'] = { ref: X.utils.encode_range({ s:{r:0,c:0}, e:{r:G.rows.length, c:W-1} }) };
+    const rs = { 1: 1 }; G.styles.forEach((st, i)=>{ if(st!=null) rs[i+2] = st; });
+    sheets.push([name, ws]); sheetStyles.push(rs);
+    info.push([name, G.ids.size, G.rows.length]);
   });
+  // Υπόμνημα χρωμάτων
+  info.push([], ['ΧΡΩΜΑΤΑ ΜΥΪΚΩΝ ΟΜΑΔΩΝ']); infoStyles[info.length] = 1;
+  TPL_XLSX_COLORS.forEach(([, c, label])=>{ info.push([label]); infoStyles[info.length] = colorIdx(c); });
+  info.push(['Αερόβιο']); infoStyles[info.length] = colorIdx(TPL_XLSX_CARDIO);
+  extra.forEach((c, g)=>{ info.push([g]); infoStyles[info.length] = colorIdx(c); });
   const wsInfo = X.utils.aoa_to_sheet(info); wsInfo['!cols'] = [{wch:34},{wch:14},{wch:10}];
   X.utils.book_append_sheet(wb, wsInfo, 'ΠΛΗΡΟΦΟΡΙΕΣ');
   sheets.forEach(([n, ws])=>X.utils.book_append_sheet(wb, ws, n));
+  const raw = X.write(wb, { bookType:'xlsx', type:'array' });
+  const out = xlsxColorize(X, raw, colors, [infoStyles].concat(sheetStyles));
   const d = new Date(); const stamp = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  X.writeFile(wb, 'ΠΡΟΓΡΑΜΜΑΤΑ_TRANSFORMATION_'+stamp+'.xlsx');
+  const blob = new Blob([out], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ΠΡΟΓΡΑΜΜΑΤΑ_TRANSFORMATION_'+stamp+'.xlsx';
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1500);
   toast('📥 Το Excel κατέβηκε.');
 }
 let xlsxLoading = null;
