@@ -706,6 +706,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .tpl-photo-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;}
 .tpl-photo-ctrl{flex:1 1 260px;min-width:0;}
 .tpl-photo-side{flex:0 1 380px;width:100%;}
+.tpl-meta-closed{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 .tpl-bigprev-lbl{margin:0 0 6px;font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--cyan-soft,#8fe3ff);}
 .tpl-bigprev{width:100%;max-width:460px;aspect-ratio:1/1;border-radius:12px;border:1.5px solid rgba(61,216,255,.4);overflow:hidden;background:rgba(3,11,18,.6);display:flex;align-items:center;justify-content:center;cursor:zoom-in;}
 .tpl-bigprev img{width:100%;height:100%;object-fit:contain;display:block;}
@@ -3523,7 +3524,7 @@ function renderTplFormArea(){
     ${clientMode ? '' : `<button class="btn btn-outline tpl-back-btn" id="tpl-back-btn">← Πίσω στα έτοιμα προγράμματα</button>`}
     ${renderGymSelector()}
     ${b.id ? `<div class="calc-type-box" style="text-align:center;">✎ ΕΠΕΞΕΡΓΑΣΙΑ ΥΠΑΡΧΟΝΤΟΣ ΠΡΟΓΡΑΜΜΑΤΟΣ — «${escHtml(b.name)}»</div>`:''}
-    ${clientMode ? renderClientBuilderMeta(b) : renderTplMetaForm(b)}
+    ${clientMode ? renderClientBuilderMeta(b) : (b.id && !b.metaOpen ? tplMetaClosedHtml(b) : renderTplMetaForm(b) + (b.id ? `<button type="button" class="btn btn-outline tpl-meta-toggle" id="tpl-meta-toggle" style="margin:-8px 0 18px;">▴ Κλείσιμο πληροφοριών προγράμματος</button>` : ''))}
     ${renderTplDaysEditor(b)}
     ${clientMode ? `<div class="panel pad" style="margin-top:20px;">
       <button class="btn btn-critical" style="width:100%;justify-content:center;" id="tpl-save-btn">${ICON.save}${b.editProgramId ? 'Αποθήκευση διορθώσεων' : 'Αποθήκευση στα Προγράμματά μου'}<span class="kbd">Ctrl + S</span></button>
@@ -3595,6 +3596,8 @@ function renderTplDaysEditor(b){
           <button type="button" class="btn btn-outline" data-tpl-days-all="open">▾ Άνοιγμα όλων</button>
           <button type="button" class="btn btn-outline" data-tpl-days-all="close">▸ Κλείσιμο όλων</button>
           <button type="button" class="btn btn-outline" data-tpl-days-all="last">▸ Μόνο η τελευταία</button>
+          <button type="button" class="btn btn-outline" data-tpl-days-all="odd">▾ Μονές (1, 3, 5…)</button>
+          <button type="button" class="btn btn-outline" data-tpl-days-all="even">▾ Ζυγές (2, 4, 6…)</button>
         </div>
       </div>
       ${b.days.map((day,di)=>{ const closed = tplDayClosed(b, di); return `
@@ -3792,6 +3795,15 @@ function renderTplAddCardioForm(af){
       </div>
     </div>`;
 }
+// Στην επεξεργασία υπάρχοντος: οι πληροφορίες κλειστές, για να φαίνονται κατευθείαν οι ημέρες
+function tplMetaClosedHtml(b){
+  const bits = [b.gender, b.topCategory, b.subCategory].filter(Boolean).join(' · ');
+  return `<div class="panel pad tpl-meta-closed" style="margin-bottom:18px;">
+    ${b.photo ? `<div class="lib-thumb" style="width:54px;flex-shrink:0;"><img src="${escAttr(b.photo)}" alt=""></div>` : ''}
+    <div style="flex:1;min-width:0;"><div style="font-weight:800;">${escHtml(b.name||'—')}</div><div style="font-size:12px;color:var(--ink-soft);">${escHtml(bits)}</div></div>
+    <button type="button" class="btn btn-outline" id="tpl-meta-toggle">▾ Πληροφορίες προγράμματος</button>
+  </div>`;
+}
 function renderTplMetaForm(b){
   const subOptions = tplSubsFor(b.topCategory, b.gender);
   if(b.subCategory && !subOptions.includes(b.subCategory)) b.subCategory = '';   // π.χ. άλλαξε φύλο
@@ -3907,6 +3919,7 @@ function bindTplBuilderEvents(){
   if(topcatSel) topcatSel.addEventListener('change', ()=>{ b.topCategory = topcatSel.value; b.subCategory=''; renderTplFormArea(); });
   const subcatSel = document.getElementById('tpl-subcat');
   if(subcatSel) subcatSel.addEventListener('change', ()=>{ b.subCategory = subcatSel.value; if(!b.id){ state.tplCatView = tplCatKey(b.gender, b.topCategory, b.subCategory); renderTplGenderSwitch(); renderTplListArea(); } });
+  document.getElementById('tpl-meta-toggle')?.addEventListener('click', ()=>{ b.metaOpen = !b.metaOpen; renderTplFormArea(); });
   bindText('tpl-topcatphoto','topCategoryPhoto');
   bindText('tpl-name','name'); bindText('tpl-photo','photo');
   const setPhotoPrev = (url)=>{
@@ -3971,6 +3984,8 @@ function bindTplBuilderEvents(){
     b.closedDays = {};
     if(mode==='last') b.days.forEach((d,i)=>{ if(i < b.days.length-1) b.closedDays[i] = true; });
     if(mode==='close') b.days.forEach((d,i)=>{ b.closedDays[i] = true; });
+    if(mode==='odd') b.days.forEach((d,i)=>{ if(i % 2 === 1) b.closedDays[i] = true; });    // ημέρα 1,3,5… = θέση 0,2,4…
+    if(mode==='even') b.days.forEach((d,i)=>{ if(i % 2 === 0) b.closedDays[i] = true; });
     renderTplFormArea();
     if(mode==='last') document.querySelectorAll('.tpl-day-head')[b.days.length-1]?.scrollIntoView({ behavior:'smooth', block:'start' });
   }));
@@ -10599,7 +10614,7 @@ const CB_GUIDE_SECTIONS = [
   { t:'3. Ημέρες', b:[
     'Διάλεξε πόσες προπονήσεις έχει ο κύκλος σου (1 έως 12). Κάθε «ημέρα» είναι μία προπόνηση, όχι μέρα του ημερολογίου.',
     'Με το «⧉ Αντιγραφή ημέρας» γράφεις μία ημέρα μία φορά και τη βάζεις και σε άλλο νούμερο ημέρας.',
-    'Με τα «▾ Άνοιγμα όλων / ▸ Κλείσιμο όλων» βλέπεις όλες τις ημέρες ή μόνο αυτή που δουλεύεις.' ]},
+    'Με τα «▾ Άνοιγμα όλων / ▸ Κλείσιμο όλων / Μονές / Ζυγές» βλέπεις όλες τις ημέρες, μόνο τις μονές ή τις ζυγές, ή μόνο αυτή που δουλεύεις.' ]},
   { t:'4. Ασκήσεις', b:[
     '«+ Άσκηση με Βάρη»: διαλέγεις μυϊκή ομάδα, άσκηση και με ποιο μηχάνημα ή όργανο θα τη κάνεις (μπορείς να τσεκάρεις περισσότερα από ένα, με σειρά προτίμησης).',
     '«+ Αερόβιο»: διαλέγεις μηχάνημα (διάδρομος, ποδήλατο κ.λπ.) και λεπτά, σε βήματα των 5.',
