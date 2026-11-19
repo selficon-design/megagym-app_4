@@ -5697,7 +5697,35 @@ function workoutHands(ex){
   const cat = list.find(e=>String(e.name||'').trim()===String(eq.name||'').trim());
   return Number((cat && cat.hands) || eq.hands) === 2 ? 2 : 1;
 }
-function openWorkoutMode(ex, returnFn){
+// Κύλιση ώστε το σημείο να φαίνεται ακριβώς κάτω από τη σταθερή μπάρα της κορυφής
+function wkTopBarH(){
+  let h = 0;
+  document.querySelectorAll('.mobile-topbar, header, .client-topbar').forEach(x=>{
+    const cs = getComputedStyle(x), r = x.getBoundingClientRect();
+    if((cs.position==='sticky' || cs.position==='fixed') && cs.display!=='none' && r.height && r.top <= 1) h = Math.max(h, r.bottom);
+  });
+  return h;
+}
+function wkScrollToEl(el){
+  if(!el) return;
+  window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - wkTopBarH() - 8), behavior:'auto' });
+}
+function wkFocus(focus){
+  let target = null;
+  if(focus==='calc') target = document.getElementById('wk-calc-panel');
+  else if(focus==='timer'){
+    // ολόκληρο το χρονόμετρο (κουτάκι SET, κύκλος, START/STOP) να χωράει στην οθόνη· αν χωράει και ο τίτλος, φαίνεται κι αυτός
+    const panel = document.getElementById('timerRing')?.closest('.panel'), box = document.getElementById('setBox'), stop = document.getElementById('startBtn');
+    if(panel && stop){
+      const need = stop.getBoundingClientRect().bottom - panel.getBoundingClientRect().top + 16;
+      target = need <= window.innerHeight - wkTopBarH() ? panel : (box || panel);
+    } else target = box;
+  }
+  if(!target) { window.scrollTo(0,0); return; }
+  const go = ()=>wkScrollToEl(target);
+  go(); requestAnimationFrame(go); setTimeout(go, 250);   // ξανά μετά τη φόρτωση εικόνων/γραμματοσειρών
+}
+function openWorkoutMode(ex, returnFn, focus){
   const key = ex.exercise+'|'+ex.set+'|'+ex.rep+'|'+ex.rest;
   const maxRest = parseRestSeconds(ex.rest);
   const totalSets = Math.max(1, parseInt(ex.set,10)||1);
@@ -5716,6 +5744,7 @@ function openWorkoutMode(ex, returnFn){
   state.workoutExercise = ex;
   if(returnFn) workoutReturnRender = returnFn;
   renderWorkoutPage();
+  wkFocus(focus || 'timer');
   const logCode = state.workoutLogContext && state.workoutLogContext.customerCode;
   if(logCode && !state.skipDoneTodayCheck) checkExerciseAlreadyDoneToday(logCode, ex.exercise);
   if(isFreshOpen){
@@ -6519,7 +6548,7 @@ function renderWorkoutPage(){
       <button class="btn eq-action-btn" style="width:100%;min-height:52px;font-size:13px;" id="prevWorkoutsBtn">ΠΡΟΗΓΟΥΜΕΝΕΣ ΠΡΟΠΟΝΗΣΕΙΣ · PREVIOUS WORKOUTS</button>
     </div>
 
-    <div class="panel pad">
+    <div class="panel pad" id="wk-calc-panel">
       <div class="eq-section-title" style="margin-bottom:12px;">Υπολογιστής Κιλών Επόμενου SET</div>
       <div class="calc-info-note">${escHtml(calcType.label)} · ${escHtml(calcType.headerNote)}</div>
       <p style="font-size:15px;color:${calcInstrColorGr};text-align:center;line-height:1.5;margin:0 0 4px;font-weight:600;">${calcInstrGr} Στόχος άσκησης: ${range.min}–${range.max} επαναλήψεις.</p>
@@ -10332,8 +10361,8 @@ function renderClientExerciseView(item){
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
               <button class="btn eq-action-btn" ${eq.exercisePhotoUrl?`data-clientlib-eqphoto="${escAttr(eq.exercisePhotoUrl)}"`:'disabled'}>ΑΣΚΗΣΗ</button>
               <button class="btn eq-action-btn" ${eq.videoUrl?`data-clientlib-eqvideo="${escAttr(eq.videoUrl)}"`:'disabled'}>VIDEO</button>
-              <button class="btn eq-action-btn tall" data-clientlib-eqworkout="${escAttr(JSON.stringify({exercise:item.exercise,groupLabel:item.groupLabel,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,equipment:[eq]}))}">ΧΡΟΝΟΜΕΤΡΟ</button>
-              <button class="btn eq-action-btn tall" data-clientlib-eqworkout="${escAttr(JSON.stringify({exercise:item.exercise,groupLabel:item.groupLabel,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,equipment:[eq]}))}">ΥΠΟΛΟΓΙΣΤΗΣ<br>KG</button>
+              <button class="btn eq-action-btn tall" data-wk-focus="timer" data-clientlib-eqworkout="${escAttr(JSON.stringify({exercise:item.exercise,groupLabel:item.groupLabel,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,equipment:[eq]}))}">ΧΡΟΝΟΜΕΤΡΟ</button>
+              <button class="btn eq-action-btn tall" data-wk-focus="calc" data-clientlib-eqworkout="${escAttr(JSON.stringify({exercise:item.exercise,groupLabel:item.groupLabel,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,equipment:[eq]}))}">ΥΠΟΛΟΓΙΣΤΗΣ<br>KG</button>
               <button class="btn eq-action-btn" style="grid-column:span 2;" data-exinfo="${escAttr(JSON.stringify({exercise:item.exercise,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,eq:eq}))}">ΟΔΗΓΙΕΣ ΓΙΑ ΤΗΝ ΕΚΤΕΛΕΣΗ</button>
             </div>
           </div>
@@ -10445,7 +10474,7 @@ function bindClientNavEvents(){
       try{
         state.workoutLogContext = { customerCode: auth.customer ? auth.customer.code : null, programName: p ? getProgramNameForRecord(p.record) : '' };
         state.workoutNextCtx = { src:'client', programId: nav.programId, dayIndex: nav.dayIndex, itemIndex: nav.itemIndex };
-        openWorkoutMode(JSON.parse(el.getAttribute('data-clientlib-eqworkout')), rebuildClientDashboardShell);
+        openWorkoutMode(JSON.parse(el.getAttribute('data-clientlib-eqworkout')), rebuildClientDashboardShell, el.getAttribute('data-wk-focus'));
       }catch(e){}
     });
   });
@@ -10957,8 +10986,8 @@ function renderTplLibExerciseView(){
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
               <button class="btn eq-action-btn" ${eq.exercisePhotoUrl?`data-tpllib-eqphoto="${escAttr(eq.exercisePhotoUrl)}"`:'disabled'}>ΑΣΚΗΣΗ</button>
               <button class="btn eq-action-btn" ${eq.videoUrl?`data-tpllib-eqvideo="${escAttr(eq.videoUrl)}"`:'disabled'}>VIDEO</button>
-              <button class="btn eq-action-btn tall" data-tpllib-eqworkout="${it.exercise?escAttr(JSON.stringify({exercise:it.exercise,groupLabel:it.groupLabel,set:it.set,rep:it.rep,rest:it.rest,tempo:it.tempo,failure:it.failure,equipment:[eq]})):''}">ΧΡΟΝΟΜΕΤΡΟ</button>
-              <button class="btn eq-action-btn tall" data-tpllib-eqworkout="${it.exercise?escAttr(JSON.stringify({exercise:it.exercise,groupLabel:it.groupLabel,set:it.set,rep:it.rep,rest:it.rest,tempo:it.tempo,failure:it.failure,equipment:[eq]})):''}">ΥΠΟΛΟΓΙΣΤΗΣ<br>KG</button>
+              <button class="btn eq-action-btn tall" data-wk-focus="timer" data-tpllib-eqworkout="${it.exercise?escAttr(JSON.stringify({exercise:it.exercise,groupLabel:it.groupLabel,set:it.set,rep:it.rep,rest:it.rest,tempo:it.tempo,failure:it.failure,equipment:[eq]})):''}">ΧΡΟΝΟΜΕΤΡΟ</button>
+              <button class="btn eq-action-btn tall" data-wk-focus="calc" data-tpllib-eqworkout="${it.exercise?escAttr(JSON.stringify({exercise:it.exercise,groupLabel:it.groupLabel,set:it.set,rep:it.rep,rest:it.rest,tempo:it.tempo,failure:it.failure,equipment:[eq]})):''}">ΥΠΟΛΟΓΙΣΤΗΣ<br>KG</button>
               <button class="btn eq-action-btn" style="grid-column:span 2;" data-exinfo="${escAttr(JSON.stringify({exercise:it.exercise,set:it.set,rep:it.rep,rest:it.rest,tempo:it.tempo,failure:it.failure,eq:eq}))}">ΟΔΗΓΙΕΣ ΓΙΑ ΤΗΝ ΕΚΤΕΛΕΣΗ</button>
             </div>
           </div>
@@ -11084,7 +11113,7 @@ function bindTplLibEvents(){
       try{
         state.workoutLogContext = { customerCode: (auth.status==='client' && auth.customer) ? auth.customer.code : null, programName: t ? t.name : '' };
         state.workoutNextCtx = { src:'tpllib', programId: state.tplLibNav.programId, dayIndex: state.tplLibNav.dayIndex, itemIndex: state.tplLibNav.itemIndex };
-        openWorkoutMode(JSON.parse(raw), returnFromWorkoutTplLib);
+        openWorkoutMode(JSON.parse(raw), returnFromWorkoutTplLib, el.getAttribute('data-wk-focus'));
       }catch(e){}
     });
   });
