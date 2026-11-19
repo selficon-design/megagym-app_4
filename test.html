@@ -5749,6 +5749,10 @@ function openWorkoutMode(ex, returnFn, focus){
   timerState.hands = workoutHands(ex); if(timerState.hands!==2) timerState.hand = 'A'; else if(!timerState.hand) timerState.hand = 'A';
   state.workoutExercise = ex;
   if(returnFn) workoutReturnRender = returnFn;
+  if(state.workoutNextCtx && state.workoutNextCtx.src==='client' && auth.status==='client'){
+    state.lastWorkout = { ex, ret: workoutReturnRender, nextCtx: { ...state.workoutNextCtx }, logCtx: state.workoutLogContext };
+    const a = actWkGet(); if(a && a.programId===state.workoutNextCtx.programId && a.dayIndex!==state.workoutNextCtx.dayIndex) actWkSet(a.programId, state.workoutNextCtx.dayIndex);
+  }
   renderWorkoutPage();
   wkFocus(focus || 'timer');
   const logCode = state.workoutLogContext && state.workoutLogContext.customerCode;
@@ -5910,6 +5914,7 @@ function startProgAnswer(yes){
   if(m.kind==='resume'){ state.startProgModal = { ...m, kind:'resumeOpen' }; renderModal(); return; }
   renderModal();
   const rec = m.p.record, cardioOnly = rec.subtype==='cardio';
+  actWkSet(m.p.id, cardioOnly ? 0 : m.dayIndex);
   if(m.kind==='resumeOpen'){ clientResumeAt(m.p, m.dayIndex, m.resume.index, m.resume.setN || 1); return; }
   state.clientNav = { ...state.clientNav, view:'exercise', programId:m.p.id, dayIndex: cardioOnly ? 0 : m.dayIndex, itemIndex:0 };
   renderClientMain(); window.scrollTo(0,0);
@@ -5955,6 +5960,7 @@ async function endWorkoutFlow(c){
   renderModal();
 }
 function endWorkoutLeave(c){
+  actWkClear();
   if(c && c.src==='client'){
     const p = (state.selectedCustomerPrograms||[]).find(x=>x.id===c.programId);
     state.clientNav = { ...state.clientNav, programId:c.programId, view: p && p.record.subtype==='cardio' ? 'items' : 'days', dayIndex: p && p.record.subtype==='cardio' ? 0 : null, itemIndex:null };
@@ -6152,6 +6158,7 @@ async function endProgramFlow(cardios){
   renderModal();
 }
 function finishDayFlow(){
+  actWkClear();
   if(timerState.interval){ clearInterval(timerState.interval); timerState.interval = null; }
   timerState.running = false; if(typeof stopTimerDecimalTicker==='function') stopTimerDecimalTicker();
   const c = state.workoutNextCtx;
@@ -6180,6 +6187,31 @@ function closeWorkoutPage(force){
   if(workoutReturnRender) workoutReturnRender();
   wkBgTick();
 }
+/* Ενεργή προπόνηση: από το «ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ ΓΥΜΝΑΣΤΙΚΗΣ» μέχρι το «ΤΕΛΟΣ ΠΡΟΠΟΝΗΣΗΣ» (ή το τέλος της ημέρας).
+   Όσο είναι ενεργή, σε κάθε σελίδα υπάρχει κουμπί επιστροφής στην προπόνηση. Κρατιέται και αν ξανανοίξει η σελίδα (ίδια ημέρα). */
+function actWkKey(){ return 'forma_active_wk_' + ((auth.customer && auth.customer.code) || ''); }
+function actWkGet(){
+  if(auth.status!=='client') return null;
+  try{ const a = JSON.parse(localStorage.getItem(actWkKey())||'null'); return a && a.date===athensDateStr() ? a : null; }catch(_){ return null; }
+}
+function actWkSet(programId, dayIndex){
+  if(auth.status!=='client') return;
+  try{ localStorage.setItem(actWkKey(), JSON.stringify({ programId, dayIndex, date: athensDateStr() })); }catch(_){}
+  wkBgTick();
+}
+function actWkClear(){ try{ localStorage.removeItem(actWkKey()); }catch(_){} state.lastWorkout = null; wkBgTick(); }
+function actWkReturn(){
+  const a = actWkGet(); if(!a) return;
+  const lw = state.lastWorkout;
+  if(lw && lw.nextCtx && lw.nextCtx.programId===a.programId){
+    state.workoutNextCtx = lw.nextCtx; state.workoutLogContext = lw.logCtx;
+    state.skipDoneTodayCheck = true; openWorkoutMode(lw.ex, lw.ret, 'timer'); state.skipDoneTodayCheck = false;
+    return;
+  }
+  const p = (state.selectedCustomerPrograms||[]).find(x=>x.id===a.programId);
+  if(p) startProgramFlow(p, true);   // π.χ. μετά από ανανέωση σελίδας: βρίσκει από ποιο set συνεχίζεις
+  else toast('Άνοιξε «Τα προγράμματά μου» για να συνεχίσεις την προπόνηση.');
+}
 /* Χρονόμετρο στο παρασκήνιο: κουμπί «⏱ Επιστροφή στο χρονόμετρο» σε κάθε σελίδα· όταν τελειώσει ο χρόνος, επιστρέφει μόνο του */
 function wkBgReturn(auto){
   const bg = state.wkBg; if(!bg) return;
@@ -6201,18 +6233,27 @@ function wkBgTick(){
   const bg = state.wkBg;
   const onWorkout = !!document.getElementById('setBox');
   if(bg && timerState.exerciseKey !== bg.key){ state.wkBg = null; }   // άνοιξε άλλη άσκηση
-  if(!state.wkBg || onWorkout){ if(pill) pill.style.display = 'none'; if(onWorkout && state.wkBg) state.wkBg = null; return; }
+  if(onWorkout && state.wkBg) state.wkBg = null;
+  if(!state.wkBg){
+    const a = !onWorkout && actWkGet();
+    if(!a){ if(pill) pill.style.display = 'none'; return; }
+    if(!pill){ pill = document.createElement('button'); pill.id = 'wk-bg-pill'; pill.type = 'button'; pill.addEventListener('click', ()=>wkPillClick()); document.body.appendChild(pill); }
+    pill.innerHTML = `<span class="wk-bg-arrow">↩</span><span class="wk-bg-l">🏋️ Επιστροφή στην προπόνηση</span>`;
+    pill.style.display = 'flex';
+    return;
+  }
   if(timerState.remaining <= 0 && !timerState.running){ wkBgReturn(true); return; }
   if(!pill){
     pill = document.createElement('button'); pill.id = 'wk-bg-pill'; pill.type = 'button';
-    pill.addEventListener('click', ()=>wkBgReturn(false));
+    pill.addEventListener('click', ()=>wkPillClick());
     document.body.appendChild(pill);
   }
   const r = Math.max(0, timerState.remaining|0), mm = Math.floor(r/60), ss = String(r%60).padStart(2,'0');
   pill.innerHTML = `<span class="wk-bg-arrow">↩</span><span class="wk-bg-t">⏱ ${mm}:${ss}</span><span class="wk-bg-l">${timerState.paused ? 'ΠΑΥΣΗ · ' : ''}Επιστροφή στο χρονόμετρο</span>`;
   pill.style.display = 'flex';
 }
-setInterval(()=>{ if(state.wkBg || document.getElementById('wk-bg-pill')) wkBgTick(); }, 500);
+function wkPillClick(){ if(state.wkBg) wkBgReturn(false); else actWkReturn(); }
+setInterval(()=>{ if(state.wkBg || document.getElementById('wk-bg-pill') || auth.status==='client') wkBgTick(); }, 500);
 function getSetBoxContent(){
   const { nextSet, totalSets } = timerState;
   // Το set έχει ήδη γίνει όταν τρέχει το διάλειμμα: πάντα «ΕΚΤΕΛΕΣΤΗΚΕ» (κίτρινο όσο μετράει ο χρόνος)
