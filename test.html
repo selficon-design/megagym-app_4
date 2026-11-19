@@ -5927,11 +5927,21 @@ function startProgNextDayInfo(m){
   for(let k=1;k<P.days;k++){ const di = (m.dayIndex+k) % P.days; if(P.items(di).length) return { dayIndex:di, label:P.label(di) }; }
   return null;
 }
+// Ανοίγει τη σελίδα της 1ης άσκησης μιας ημέρας (για να διαλέξει εξοπλισμό) — όχι κατευθείαν το χρονόμετρο
+function clientOpenDayStart(p, dayIndex){
+  if(timerState.interval){ clearInterval(timerState.interval); timerState.interval = null; }
+  timerState.running = false; timerState.paused = false; timerState.exerciseKey = null;   // νέο ξεκίνημα: το SET μετράει από το 1
+  if(typeof stopTimerDecimalTicker==='function') stopTimerDecimalTicker();
+  state.wkBg = null; state.lastWorkout = null;
+  state.clientNav = { ...state.clientNav, view:'exercise', programId:p.id, dayIndex: p.record.subtype==='cardio' ? 0 : dayIndex, itemIndex:0 };
+  if(document.getElementById('setBox') || !document.getElementById('client-content')) rebuildClientDashboardShell(); else renderClientMain();
+  window.scrollTo(0,0);
+}
 function startProgNextDay(){
   const m = state.startProgModal; state.startProgModal = null; renderModal();
   const nx = m && startProgNextDayInfo(m); if(!nx) return;
   actWkSet(m.p.id, nx.dayIndex);
-  clientResumeAt(m.p, nx.dayIndex, 0, 1);
+  clientOpenDayStart(m.p, nx.dayIndex);
   toast('Πάμε στην '+nx.label+'.');
 }
 // «ΟΧΙ, ΘΕΛΩ ΝΑ ΞΕΚΙΝΗΣΩ ΑΠΟ ΤΗΝ ΑΡΧΗ» → «ΣΗΜΕΡΙΝΗ ΗΜΕΡΑ ΑΠΟ ΤΗΝ ΑΡΧΗ»: μηδενίζει τη σημερινή πρόοδο της ημέρας και ανοίγει την 1η άσκηση από το SET 1
@@ -5942,7 +5952,7 @@ async function startProgRestart(){
   await sessSave(c, prog=>{ Object.keys(prog).forEach(k=>delete prog[k]); });
   state.daysDoneToday && delete state.daysDoneToday[m.p.id+'|'+di+'|'+athensDateStr()];
   actWkSet(m.p.id, di);
-  clientResumeAt(m.p, di, 0, 1);
+  clientOpenDayStart(m.p, di);
   toast('Ξεκινάς την '+(m.dayLabel||'ημέρα')+' από την αρχή.');
 }
 // Τι δεν έχει γίνει σήμερα σε μια ημέρα προγράμματος
