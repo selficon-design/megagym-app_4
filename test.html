@@ -969,6 +969,13 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .cat-ver{display:flex;gap:10px;align-items:center;border:1px solid rgba(61,216,255,.18);border-radius:10px;padding:8px 10px;margin:6px 0;}
 .cat-ver.on{border-color:rgba(60,220,140,.5);}
 .eqm-g{font-size:17px;margin:22px 0 4px;color:var(--accent);}
+.eqm-search{display:flex;gap:8px;align-items:stretch;margin-bottom:10px;}
+.eqm-search .fdb-search{flex:1;min-width:0;margin:0;}
+.eqm-search .btn{white-space:nowrap;padding:8px 12px;}
+.eqm-filters{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;}
+.eqm-chip{padding:7px 11px;border-radius:999px;border:1.5px solid rgba(61,216,255,.35);background:rgba(61,216,255,.06);color:var(--ink);font:600 12px inherit;font-family:inherit;cursor:pointer;}
+.eqm-chip b{margin-left:4px;padding:1px 7px;border-radius:999px;background:rgba(255,255,255,.1);font-size:11px;}
+.eqm-chip.on{background:var(--accent,#ffb347);border-color:var(--accent,#ffb347);color:#1a1205;}
 .eqm-card{border:1px solid rgba(61,216,255,.22);border-radius:14px;padding:12px;margin:8px 0;background:rgba(3,11,18,.45);}
 .eqm-slots{display:grid;grid-template-columns:repeat(3,minmax(0,220px));gap:12px;margin-top:10px;}
 @media (max-width:560px){ .eqm-slots{grid-template-columns:1fr 1fr;} }
@@ -9252,7 +9259,7 @@ async function bunnyUploadFile(file, title, onProgress){
    Μυϊκή ομάδα → Τίτλος άσκησης → Εξοπλισμός. Κάθε συνδυασμός «τίτλος + εξοπλισμός» είναι
    ξεχωριστή άσκηση με 3 θέσεις: φωτογραφία εξοπλισμού, φωτογραφία άσκησης, βίντεο άσκησης.
    Ό,τι ανεβαίνει εδώ υπερισχύει των links του Excel.                                   */
-const eqm = { q:'', onlyMissing:false, busy:{}, progress:{}, status:{}, migrating:null };
+const eqm = { q:'', filter:'all', busy:{}, progress:{}, status:{}, migrating:null };
 const BUNNY_STATUS = { 0:'Δημιουργήθηκε', 1:'Ανέβηκε', 2:'Επεξεργασία', 3:'Μετατροπή', 4:'Έτοιμο', 5:'Σφάλμα', 6:'Αποτυχία ανεβάσματος' };
 const EQM_GROUP_OF = {};
 Object.keys(EXERCISES).forEach(g=>EXERCISES[g].forEach(x=>{ if(!EQM_GROUP_OF[x]) EQM_GROUP_OF[x] = g; }));
@@ -9302,14 +9309,47 @@ function eqmSlot(i, kind, title, url, src, isVideo){
     </div>
   </div>`;
 }
+const EQM_FILTERS = [
+  ['all', 'Όλες'],
+  ['noEqPhoto', 'Χωρίς φωτογραφία εξοπλισμού'],
+  ['noExPhoto', 'Χωρίς φωτογραφία άσκησης'],
+  ['noVideo', 'Χωρίς βίντεο άσκησης'],
+  ['notApp', 'Όχι και τα 3 από την εφαρμογή']
+];
+function eqmPass(src){
+  switch(eqm.filter){
+    case 'noEqPhoto': return !src.eqPhoto;
+    case 'noExPhoto': return !src.exPhoto;
+    case 'noVideo':   return !src.video;
+    case 'notApp':    return !(src.eqPhoto==='app' && src.exPhoto==='app' && src.video==='app');
+    default: return true;
+  }
+}
 function renderEqMediaContent(){
   const box = document.getElementById('eqm-content'); if(!box) return;
+  // Το πλαίσιο αναζήτησης φτιάχνεται μία φορά, ώστε να μη χάνεται αυτό που γράφεις
+  if(!document.getElementById('eqm-list')){
+    box.innerHTML = `<div id="eqm-top"></div>
+      <form id="eqm-form" class="eqm-search" autocomplete="off" onsubmit="return false;">
+        <input class="fdb-search" id="eqm-q" type="search" enterkeyhint="search" placeholder="Γράψε μυϊκή ομάδα, άσκηση ή εξοπλισμό" value="${escAttr(eqm.q)}">
+        <button type="submit" class="btn btn-primary" id="eqm-go">🔍 Αναζήτηση</button>
+        <button type="button" class="btn btn-outline" id="eqm-clear" title="Καθάρισμα">✕</button>
+      </form>
+      <div class="eqm-filters" id="eqm-filters"></div>
+      <div id="eqm-count" class="food-note" style="margin:0 0 6px;"></div>
+      <div id="eqm-list"></div>`;
+    bindEqMediaShell();
+  }
   const toks = fdbKey(eqm.q).split(' ').filter(Boolean);
   let html = '', lastG = null, lastEx = null, shown = 0;
+  const counts = { all:0, noEqPhoto:0, noExPhoto:0, noVideo:0, notApp:0 };
   eqmPairs().forEach((r, i)=>{
-    if(toks.length && !toks.every(t=>fdbKey(r.group+' '+r.ex+' '+r.e.name).includes(t))) return;
-    const res = eqResolve(r.e, r.ex), src = eqmSources(r);
-    if(eqm.onlyMissing && src.eqPhoto==='app' && src.exPhoto==='app' && src.video==='app') return;
+    if(toks.length && !toks.every(t=>fdbKey(r.group+' '+(GROUP_DISPLAY[r.group]||'')+' '+r.ex+' '+r.e.name).includes(t))) return;
+    const src = eqmSources(r);
+    counts.all++; if(!src.eqPhoto) counts.noEqPhoto++; if(!src.exPhoto) counts.noExPhoto++; if(!src.video) counts.noVideo++;
+    if(!(src.eqPhoto==='app' && src.exPhoto==='app' && src.video==='app')) counts.notApp++;
+    if(!eqmPass(src)) return;
+    const res = eqResolve(r.e, r.ex);
     if(r.group !== lastG){ html += `<h2 class="eqm-g">${escHtml(GROUP_DISPLAY[r.group] || r.group || 'Άλλο')}</h2>`; lastG = r.group; lastEx = null; }
     if(r.ex !== lastEx){ html += `<div class="section-title" style="margin-top:12px;"><span class="dot"></span>${escHtml(r.ex)}</div>`; lastEx = r.ex; }
     shown++;
@@ -9323,17 +9363,23 @@ function renderEqMediaContent(){
     </div>`;
   });
   const wix = eqmPairs().filter(r=>r.e.videoUrl && eqmSources(r).video==='excel');
-  box.innerHTML = `
-    ${wix.length ? `<div class="panel pad" style="margin-bottom:14px;">
+  document.getElementById('eqm-top').innerHTML = wix.length ? `<div class="panel pad" style="margin-bottom:14px;">
       <div style="font-weight:700;margin-bottom:4px;">Βίντεο που παίζουν ακόμα από link του Excel (Wix): ${wix.length} ασκήσεις</div>
       <div class="food-note" style="margin:0 0 10px;">Με ένα κουμπί μεταφέρονται στο Bunny και συνδέονται με τις ίδιες ασκήσεις. (Αν είναι δοκιμαστικά, μπορείς να τα αφήσεις και να ανεβάσεις τα σωστά όταν τα έχεις.)</div>
       <button class="btn btn-primary" id="eqm-migrate" style="width:100%;justify-content:center;" ${eqm.migrating?'disabled':''}>${eqm.migrating?escHtml(eqm.migrating):'🚚 Μεταφορά βίντεο από Wix στο Bunny'}</button>
-    </div>` : ''}
-    <input class="fdb-search" id="eqm-q" type="search" placeholder="Αναζήτηση μυϊκής ομάδας, άσκησης ή εξοπλισμού" value="${escAttr(eqm.q)}" autocomplete="off">
-    <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:-2px 0 6px;"><input type="checkbox" id="eqm-missing" ${eqm.onlyMissing?'checked':''}> Μόνο όσες δεν έχουν και τα 3 ανεβασμένα από την εφαρμογή</label>
-    <div class="food-note" style="margin:0 0 6px;">Εμφανίζονται ${shown} ασκήσεις. Πάτα μια φωτογραφία για μεγέθυνση. Το 🗑 αφαιρεί ό,τι ανέβηκε από την εφαρμογή (τότε ξαναφαίνεται το link του Excel, αν υπάρχει). Τα βίντεο επεξεργάζονται από το Bunny για 1–3 λεπτά.</div>
-    ${html || '<div class="food-note" style="text-align:center;padding:16px;">Δεν βρέθηκε άσκηση.</div>'}`;
+    </div>` : '';
+  document.getElementById('eqm-filters').innerHTML = EQM_FILTERS.map(([k, l])=>`<button type="button" class="eqm-chip ${eqm.filter===k?'on':''}" data-eqm-filter="${k}">${l} <b>${counts[k]}</b></button>`).join('');
+  document.getElementById('eqm-count').innerHTML = `Εμφανίζονται <b>${shown}</b> ασκήσεις${eqm.q.trim() ? ` για «${escHtml(eqm.q.trim())}»` : ''}. Πάτα μια φωτογραφία για μεγέθυνση. Το 🗑 αφαιρεί ό,τι ανέβηκε από την εφαρμογή (τότε ξαναφαίνεται το link του Excel, αν υπάρχει). Τα βίντεο επεξεργάζονται από το Bunny για 1–3 λεπτά.`;
+  document.getElementById('eqm-list').innerHTML = html || '<div class="food-note" style="text-align:center;padding:16px;">Δεν βρέθηκε άσκηση.</div>';
   bindEqMediaEvents();
+}
+function bindEqMediaShell(){
+  const $ = id=>document.getElementById(id);
+  const run = ()=>{ eqm.q = $('eqm-q').value; renderEqMediaContent(); };
+  $('eqm-form').addEventListener('submit', e=>{ e.preventDefault(); run(); $('eqm-q').blur(); });
+  $('eqm-q').addEventListener('input', ()=>{ clearTimeout(eqm.t); eqm.t = setTimeout(run, 350); });
+  $('eqm-clear').addEventListener('click', ()=>{ $('eqm-q').value = ''; run(); });
+  $('eqm-filters').addEventListener('click', e=>{ const b = e.target.closest('[data-eqm-filter]'); if(!b) return; eqm.filter = b.getAttribute('data-eqm-filter'); renderEqMediaContent(); });
 }
 async function eqmSavePair(exercise, equipment, patch){
   const row = { exercise, equipment, ...patch, updated_by: auth.user.id, updated_at: new Date().toISOString() };
@@ -9363,8 +9409,6 @@ async function eqmWatch(videoId, pairs){
 function bindEqMediaEvents(){
   const pairs = eqmPairs();
   const $ = id=>document.getElementById(id);
-  if($('eqm-q')) $('eqm-q').addEventListener('input', e=>{ eqm.q = e.target.value; clearTimeout(eqm.t); eqm.t = setTimeout(()=>{ renderEqMediaContent(); const q=$('eqm-q'); if(q){ q.focus(); q.setSelectionRange(q.value.length,q.value.length); } }, 250); });
-  if($('eqm-missing')) $('eqm-missing').addEventListener('change', e=>{ eqm.onlyMissing = e.target.checked; renderEqMediaContent(); });
   document.querySelectorAll('[data-eqm-zoom]').forEach(b=>b.addEventListener('click', ()=>openLightbox('photo', b.getAttribute('data-eqm-zoom'))));
   document.querySelectorAll('[data-eqm-play]').forEach(b=>b.addEventListener('click', ()=>{ const r = pairs[Number(b.getAttribute('data-eqm-play'))]; openLightbox('video', eqResolve(r.e, r.ex).videoUrl); }));
   document.querySelectorAll('[data-eqm-up]').forEach(inp=>inp.addEventListener('change', async ()=>{
