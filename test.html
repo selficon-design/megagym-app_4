@@ -706,6 +706,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .tpl-photo-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;}
 .tpl-photo-ctrl{flex:1 1 260px;min-width:0;}
 .tpl-photo-side{flex:0 1 380px;width:100%;}
+.tpl-draft-box{border-color:#ffb347 !important;margin-bottom:14px;}
 .tpl-meta-closed{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 .tpl-bigprev-lbl{margin:0 0 6px;font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--cyan-soft,#8fe3ff);}
 .tpl-bigprev{width:100%;max-width:460px;aspect-ratio:1/1;border-radius:12px;border:1.5px solid rgba(61,216,255,.4);overflow:hidden;background:rgba(3,11,18,.6);display:flex;align-items:center;justify-content:center;cursor:zoom-in;}
@@ -2165,6 +2166,19 @@ let state = {
   tplTemplatesLoaded: false,
   tplBuilder: null,
 };
+/* Πρόχειρο του builder έτοιμων προγραμμάτων: κάθε αλλαγή κρατιέται στη συσκευή, ώστε να μη χάνεται δουλειά */
+const TPL_DRAFT_KEY = 'forma_tpl_draft_v1';
+function tplSnap(b){ return JSON.stringify({ ...b, _hist:undefined, _savedSnap:undefined, _cancelConfirm:undefined, metaOpen:undefined, closedDays:undefined, addForm:undefined, lastEdited:undefined, tab:undefined }); }
+function tplDirty(b){ return !!b && tplSnap(b) !== (b._savedSnap || tplSnap(freshTplBuilder())); }
+function tplDraftSave(b){
+  try{
+    if(!b || b.mode==='client') return;
+    if(!tplDirty(b)){ return; }
+    localStorage.setItem(TPL_DRAFT_KEY, JSON.stringify({ at: Date.now(), b: JSON.parse(tplSnap(b)) }));
+  }catch(_){}
+}
+function tplDraftRead(){ try{ const d = JSON.parse(localStorage.getItem(TPL_DRAFT_KEY)||'null'); return d && d.b ? d : null; }catch(_){ return null; } }
+function tplDraftClear(){ try{ localStorage.removeItem(TPL_DRAFT_KEY); }catch(_){} }
 function freshTplBuilder(){
   return {
     id: null, // αν έχει τιμή, κάνουμε επεξεργασία υπάρχοντος προγράμματος (όχι νέα δημιουργία)
@@ -2212,6 +2226,7 @@ function loadTemplateIntoBuilder(t){
   state.tplHighlightId = t.id;   // πορτοκαλί πλαίσιο στο πρόγραμμα της λίστας που επεξεργάζεσαι
   state.tplFormOpen = true;
   { const k = tplCatOf(t) || 'orphans'; if(state.tplCatView !== k){ state.tplCatView = k; state.tplGenderView = t.gender; renderTplGenderSwitch(); if(document.getElementById('tpl-list-area')) renderTplListArea(); } }
+  state.tplBuilder._savedSnap = tplSnap(state.tplBuilder);
   renderTplFormArea();
   if(document.getElementById('tpl-list-area')) renderTplListArea();
   document.getElementById('tpl-form-area')?.scrollIntoView({behavior:'smooth', block:'start'});
@@ -2570,8 +2585,9 @@ async function loadTemplatePrograms(){
   return data||[];
 }
 async function saveTemplateProgram(row){
-  const { error } = await sb.from('template_programs').insert(row);
-  return !error;
+  const { data, error } = await sb.from('template_programs').insert(row).select('id').single();
+  if(error){ console.error(error); return false; }
+  return (data && data.id) || true;
 }
 // Αντίγραφο έτοιμου προγράμματος με νέο όνομα (κρυφό από τους πελάτες μέχρι να δημοσιευτεί)
 async function duplicateTemplateProgram(t, name){
@@ -3507,7 +3523,26 @@ function renderTplFormArea(){
   const b = state.tplBuilder;
   const clientMode = !!(b && b.mode==='client');   // «Φτιάχνω δικό μου πρόγραμμα» (αθλούμενος)
   if(!state.tplFormOpen && !clientMode){   // στην αρχή: μόνο τα έτοιμα προγράμματα + κουμπί δημιουργίας
-    area.innerHTML = `<button class="btn tpl-new-btn" id="tpl-new-btn">＋ Δημιουργία νέου προγράμματος</button>`;
+    const dr = tplDraftRead();
+    area.innerHTML = (dr ? `<div class="panel pad tpl-draft-box">
+        <div style="font-weight:800;">⚠️ Υπάρχει πρόγραμμα που δεν αποθηκεύτηκε: «${escHtml(dr.b.name || 'χωρίς όνομα')}»</div>
+        <div class="food-note" style="margin:4px 0 10px;">${escHtml([dr.b.gender, dr.b.topCategory, dr.b.subCategory].filter(Boolean).join(' · '))} · ${(dr.b.days||[]).length} ημέρες · ${(dr.b.days||[]).reduce((n,d)=>n+((d.items||[]).length),0)} ασκήσεις · τελευταία αλλαγή ${new Date(dr.at).toLocaleString('el-GR')}${dr.b.id ? ' · (αλλαγές σε υπάρχον πρόγραμμα)' : ''}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary" id="tpl-draft-resume">↩ Συνέχεια από εκεί που έμεινα</button>
+          <button class="btn btn-outline" id="tpl-draft-drop">${state.tplDraftDropConfirm ? 'Σίγουρα; Πάτα ξανά — θα σβηστεί' : '🗑 Διαγραφή πρόχειρου'}</button>
+        </div></div>` : '') + `<button class="btn tpl-new-btn" id="tpl-new-btn">＋ Δημιουργία νέου προγράμματος</button>`;
+    document.getElementById('tpl-draft-resume')?.addEventListener('click', ()=>{
+      const d = tplDraftRead(); if(!d) return;
+      const nb = Object.assign(freshTplBuilder(), d.b);
+      nb._savedSnap = d.b.id ? null : tplSnap(freshTplBuilder());
+      state.tplBuilder = nb; state.tplFormOpen = true; state.tplDraftDropConfirm = false;
+      renderTplFormArea(); renderTplListArea();
+      document.getElementById('tpl-form-area')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    });
+    document.getElementById('tpl-draft-drop')?.addEventListener('click', ()=>{
+      if(!state.tplDraftDropConfirm){ state.tplDraftDropConfirm = true; renderTplFormArea(); return; }
+      state.tplDraftDropConfirm = false; tplDraftClear(); renderTplFormArea();
+    });
     document.getElementById('tpl-new-btn').addEventListener('click', ()=>{
       const nb = freshTplBuilder();
       const k = state.tplCatView;
@@ -3532,12 +3567,12 @@ function renderTplFormArea(){
         : `<button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;" id="cb-reset">${state.cbResetConfirm ? 'Σίγουρα; Πάτα ξανά — θα σβηστούν όλα' : '✕ Καθαρισμός — ξεκινάω από την αρχή'}</button>`}
     </div>` : `<div class="panel pad" style="margin-top:20px;">
       <button class="btn btn-critical" style="width:100%;justify-content:center;" id="tpl-save-btn">${ICON.save}${b.id?'Αποθήκευση Αλλαγών':'Αποθήκευση Προγράμματος στη Βιβλιοθήκη'}<span class="kbd">Ctrl + S</span></button>
-      <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;" id="tpl-cancel-edit">${b.id ? '✕ Κλείσιμο επεξεργασίας (χωρίς αποθήκευση)' : '✕ Ακύρωση νέου προγράμματος'}</button>
+      <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;${b._cancelConfirm?'border-color:#ff6b6b;color:#ff8b90;':''}" id="tpl-cancel-edit">${b._cancelConfirm ? '⚠️ Δεν έχεις αποθηκεύσει! Πάτα ξανά για κλείσιμο χωρίς αποθήκευση' : (b.id ? '✕ Κλείσιμο επεξεργασίας (χωρίς αποθήκευση)' : '✕ Ακύρωση νέου προγράμματος')}</button>
     </div>`}
   `;
   scroller.scrollTop = keepY;
   bindTplBuilderEvents();
-  if(clientMode) cbSaveDraft();
+  if(clientMode) cbSaveDraft(); else tplDraftSave(b);
 }
 
 /* Αναίρεση / Επανάληψη στον builder: στιγμιότυπα των ημερών (μέχρι 50) */
@@ -4135,6 +4170,13 @@ function bindTplBuilderEvents(){
   const cancelEditBtn = document.getElementById('tpl-cancel-edit');
   document.getElementById('tpl-back-btn')?.addEventListener('click', ()=>cancelEditBtn && cancelEditBtn.click());
   if(cancelEditBtn) cancelEditBtn.addEventListener('click', ()=>{
+    if(tplDirty(b) && !b._cancelConfirm){
+      b._cancelConfirm = true; renderTplFormArea();
+      document.getElementById('tpl-cancel-edit')?.scrollIntoView({ behavior:'smooth', block:'center' });
+      toast('⚠️ Υπάρχουν αλλαγές που δεν αποθηκεύτηκαν. Πάτα «Αποθήκευση» ή ξαναπάτα για κλείσιμο χωρίς αποθήκευση.', 5000);
+      return;
+    }
+    tplDraftClear();
     state.tplBuilder = freshTplBuilder();
     state.tplFormOpen = false;
     state.tplHighlightId = null;
@@ -4143,7 +4185,8 @@ function bindTplBuilderEvents(){
   });
 }
 
-async function submitTplProgram(){
+async function submitTplProgram(opts){
+  const keep = !!(opts && opts.keep);
   const b = state.tplBuilder;
   const needsSub = tplSubsFor(b.topCategory, b.gender).length>0;
   if(!b.topCategory.trim() || !b.name.trim() || (needsSub && !b.subCategory.trim())){
@@ -4189,7 +4232,18 @@ async function submitTplProgram(){
   }
   const wasEdit = !!b.id;
   if(btn){ btn.disabled=false; btn.innerHTML = ICON.save+(wasEdit?'Αποθήκευση Αλλαγών':'Αποθήκευση Προγράμματος στη Βιβλιοθήκη'); }
+  if(ok && keep){   // 💾 / Ctrl+S: αποθηκεύει και συνεχίζεις να δουλεύεις στο ίδιο πρόγραμμα
+    if(!wasEdit && typeof ok==='string') b.id = ok;
+    b._savedSnap = tplSnap(b); b._cancelConfirm = false;
+    tplDraftClear();
+    toast(wasEdit ? '💾 Αποθηκεύτηκε — συνεχίζεις.' : '💾 Το «'+b.name.trim()+'» αποθηκεύτηκε στη βιβλιοθήκη — συνεχίζεις.');
+    renderTplFormArea();
+    state.tplTemplates = await loadTemplatePrograms();
+    renderTplListArea();
+    return;
+  }
   if(ok){
+    tplDraftClear();
     toast(wasEdit ? 'Οι αλλαγές αποθηκεύτηκαν!' : 'Το πρόγραμμα αποθηκεύτηκε στη βιβλιοθήκη!');
     state.tplBuilder = freshTplBuilder();
     state.tplFormOpen = false;
@@ -12049,7 +12103,13 @@ function tplQuickSave(){
   const inClient = auth.role==='client' && state.clientViewMode==='build';
   if(state.tab!=='tplbuilder' && !inClient) return false;
   const form = document.getElementById('tpl-af-submit') || document.getElementById('tpl-af-csubmit');
-  if(form){ form.click(); return true; }
+  if(form) form.click();
+  if(!inClient && state.tplBuilder && state.tplBuilder.mode!=='client' && state.tplFormOpen){
+    if(document.getElementById('tpl-af-submit') || document.getElementById('tpl-af-csubmit')) return true;  // η φόρμα άσκησης έχει λάθος — μένει ανοιχτή
+    submitTplProgram({ keep:true });
+    return true;
+  }
+  if(form) return true;
   const save = document.getElementById('tpl-save-btn');
   if(save && !save.disabled){ save.click(); return true; }
   return false;
