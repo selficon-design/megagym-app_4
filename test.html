@@ -907,8 +907,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .ck-opts{display:flex;flex-wrap:wrap;gap:6px;}
 .ck-opt{padding:7px 12px;border-radius:999px;border:1px solid var(--line-strong);background:rgba(3,11,18,.55);color:var(--ink);font-family:inherit;font-size:12.5px;cursor:pointer;}
 .ck-opt.on{border-color:var(--cyan);background:rgba(61,216,255,.16);color:var(--cyan-soft);font-weight:700;}
-.set-done-line{display:block;font-size:.72em;opacity:.85;margin-bottom:4px;letter-spacing:.04em;}
-.set-done-line.live{color:#7ef5a0;opacity:1;}
+.set-done-line{display:block;margin-bottom:1px;}
+.set-done-line.live, .set-done-line.live .set-emph{color:#ffe14d;}
 .hand-badge{display:block;margin:6px auto 0;width:max-content;padding:4px 16px;border-radius:999px;background:rgba(3,11,18,.82);border:1.5px solid var(--cyan);color:#fff;font-size:14px;font-weight:800;letter-spacing:2px;}
 .hand-badge.b{border-color:#fff;color:#ffd23f;animation:handPulse 1.2s ease-in-out infinite;}
 @keyframes handPulse{0%,100%{box-shadow:0 0 0 rgba(255,159,26,0);}50%{box-shadow:0 0 14px rgba(255,159,26,.6);}}
@@ -1073,15 +1073,14 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
   border-radius:12px;padding:9px 16px;font-weight:800;font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:.05em;margin-bottom:6px;
 }
 .timer-set-box{
-  display:inline-block;border:1.5px solid #ffc465;background:linear-gradient(145deg,#ffad32,#d66e00);color:#16100a;
-  border-radius:12px;padding:10px 18px;font-weight:800;font-family:'Rajdhani',sans-serif;font-size:16px;letter-spacing:.05em;margin-bottom:6px;
-  box-shadow:0 0 0 4px rgba(255,159,26,.14), 0 0 18px rgba(255,159,26,.4);
+  display:inline-block;border:1px solid rgba(255,173,50,.75);background:rgba(255,159,26,.08);color:#ffe7c2;
+  border-radius:9px;padding:5px 12px;font-weight:700;font-family:'Rajdhani',sans-serif;font-size:13.5px;letter-spacing:.04em;margin-bottom:6px;line-height:1.35;
 }
-.timer-set-box .set-emph{font-size:1.4em;font-weight:900;}
+.timer-set-box .set-emph{font-weight:900;color:#ffb347;}
 .timer-set-box.completed-blink{animation:setCompleteBlink 0.9s ease-in-out infinite;}
 @keyframes setCompleteBlink{
-  0%,100%{background:linear-gradient(145deg,#ffad32,#d66e00);box-shadow:0 0 0 4px rgba(255,159,26,.14), 0 0 18px rgba(255,159,26,.4);}
-  50%{background:linear-gradient(145deg,#37e56f,#0e9e46);box-shadow:0 0 0 6px rgba(55,229,111,.3), 0 0 32px rgba(55,229,111,.8);}
+  0%,100%{border-color:rgba(255,173,50,.75);background:rgba(255,159,26,.08);}
+  50%{border-color:#37e56f;background:rgba(55,229,111,.22);}
 }
 .timer-status{min-height:20px;color:var(--ink-soft);margin-top:10px;font-size:12.5px;}
 
