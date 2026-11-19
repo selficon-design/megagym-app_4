@@ -907,6 +907,10 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .ck-opts{display:flex;flex-wrap:wrap;gap:6px;}
 .ck-opt{padding:7px 12px;border-radius:999px;border:1px solid var(--line-strong);background:rgba(3,11,18,.55);color:var(--ink);font-family:inherit;font-size:12.5px;cursor:pointer;}
 .ck-opt.on{border-color:var(--cyan);background:rgba(61,216,255,.16);color:var(--cyan-soft);font-weight:700;}
+#wk-bg-pill{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9000;display:none;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;border:2px solid #ffb347;background:linear-gradient(145deg,#1b2a36,#0a1720);color:#fff;font:700 13.5px 'Rajdhani',sans-serif;letter-spacing:.03em;box-shadow:0 8px 24px rgba(0,0,0,.55),0 0 0 4px rgba(255,179,71,.18);cursor:pointer;white-space:nowrap;max-width:calc(100vw - 24px);}
+#wk-bg-pill .wk-bg-arrow{font-size:18px;color:#ffb347;}
+#wk-bg-pill .wk-bg-t{font-size:17px;font-weight:900;color:#ffe14d;font-variant-numeric:tabular-nums;}
+.timer-set-box.wk-bg-flash{animation:setCompleteBlink .7s ease-in-out 5;}
 .set-done-line{display:block;margin-bottom:1px;}
 .set-done-line.live, .set-done-line.live .set-emph{color:#ffe14d;}
 .hand-badge{display:block;margin:6px auto 0;width:max-content;padding:4px 16px;border-radius:999px;background:rgba(3,11,18,.82);border:1.5px solid var(--cyan);color:#fff;font-size:14px;font-weight:800;letter-spacing:2px;}
@@ -6167,8 +6171,46 @@ function closeWorkoutPage(force){
       yes:{ label:'ΜΕΝΩ — ΚΑΝΩ ΤΟ ΧΕΡΙ Β', fn:null }, no:{ label:'ΦΕΥΓΩ', fn:()=>closeWorkoutPage(true) } };
     renderModal(); return;
   }
+  // Αν τρέχει (ή είναι σε παύση) το διάλειμμα, συνεχίζει στο παρασκήνιο και εμφανίζεται κουμπί επιστροφής
+  if(!force && (timerState.running || timerState.paused) && state.workoutExercise){
+    state.wkBg = { key: timerState.exerciseKey, ex: state.workoutExercise, ret: workoutReturnRender, nextCtx: state.workoutNextCtx, logCtx: state.workoutLogContext };
+  } else state.wkBg = null;
   if(workoutReturnRender) workoutReturnRender();
+  wkBgTick();
 }
+/* Χρονόμετρο στο παρασκήνιο: κουμπί «⏱ Επιστροφή στο χρονόμετρο» σε κάθε σελίδα· όταν τελειώσει ο χρόνος, επιστρέφει μόνο του */
+function wkBgReturn(auto){
+  const bg = state.wkBg; if(!bg) return;
+  state.wkBg = null; wkBgTick();
+  state.workoutNextCtx = bg.nextCtx; state.workoutLogContext = bg.logCtx;
+  ['nextExerciseModal','choiceModal','startProgModal','firstSetInstrOpen','instructionsModalOpen','previousWorkoutsModalOpen'].forEach(k=>{ if(state[k]) state[k] = k.endsWith('Open') ? false : null; });
+  try{ renderModal(); }catch(_){}
+  state.skipDoneTodayCheck = true;
+  openWorkoutMode(bg.ex, bg.ret, 'timer');
+  state.skipDoneTodayCheck = false;
+  if(auto){
+    const { nextSet, totalSets } = timerState;
+    toast(nextSet <= totalSets ? `⏱ Τέλος διαλείμματος — πάμε στο SET ${nextSet} από ${totalSets}!` : '⏱ Τέλος διαλείμματος — ολοκληρώθηκαν όλα τα SET!', 5000);
+    const box = document.getElementById('setBox'); if(box){ box.classList.add('wk-bg-flash'); setTimeout(()=>box.classList.remove('wk-bg-flash'), 4000); }
+  }
+}
+function wkBgTick(){
+  let pill = document.getElementById('wk-bg-pill');
+  const bg = state.wkBg;
+  const onWorkout = !!document.getElementById('setBox');
+  if(bg && timerState.exerciseKey !== bg.key){ state.wkBg = null; }   // άνοιξε άλλη άσκηση
+  if(!state.wkBg || onWorkout){ if(pill) pill.style.display = 'none'; if(onWorkout && state.wkBg) state.wkBg = null; return; }
+  if(timerState.remaining <= 0 && !timerState.running){ wkBgReturn(true); return; }
+  if(!pill){
+    pill = document.createElement('button'); pill.id = 'wk-bg-pill'; pill.type = 'button';
+    pill.addEventListener('click', ()=>wkBgReturn(false));
+    document.body.appendChild(pill);
+  }
+  const r = Math.max(0, timerState.remaining|0), mm = Math.floor(r/60), ss = String(r%60).padStart(2,'0');
+  pill.innerHTML = `<span class="wk-bg-arrow">↩</span><span class="wk-bg-t">⏱ ${mm}:${ss}</span><span class="wk-bg-l">${timerState.paused ? 'ΠΑΥΣΗ · ' : ''}Επιστροφή στο χρονόμετρο</span>`;
+  pill.style.display = 'flex';
+}
+setInterval(()=>{ if(state.wkBg || document.getElementById('wk-bg-pill')) wkBgTick(); }, 500);
 function getSetBoxContent(){
   const { nextSet, totalSets } = timerState;
   // Το set που μόλις έγινε: όσο τρέχει (ή είναι σε παύση) το χρονόμετρο «ΕΚΤΕΛΕΙΤΑΙ», όταν τελειώσει «ΕΚΤΕΛΕΣΤΗΚΕ»
