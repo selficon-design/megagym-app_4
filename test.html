@@ -5921,6 +5921,17 @@ function startProgAnswer(yes){
   state.clientNav = { ...state.clientNav, view:'exercise', programId:m.p.id, dayIndex: cardioOnly ? 0 : m.dayIndex, itemIndex:0 };
   renderClientMain(); window.scrollTo(0,0);
 }
+// «ΟΧΙ, ΘΕΛΩ ΝΑ ΞΕΚΙΝΗΣΩ ΑΠΟ ΤΗΝ ΑΡΧΗ»: μηδενίζει τη σημερινή πρόοδο της ημέρας και ανοίγει την 1η άσκηση από το SET 1
+async function startProgRestart(){
+  const m = state.startProgModal; state.startProgModal = null; renderModal();
+  if(!m || !m.p) return;
+  const di = m.dayIndex, c = { src:'client', programId:m.p.id, dayIndex:di, itemIndex:0 };
+  await sessSave(c, prog=>{ Object.keys(prog).forEach(k=>delete prog[k]); });
+  state.daysDoneToday && delete state.daysDoneToday[m.p.id+'|'+di+'|'+athensDateStr()];
+  actWkSet(m.p.id, di);
+  clientResumeAt(m.p, di, 0, 1);
+  toast('Ξεκινάς την '+(m.dayLabel||'ημέρα')+' από την αρχή.');
+}
 // Τι δεν έχει γίνει σήμερα σε μια ημέρα προγράμματος
 async function sessLeftovers(c){
   const P = wnProgram(c); if(!P) return null;
@@ -7184,7 +7195,8 @@ function renderModal(){
     if(m.kind==='resume') body = `
         <h2 style="font-size:18px;margin-bottom:10px;color:#ffb648;">ΔΕΝ ΟΛΟΚΛΗΡΩΘΗΚΕ Η ΠΡΟΠΟΝΗΣΗ</h2>
         <p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:14px;">Δεν έχετε εκτελέσει όλα τα set της προπόνησης <b>${escHtml(m.dayLabel)}</b> (έγιναν ${m.doneSets} από ${m.totalSets}).<br>Θέλετε να συνεχίσετε από εκεί που σταματήσατε, από το επόμενο set;</p>
-        ${yesNo('sp-yes','sp-no')}`;
+        ${yesNo('sp-yes','sp-no')}
+        <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;" id="sp-restart">ΟΧΙ, ΘΕΛΩ ΝΑ ΞΕΚΙΝΗΣΩ ΑΠΟ ΤΗΝ ΑΡΧΗ</button>`;
     else if(m.kind==='resumeOpen') body = `
         <h2 style="font-size:18px;margin-bottom:10px;color:var(--cyan-soft);">ΣΥΝΕΧΕΙΑ ΠΡΟΠΟΝΗΣΗΣ</h2>
         <div style="padding:12px;border-radius:12px;border:1px solid ${m.resume.item.type==='cardio'?'#39ff88':'var(--line-strong)'};background:rgba(3,11,18,.6);margin-bottom:14px;">
@@ -7203,6 +7215,7 @@ function renderModal(){
     root.innerHTML = `<div class="modal-overlay"><div class="modal" style="max-width:420px;text-align:center;">${body}</div></div>`;
     document.getElementById('sp-yes').addEventListener('click', ()=>startProgAnswer(true));
     document.getElementById('sp-no').addEventListener('click', ()=>startProgAnswer(false));
+    document.getElementById('sp-restart')?.addEventListener('click', ()=>startProgRestart());
     return;
   }
   if(state.cardioAskModal){
