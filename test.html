@@ -5921,7 +5921,20 @@ function startProgAnswer(yes){
   state.clientNav = { ...state.clientNav, view:'exercise', programId:m.p.id, dayIndex: cardioOnly ? 0 : m.dayIndex, itemIndex:0 };
   renderClientMain(); window.scrollTo(0,0);
 }
-// «ΟΧΙ, ΘΕΛΩ ΝΑ ΞΕΚΙΝΗΣΩ ΑΠΟ ΤΗΝ ΑΡΧΗ»: μηδενίζει τη σημερινή πρόοδο της ημέρας και ανοίγει την 1η άσκηση από το SET 1
+// Η επόμενη ημέρα του προγράμματος (με ασκήσεις) μετά από αυτή του μηνύματος
+function startProgNextDayInfo(m){
+  const P = wnProgram({ src:'client', programId:m.p.id, dayIndex:0, itemIndex:0 }); if(!P || P.days < 2) return null;
+  for(let k=1;k<P.days;k++){ const di = (m.dayIndex+k) % P.days; if(P.items(di).length) return { dayIndex:di, label:P.label(di) }; }
+  return null;
+}
+function startProgNextDay(){
+  const m = state.startProgModal; state.startProgModal = null; renderModal();
+  const nx = m && startProgNextDayInfo(m); if(!nx) return;
+  actWkSet(m.p.id, nx.dayIndex);
+  clientResumeAt(m.p, nx.dayIndex, 0, 1);
+  toast('Πάμε στην '+nx.label+'.');
+}
+// «ΟΧΙ, ΘΕΛΩ ΝΑ ΞΕΚΙΝΗΣΩ ΑΠΟ ΤΗΝ ΑΡΧΗ» → «ΣΗΜΕΡΙΝΗ ΗΜΕΡΑ ΑΠΟ ΤΗΝ ΑΡΧΗ»: μηδενίζει τη σημερινή πρόοδο της ημέρας και ανοίγει την 1η άσκηση από το SET 1
 async function startProgRestart(){
   const m = state.startProgModal; state.startProgModal = null; renderModal();
   if(!m || !m.p) return;
@@ -7197,6 +7210,15 @@ function renderModal(){
         <p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:14px;">Δεν έχετε εκτελέσει όλα τα set της προπόνησης <b>${escHtml(m.dayLabel)}</b> (έγιναν ${m.doneSets} από ${m.totalSets}).<br>Θέλετε να συνεχίσετε από εκεί που σταματήσατε, από το επόμενο set;</p>
         ${yesNo('sp-yes','sp-no')}
         <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;" id="sp-restart">ΟΧΙ, ΘΕΛΩ ΝΑ ΞΕΚΙΝΗΣΩ ΑΠΟ ΤΗΝ ΑΡΧΗ</button>`;
+    else if(m.kind==='restartChoice'){
+      const nx = startProgNextDayInfo(m);
+      body = `
+        <h2 style="font-size:18px;margin-bottom:10px;color:var(--cyan-soft);">ΑΠΟ ΤΗΝ ΑΡΧΗ</h2>
+        <p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:16px;">Βρισκόμαστε στην <b>${escHtml(m.dayLabel)}</b>.<br>Θέλεις να κάνεις την ίδια ημέρα από την αρχή${nx ? ` ή να προχωρήσουμε στην επόμενη ημέρα, <b>${escHtml(nx.label)}</b>` : ''};</p>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:10px;" id="sp-today">ΤΗΝ ΙΔΙΑ ΗΜΕΡΑ ΑΠΟ ΤΗΝ ΑΡΧΗ · ${escHtml(m.dayLabel)}</button>
+        ${nx ? `<button class="btn btn-outline" style="width:100%;justify-content:center;margin-bottom:10px;" id="sp-nextday">ΝΑ ΠΡΟΧΩΡΗΣΟΥΜΕ ΣΤΗΝ ΕΠΟΜΕΝΗ ΗΜΕΡΑ · ${escHtml(nx.label)}</button>` : ''}
+        <button class="btn btn-outline" style="width:100%;justify-content:center;opacity:.8;" id="sp-cancel">ΑΚΥΡΟ</button>`;
+    }
     else if(m.kind==='resumeOpen') body = `
         <h2 style="font-size:18px;margin-bottom:10px;color:var(--cyan-soft);">ΣΥΝΕΧΕΙΑ ΠΡΟΠΟΝΗΣΗΣ</h2>
         <div style="padding:12px;border-radius:12px;border:1px solid ${m.resume.item.type==='cardio'?'#39ff88':'var(--line-strong)'};background:rgba(3,11,18,.6);margin-bottom:14px;">
@@ -7213,9 +7235,12 @@ function renderModal(){
         <p style="font-size:14px;color:#eefcff;margin-bottom:16px;">Να ανοίξω την προπόνηση της ημέρας αυτής;</p>
         ${yesNo('sp-yes','sp-no')}`;
     root.innerHTML = `<div class="modal-overlay"><div class="modal" style="max-width:420px;text-align:center;">${body}</div></div>`;
-    document.getElementById('sp-yes').addEventListener('click', ()=>startProgAnswer(true));
-    document.getElementById('sp-no').addEventListener('click', ()=>startProgAnswer(false));
-    document.getElementById('sp-restart')?.addEventListener('click', ()=>startProgRestart());
+    document.getElementById('sp-yes')?.addEventListener('click', ()=>startProgAnswer(true));
+    document.getElementById('sp-no')?.addEventListener('click', ()=>startProgAnswer(false));
+    document.getElementById('sp-restart')?.addEventListener('click', ()=>{ state.startProgModal = { ...m, kind:'restartChoice' }; renderModal(); });
+    document.getElementById('sp-today')?.addEventListener('click', ()=>startProgRestart());
+    document.getElementById('sp-nextday')?.addEventListener('click', ()=>startProgNextDay());
+    document.getElementById('sp-cancel')?.addEventListener('click', ()=>{ state.startProgModal = null; renderModal(); });
     return;
   }
   if(state.cardioAskModal){
