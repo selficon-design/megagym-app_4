@@ -6213,15 +6213,14 @@ function wkBgTick(){
 setInterval(()=>{ if(state.wkBg || document.getElementById('wk-bg-pill')) wkBgTick(); }, 500);
 function getSetBoxContent(){
   const { nextSet, totalSets } = timerState;
-  // Το set που μόλις έγινε: όσο τρέχει (ή είναι σε παύση) το χρονόμετρο «ΕΚΤΕΛΕΙΤΑΙ», όταν τελειώσει «ΕΚΤΕΛΕΣΤΗΚΕ»
+  // Το set έχει ήδη γίνει όταν τρέχει το διάλειμμα: πάντα «ΕΚΤΕΛΕΣΤΗΚΕ» (κίτρινο όσο μετράει ο χρόνος)
   const done = nextSet - 1;
   const live = timerState.running || timerState.paused;
-  const doneLine = done >= 1 ? `<div class="set-done-line ${live?'live':''}">${live ? 'ΕΚΤΕΛΕΙΤΑΙ' : 'ΕΚΤΕΛΕΣΤΗΚΕ'} ΤΟ <span class="set-emph">SET ${done}</span></div>` : '';
+  const doneLine = done >= 1 ? `<div class="set-done-line ${live?'live':''}">ΕΚΤΕΛΕΣΤΗΚΕ ΤΟ <span class="set-emph">SET ${done}</span></div>` : '';
   if(nextSet <= totalSets){
     const hand = timerState.hands===2 ? `<div class="hand-badge ${timerState.hand==='B'?'b':''}">ΧΕΡΙ ${timerState.hand==='B'?'Β':'Α'}</div>` : '';
     return { cls:'', html: `${doneLine}ΕΠΟΜΕΝΟ <span class="set-emph">SET ${nextSet}</span> ΑΠΟ <span class="set-emph">${totalSets}</span>${hand}` };
   } else if(nextSet === totalSets+1){
-    if(live) return { cls:'', html: `${doneLine}ΑΥΤΟ ΕΙΝΑΙ ΤΟ <span class="set-emph">ΤΕΛΕΥΤΑΙΟ SET</span>` };
     return { cls:'completed-blink', html: `${doneLine}ΟΛΟΚΛΗΡΩΘΗΚΑΝ ΟΛΑ ΤΑ <span class="set-emph">SET</span>` };
   }
   return { cls:'', html: `${doneLine}ΕΠΙΠΛΕΟΝ <span class="set-emph">SET ${nextSet}</span>` };
