@@ -1,5 +1,5 @@
 -- Εξοπλισμός PRO 1 σε κοιλιακούς / πόδια (όχι προσωπικά δεδομένα)
-select t.gender, left(coalesce(t.sub_category,''),12) sub, t.updated_at, dn day, io pos, i->>'exercise' ex,
+select t.gender, left(coalesce(t.sub_category,''),12) sub, t.updated_at, dn as dday, io as pos, i->>'exercise' ex,
   jsonb_array_length(coalesce(i->'equipment','[]')) n_eq,
   (select string_agg(e->>'name', ' | ') from jsonb_array_elements(coalesce(i->'equipment','[]')) e) eq
 from public.template_programs t
