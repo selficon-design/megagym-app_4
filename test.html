@@ -907,6 +907,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .ck-opts{display:flex;flex-wrap:wrap;gap:6px;}
 .ck-opt{padding:7px 12px;border-radius:999px;border:1px solid var(--line-strong);background:rgba(3,11,18,.55);color:var(--ink);font-family:inherit;font-size:12.5px;cursor:pointer;}
 .ck-opt.on{border-color:var(--cyan);background:rgba(61,216,255,.16);color:var(--cyan-soft);font-weight:700;}
+.set-done-line{display:block;font-size:.72em;opacity:.85;margin-bottom:4px;letter-spacing:.04em;}
+.set-done-line.live{color:#7ef5a0;opacity:1;}
 .hand-badge{display:block;margin:6px auto 0;width:max-content;padding:4px 16px;border-radius:999px;background:rgba(3,11,18,.82);border:1.5px solid var(--cyan);color:#fff;font-size:14px;font-weight:800;letter-spacing:2px;}
 .hand-badge.b{border-color:#fff;color:#ffd23f;animation:handPulse 1.2s ease-in-out infinite;}
 @keyframes handPulse{0%,100%{box-shadow:0 0 0 rgba(255,159,26,0);}50%{box-shadow:0 0 14px rgba(255,159,26,.6);}}
@@ -6141,13 +6143,18 @@ function closeWorkoutPage(force){
 }
 function getSetBoxContent(){
   const { nextSet, totalSets } = timerState;
+  // Το set που μόλις έγινε: όσο τρέχει (ή είναι σε παύση) το χρονόμετρο «ΕΚΤΕΛΕΙΤΑΙ», όταν τελειώσει «ΕΚΤΕΛΕΣΤΗΚΕ»
+  const done = nextSet - 1;
+  const live = timerState.running || timerState.paused;
+  const doneLine = done >= 1 ? `<div class="set-done-line ${live?'live':''}">${live ? 'ΕΚΤΕΛΕΙΤΑΙ' : 'ΕΚΤΕΛΕΣΤΗΚΕ'} ΤΟ <span class="set-emph">SET ${done}</span></div>` : '';
   if(nextSet <= totalSets){
     const hand = timerState.hands===2 ? `<div class="hand-badge ${timerState.hand==='B'?'b':''}">ΧΕΡΙ ${timerState.hand==='B'?'Β':'Α'}</div>` : '';
-    return { cls:'', html: `ΕΠΟΜΕΝΟ <span class="set-emph">SET ${nextSet}</span> ΑΠΟ <span class="set-emph">${totalSets}</span>${hand}` };
+    return { cls:'', html: `${doneLine}ΕΠΟΜΕΝΟ <span class="set-emph">SET ${nextSet}</span> ΑΠΟ <span class="set-emph">${totalSets}</span>${hand}` };
   } else if(nextSet === totalSets+1){
-    return { cls:'completed-blink', html: 'ΟΛΟΚΛΗΡΩΘΗΚΑΝ ΟΛΑ ΤΑ <span class="set-emph">SET</span>' };
+    if(live) return { cls:'', html: `${doneLine}ΑΥΤΟ ΕΙΝΑΙ ΤΟ <span class="set-emph">ΤΕΛΕΥΤΑΙΟ SET</span>` };
+    return { cls:'completed-blink', html: `${doneLine}ΟΛΟΚΛΗΡΩΘΗΚΑΝ ΟΛΑ ΤΑ <span class="set-emph">SET</span>` };
   }
-  return { cls:'', html: `ΕΠΙΠΛΕΟΝ <span class="set-emph">SET ${nextSet}</span>` };
+  return { cls:'', html: `${doneLine}ΕΠΙΠΛΕΟΝ <span class="set-emph">SET ${nextSet}</span>` };
 }
 function updateWorkoutTimerUI(){
   const numberEl=document.getElementById('timerNumber');
