@@ -907,6 +907,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .ck-opts{display:flex;flex-wrap:wrap;gap:6px;}
 .ck-opt{padding:7px 12px;border-radius:999px;border:1px solid var(--line-strong);background:rgba(3,11,18,.55);color:var(--ink);font-family:inherit;font-size:12.5px;cursor:pointer;}
 .ck-opt.on{border-color:var(--cyan);background:rgba(61,216,255,.16);color:var(--cyan-soft);font-weight:700;}
+.wk-mute-btn{padding:7px 11px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.05);color:#dfe9ef;font:700 11.5px 'Rajdhani',sans-serif;letter-spacing:.05em;cursor:pointer;}
+.wk-mute-btn.on{border-color:#ff8b90;color:#ff8b90;background:rgba(255,107,107,.1);}
 #wk-bg-pill{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9000;display:none;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;border:2px solid #ffb347;background:linear-gradient(145deg,#1b2a36,#0a1720);color:#fff;font:700 13.5px 'Rajdhani',sans-serif;letter-spacing:.03em;box-shadow:0 8px 24px rgba(0,0,0,.55),0 0 0 4px rgba(255,179,71,.18);cursor:pointer;white-space:nowrap;max-width:calc(100vw - 24px);}
 #wk-bg-pill .wk-bg-arrow{font-size:18px;color:#ffb347;}
 #wk-bg-pill .wk-bg-t{font-size:17px;font-weight:900;color:#ffe14d;font-variant-numeric:tabular-nums;}
@@ -6334,8 +6336,10 @@ function wkSoundUnlock(){
     if(wkBeepCtx && wkBeepCtx.state === 'suspended') wkBeepCtx.resume();
   }catch(_){}
 }
+function wkMuted(){ try{ return localStorage.getItem('forma_timer_mute')==='1'; }catch(_){ return false; } }
 function wkBeep3(){
   if(navigator.vibrate) navigator.vibrate([200,140,200,140,200]);
+  if(wkMuted()) return;   // MUTE: μόνο δόνηση, χωρίς ήχο
   let played = false;
   try{
     if(wkBeepEl && wkBeepUnlocked){ wkBeepEl.currentTime = 0; const pr = wkBeepEl.play(); played = true; if(pr && pr.catch) pr.catch(()=>wkBeepWebAudio()); }
@@ -6608,8 +6612,10 @@ function renderWorkoutPage(){
       <div class="sub" style="margin-bottom:0;text-transform:uppercase;">${escHtml(ex.groupLabel||'')} · SET ${ex.set} · REP ${escHtml(String(ex.rep))} · TEMPO ${escHtml(ex.tempo||DEFAULT_TEMPO)}</div>
 
       <div style="text-align:center;margin-top:16px;">
-        <button class="btn btn-outline" id="timerInstructionsBtn" style="border:2px solid var(--cyan);margin-bottom:10px;display:inline-flex;">Οδηγίες / Instructions</button>
-        <br>
+        <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+          <button class="btn btn-outline" id="timerInstructionsBtn" style="border:2px solid var(--cyan);display:inline-flex;">Οδηγίες / Instructions</button>
+          <button type="button" class="wk-mute-btn ${wkMuted()?'on':''}" id="wkMuteBtn" title="Ήχος στο τέλος του διαλείμματος">${wkMuted() ? '🔇 MUTE' : '🔔 ΗΧΟΣ'}</button>
+        </div>
         <div id="setBox" class="timer-set-box ${setBoxContent.cls}">${setBoxContent.html}</div>
         <div id="timerRing" class="timer-ring" style="--progress:${progress}">
           <div id="timerNumber" class="timer-number">${timerState.remaining}</div>
@@ -6693,6 +6699,12 @@ function bindWorkoutPageEvents(){
   document.getElementById('workoutEndBtn')?.addEventListener('click', ()=>endWorkoutFlow(state.workoutNextCtx));
   document.getElementById('firstSetInfoBtn')?.addEventListener('click', ()=>{ state.firstSetInfoModalOpen=true; renderModal(); });
   document.getElementById('startBtn')?.addEventListener('click', ()=>{ wkSoundUnlock(); startWorkoutTimer(); });
+  document.getElementById('wkMuteBtn')?.addEventListener('click', e=>{
+    const m = !wkMuted(); try{ localStorage.setItem('forma_timer_mute', m?'1':'0'); }catch(_){}
+    e.currentTarget.classList.toggle('on', m); e.currentTarget.textContent = m ? '🔇 MUTE' : '🔔 ΗΧΟΣ';
+    toast(m ? '🔇 Χωρίς ήχο στο τέλος του διαλείμματος.' : '🔔 Ο ήχος ενεργοποιήθηκε.');
+    if(!m) wkSoundUnlock();
+  });
   document.getElementById('stopBtn')?.addEventListener('click', stopWorkoutTimer);
   document.getElementById('resetTimerBtn')?.addEventListener('click', resetWorkoutTimer);
   document.getElementById('repsButton')?.addEventListener('click', ()=>selectWorkoutCalcField('reps'));
