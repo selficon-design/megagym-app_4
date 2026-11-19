@@ -4257,7 +4257,10 @@ function renderTplListArea(){
   area.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
       <div class="section-title" style="margin:0;"><span class="dot"></span>Αποθηκευμένα Έτοιμα Προγράμματα (${list.length})</div>
-      <button class="btn btn-outline" id="tpl-trash-btn" style="padding:6px 10px;font-size:11px;">🗑 Κάδος${trash.length?` (${trash.length})`:''}</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-outline" id="tpl-export-xlsx" style="padding:6px 10px;font-size:11px;">📥 Excel όλων των προγραμμάτων</button>
+        <button class="btn btn-outline" id="tpl-trash-btn" style="padding:6px 10px;font-size:11px;">🗑 Κάδος${trash.length?` (${trash.length})`:''}</button>
+      </div>
     </div>
     ${state.tplTrashOpen ? `<div class="tpl-trash">
       <div class="tpl-sub-h" style="margin-top:0;">Διαγραμμένα προγράμματα — κρατάμε τα 10 τελευταία</div>
@@ -4268,6 +4271,11 @@ function renderTplListArea(){
     </div>` : ''}
     <div class="tpl-sub-h" style="margin-top:${state.tplTrashOpen?'14px':'0'};">${escHtml(title)}</div>
     ${list.length ? list.map((t,i)=>tplListCardHtml(t, k==='orphans'?null:i, list.length)).join('') : `<div class="tpl-empty">Κανένα πρόγραμμα ακόμα σε αυτή την κατηγορία. Η φόρμα παραπάνω είναι ήδη ρυθμισμένη σε αυτήν — φτιάξε το πρώτο.</div>`}`;
+  document.getElementById('tpl-export-xlsx')?.addEventListener('click', async (e)=>{
+    const btn = e.currentTarget; btn.disabled = true; const old = btn.textContent; btn.textContent = 'Ετοιμάζεται...';
+    try{ await exportTemplatesXlsx(); } catch(err){ toast('Σφάλμα: '+(err.message||err)); }
+    btn.disabled = false; btn.textContent = old;
+  });
   document.getElementById('tpl-trash-btn')?.addEventListener('click', async ()=>{
     state.tplTrashOpen = !state.tplTrashOpen;
     if(state.tplTrashOpen) state.tplTrash = await loadTemplateTrash();
@@ -11362,6 +11370,63 @@ function catalogDiff(oldC, newC){
 function catalogCounts(c){
   return { groups: Object.keys(c.EXERCISES).length, exercises: Object.values(c.EXERCISES).flat().length,
            equipment: Object.values(c.EQUIPMENT_BY_EXERCISE).flat().length, gyms: (c.GYMS||[]).length };
+}
+/* ── Εξαγωγή όλων των έτοιμων προγραμμάτων σε Excel (μία γραμμή ανά άσκηση/αερόβιο) ── */
+const TPL_XLSX_HEAD = ['ID ΠΡΟΓΡΑΜΜΑΤΟΣ','ΦΥΛΟ','ΚΑΤΗΓΟΡΙΑ','ΥΠΟΚΑΤΗΓΟΡΙΑ','ΣΕΙΡΑ','ΠΡΟΓΡΑΜΜΑ','ΔΗΜΟΣΙΕΥΜΕΝΟ','ΗΜΕΡΕΣ ΠΡΟΓΡΑΜΜΑΤΟΣ','ΗΜΕΡΑ','ΟΝΟΜΑ ΗΜΕΡΑΣ','ΙΔΙΑ ΑΣΚΗΣΕΙΣ ΜΕ ΗΜΕΡΑ','ΘΕΣΗ','ΤΥΠΟΣ','ΜΥΪΚΗ ΟΜΑΔΑ','ΑΣΚΗΣΗ','SET','REP','ΔΙΑΛΕΙΜΜΑ','TEMPO','UNTIL FAILURE','ΕΞΟΠΛΙΣΜΟΣ','ΑΕΡΟΒΙΟ ΜΗΧΑΝΗΜΑ','ΛΕΙΤΟΥΡΓΙΑ','ΛΕΠΤΑ','ΤΑΧΥΤΗΤΑ ΑΠΟ','ΤΑΧΥΤΗΤΑ ΕΩΣ','ΓΡΗΓΟΡΗ (DRILL) ΑΠΟ','ΓΡΗΓΟΡΗ (DRILL) ΕΩΣ','ΚΛΙΣΗ','DRILL ΚΑΘΕ (ΛΕΠΤΑ)'];
+function tplXlsxSheetName(g, top, sub, used){
+  let n = (g==='ΓΥΝΑΙΚΕΣ'?'ΓΥΝ ':'ΑΝΔ ') + (sub ? sub.replace('ΓΥΜΝΑΖΕΙ ','').replace('ΜΕ ΑΚΟΜΗ ΠΕΡΙΣΣΟΤΕΡΗ ΕΜΦΑΣΗ','ΠΟΛΥ ΕΜΦΑΣΗ').replace('ΜΕ ΕΜΦΑΣΗ','ΕΜΦΑΣΗ').replace(' ΤΟΥ ΣΩΜΑΤΟΣ','').replace(' ΜΕΡΟΣ','').replace('ΚΑΥΣΗ ΛΙΠΟΥΣ ','') : (top||'ΧΩΡΙΣ ΚΑΤΗΓΟΡΙΑ'));
+  n = n.replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,31).trim();
+  let k = n, i = 2; while(used.has(k)){ k = n.slice(0,28)+' '+(i++); } used.add(k); return k;
+}
+async function exportTemplatesXlsx(){
+  const X = await loadXlsx();
+  const list = (state.tplTemplates||[]).slice().sort((a,b)=>String(a.gender).localeCompare(String(b.gender),'el') || String(a.top_category).localeCompare(String(b.top_category),'el') || String(a.sub_category||'').localeCompare(String(b.sub_category||''),'el') || tplOrderCmp(a,b));
+  if(!list.length){ toast('Δεν υπάρχουν προγράμματα.'); return; }
+  const groups = new Map();
+  const eqTxt = eq => (Array.isArray(eq)?eq:[]).map(e=> typeof e==='string' ? e : (e && (e.name||e.label||e.equipment)) || '').filter(Boolean).join(', ');
+  list.forEach(t=>{
+    const key = [t.gender||'', t.top_category||'', t.sub_category||''].join('|');
+    if(!groups.has(key)) groups.set(key, []);
+    const rows = groups.get(key);
+    const days = (t.data && t.data.days) || [];
+    const sig = days.map(d=>(d.items||[]).map(it=> it.type==='cardio' ? 'C:'+(it.equipment||'') : (it.exercise||'')).join('¦'));
+    days.forEach((d, di)=>{
+      const same = sig.findIndex((x,j)=> j<di && x && x===sig[di]);
+      const base = [t.id, t.gender||'', t.top_category||'', t.sub_category||'', t.sort_order||'', t.name||'', t.is_published?'ΝΑΙ':'ΟΧΙ', days.length, di+1, d.label||'', same>=0 ? same+1 : ''];
+      const items = d.items || [];
+      if(!items.length) rows.push(base.concat(['', '(κενή ημέρα)']));
+      items.forEach((it, ii)=>{
+        if(it.type==='cardio'){
+          rows.push(base.concat([ii+1, 'ΑΕΡΟΒΙΟ', '', '', '', '', '', '', '', '', it.equipment||'', it.mode==='drill'?'DRILL':'ΣΤΑΘΕΡΗ', it.minutes||'', it.speedLow||'', it.speedLowMax||'', it.mode==='drill'?(it.speedHigh||''):'', it.mode==='drill'?(it.speedHighMax||''):'', it.incline||'', it.mode==='drill'?(it.drillEveryMinutes||''):'']));
+        } else {
+          rows.push(base.concat([ii+1, 'ΑΣΚΗΣΗ', it.groupLabel||'', it.exercise||it.customExercise||'', it.set??'', it.rep||'', it.rest||'', it.tempo||'', it.failure??'', eqTxt(it.equipment)]));
+        }
+      });
+    });
+  });
+  const wb = X.utils.book_new(); const used = new Set();
+  const info = [['ΕΤΟΙΜΑ ΠΡΟΓΡΑΜΜΑΤΑ TRANSFORMATION — εξαγωγή '+new Date().toLocaleString('el-GR')],[],
+    ['Κάθε φύλλο είναι μία κατηγορία. Κάθε γραμμή είναι μία άσκηση ή ένα αερόβιο, με τη σειρά που εμφανίζεται στην ημέρα.'],
+    ['Η στήλη «ΙΔΙΑ ΑΣΚΗΣΕΙΣ ΜΕ ΗΜΕΡΑ» δείχνει όταν μια ημέρα έχει ακριβώς τις ίδιες ασκήσεις με προηγούμενη ημέρα του ίδιου προγράμματος.'],
+    ['Μην αλλάζεις τη στήλη «ID ΠΡΟΓΡΑΜΜΑΤΟΣ» — με αυτήν αναγνωρίζεται το πρόγραμμα αν το ξαναφορτώσουμε.'],[],
+    ['ΦΥΛΛΟ','ΠΡΟΓΡΑΜΜΑΤΑ','ΓΡΑΜΜΕΣ']];
+  const sheets = [];
+  groups.forEach((rows, key)=>{
+    const [g, top, sub] = key.split('|');
+    const name = tplXlsxSheetName(g, top, sub, used);
+    const ws = X.utils.aoa_to_sheet([TPL_XLSX_HEAD].concat(rows));
+    ws['!cols'] = TPL_XLSX_HEAD.map((h,i)=>({ wch: i===0?10 : [5,14].includes(i)?28 : i===20?34 : Math.max(8, Math.min(22, h.length+2)) }));
+    ws['!autofilter'] = { ref: X.utils.encode_range({ s:{r:0,c:0}, e:{r:rows.length, c:TPL_XLSX_HEAD.length-1} }) };
+    ws['!freeze'] = { xSplit:0, ySplit:1 };
+    sheets.push([name, ws]);
+    info.push([name, new Set(rows.map(r=>r[0])).size, rows.length]);
+  });
+  const wsInfo = X.utils.aoa_to_sheet(info); wsInfo['!cols'] = [{wch:34},{wch:14},{wch:10}];
+  X.utils.book_append_sheet(wb, wsInfo, 'ΠΛΗΡΟΦΟΡΙΕΣ');
+  sheets.forEach(([n, ws])=>X.utils.book_append_sheet(wb, ws, n));
+  const d = new Date(); const stamp = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  X.writeFile(wb, 'ΠΡΟΓΡΑΜΜΑΤΑ_TRANSFORMATION_'+stamp+'.xlsx');
+  toast('📥 Το Excel κατέβηκε.');
 }
 let xlsxLoading = null;
 function loadXlsx(){
