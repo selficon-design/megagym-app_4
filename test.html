@@ -5870,19 +5870,21 @@ function openCheckin(kind, ctx, after){
 // «ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ ΓΥΜΝΑΣΤΙΚΗΣ»: ποια ημέρα σειρά — ή συνέχεια από το επόμενο set
 async function startProgramFlow(p, skipExpert){
   const code = auth.customer && auth.customer.code; if(!code) return;
-  if(!skipExpert && !(await checkinExists(code, p.id, 'pre'))){
-    state.choiceModal = { icon:'🧑‍🏫', color:'var(--cyan-soft)', title:'ΠΡΙΝ ΞΕΚΙΝΗΣΕΙΣ',
-      html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:16px;">Ο expert του <b>TRANSFORMATION</b> θα ήθελε να σου κάνει κάποιες ερωτήσεις πριν ξεκινήσει η προπόνησή σου.<br><br>Είσαι διατεθειμένος;</p>`,
-      yes:{ label:'ΝΑΙ', fn:()=>openCheckin('pre', { p }, ()=>startProgramFlow(p, true)) },
-      no:{ label:'ΟΧΙ', fn:()=>startProgramFlow(p, true) } };
-    renderModal(); return;
-  }
   const c0 = { src:'client', programId:p.id, dayIndex:0, itemIndex:0 };
   const P = wnProgram(c0); if(!P) return;
   const { data, error } = await sb.from('workout_sessions').select('*').eq('customer_code', code).eq('program_id', p.id)
     .order('log_date', { ascending:false }).order('updated_at', { ascending:false }).limit(1);
   if(error) console.error(error);
   const last = (data||[])[0], today = athensDateStr();
+  // Οι ερωτήσεις του expert μόνο στην πρώτη έναρξη της ημέρας — όχι στη συνέχιση
+  const continuing = (last && last.log_date===today) || !!(actWkGet() && actWkGet().programId===p.id);
+  if(!skipExpert && !continuing && !(await checkinExists(code, p.id, 'pre'))){
+    state.choiceModal = { icon:'', color:'var(--cyan-soft)', title:'ΠΡΙΝ ΞΕΚΙΝΗΣΕΙΣ',
+      html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:16px;">Ο expert του <b>TRANSFORMATION</b> θα ήθελε να σου κάνει κάποιες ερωτήσεις πριν ξεκινήσει η προπόνησή σου.<br><br>Είσαι διατεθειμένος;</p>`,
+      yes:{ label:'ΝΑΙ', fn:()=>openCheckin('pre', { p }, ()=>startProgramFlow(p, true)) },
+      no:{ label:'ΟΧΙ', fn:()=>startProgramFlow(p, true) } };
+    renderModal(); return;
+  }
   const nextNonEmpty = from=>{ for(let k=0;k<P.days;k++){ const di=(from+k)%P.days; if(P.items(di).length) return di; } return 0; };
   if(last && last.log_date===today && last.day_index < P.days){
     const di = last.day_index, progress = last.progress || {};
@@ -6224,7 +6226,7 @@ function wkBgReturn(auto){
   state.skipDoneTodayCheck = false;
   if(auto){
     const { nextSet, totalSets } = timerState;
-    toast(nextSet <= totalSets ? `⏱ Τέλος διαλείμματος — πάμε στο SET ${nextSet} από ${totalSets}!` : '⏱ Τέλος διαλείμματος — ολοκληρώθηκαν όλα τα SET!', 5000);
+    toast(nextSet <= totalSets ? `Τέλος διαλείμματος — πάμε στο SET ${nextSet} από ${totalSets}!` : 'Τέλος διαλείμματος — ολοκληρώθηκαν όλα τα SET!', 5000);
     const box = document.getElementById('setBox'); if(box){ box.classList.add('wk-bg-flash'); setTimeout(()=>box.classList.remove('wk-bg-flash'), 4000); }
   }
 }
@@ -6238,7 +6240,7 @@ function wkBgTick(){
     const a = !onWorkout && actWkGet();
     if(!a){ if(pill) pill.style.display = 'none'; return; }
     if(!pill){ pill = document.createElement('button'); pill.id = 'wk-bg-pill'; pill.type = 'button'; pill.addEventListener('click', ()=>wkPillClick()); document.body.appendChild(pill); }
-    pill.innerHTML = `<span class="wk-bg-arrow">↩</span><span class="wk-bg-l">🏋️ Επιστροφή στην προπόνηση</span>`;
+    pill.innerHTML = `<span class="wk-bg-arrow">↩</span><span class="wk-bg-l">ΕΠΙΣΤΡΟΦΗ ΣΤΗΝ ΠΡΟΠΟΝΗΣΗ</span>`;
     pill.style.display = 'flex';
     return;
   }
@@ -6249,7 +6251,7 @@ function wkBgTick(){
     document.body.appendChild(pill);
   }
   const r = Math.max(0, timerState.remaining|0), mm = Math.floor(r/60), ss = String(r%60).padStart(2,'0');
-  pill.innerHTML = `<span class="wk-bg-arrow">↩</span><span class="wk-bg-t">⏱ ${mm}:${ss}</span><span class="wk-bg-l">${timerState.paused ? 'ΠΑΥΣΗ · ' : ''}Επιστροφή στο χρονόμετρο</span>`;
+  pill.innerHTML = `<span class="wk-bg-arrow">↩</span><span class="wk-bg-t">${mm}:${ss}</span><span class="wk-bg-l">${timerState.paused ? 'ΠΑΥΣΗ · ' : ''}ΕΠΙΣΤΡΟΦΗ ΣΤΟ ΧΡΟΝΟΜΕΤΡΟ</span>`;
   pill.style.display = 'flex';
 }
 function wkPillClick(){ if(state.wkBg) wkBgReturn(false); else actWkReturn(); }
@@ -7143,7 +7145,6 @@ function renderModal(){
   if(state.choiceModal){
     const m = state.choiceModal;
     root.innerHTML = `<div class="modal-overlay"><div class="modal" style="max-width:420px;text-align:center;">
-      <div style="font-size:38px;margin-bottom:6px;">${m.icon||'❔'}</div>
       <h2 style="font-size:18px;margin-bottom:10px;color:${m.color||'var(--cyan-soft)'};">${escHtml(m.title||'')}</h2>
       ${m.html||''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -7161,7 +7162,6 @@ function renderModal(){
   if(state.dayDoneModal){
     root.innerHTML = `
       <div class="modal-overlay"><div class="modal" style="max-width:400px;text-align:center;">
-        <div style="font-size:42px;margin-bottom:8px;">🏁</div>
         <h2 style="font-size:19px;margin-bottom:10px;color:#2bd96b;">Η ΠΡΟΠΟΝΗΣΗ ΤΗΣ ΗΜΕΡΑΣ ΟΛΟΚΛΗΡΩΘΗΚΕ</h2>
         <p style="font-size:14px;color:#eefcff;margin-bottom:14px;">Μπράβο! Θέλεις να γίνει η αξιολόγηση της προπόνησης, πώς τα πήγες;</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -7198,7 +7198,7 @@ function renderModal(){
         <div style="padding:10px 12px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(3,11,18,.6);margin-bottom:14px;font-size:13px;color:var(--ink-soft);">Ξεκινά με: <b style="color:#fff;">${escHtml(wnDescribe(m.first).group)} — ${escHtml(wnDescribe(m.first).name)}</b></div>
         <p style="font-size:14px;color:#eefcff;margin-bottom:16px;">Να ανοίξω την προπόνηση της ημέρας αυτής;</p>
         ${yesNo('sp-yes','sp-no')}`;
-    root.innerHTML = `<div class="modal-overlay"><div class="modal" style="max-width:420px;text-align:center;"><div style="font-size:38px;margin-bottom:6px;">🏋️</div>${body}</div></div>`;
+    root.innerHTML = `<div class="modal-overlay"><div class="modal" style="max-width:420px;text-align:center;">${body}</div></div>`;
     document.getElementById('sp-yes').addEventListener('click', ()=>startProgAnswer(true));
     document.getElementById('sp-no').addEventListener('click', ()=>startProgAnswer(false));
     return;
@@ -7208,7 +7208,6 @@ function renderModal(){
     root.innerHTML = `
       <div class="modal-overlay" id="cardioask-overlay">
         <div class="modal" style="max-width:420px;text-align:center;">
-          <div style="font-size:38px;margin-bottom:8px;">🏃</div>
           <h2 style="font-size:18px;margin-bottom:12px;color:#39ff88;">${a.before ? 'ΕΚΑΝΕΣ ΤΟ ΑΕΡΟΒΙΟ ΠΡΙΝ ΑΠΟ ΑΥΤΗ ΤΗΝ ΑΣΚΗΣΗ;' : 'ΕΚΤΕΛΕΣΤΗΚΕ ΤΟ ΑΕΡΟΒΙΟ;'}</h2>
           <div style="padding:12px;border-radius:12px;border:1px solid #39ff88;background:rgba(3,11,18,.6);margin-bottom:14px;">
             <div style="font-size:15px;font-weight:600;color:#fff;">${escHtml(d.name)}</div>
@@ -7232,7 +7231,6 @@ function renderModal(){
     root.innerHTML = `
       <div class="modal-overlay" id="nextex-overlay">
         <div class="modal" style="max-width:420px;text-align:center;">
-          <div style="font-size:40px;margin-bottom:8px;">✅</div>
           <h2 style="font-size:19px;margin-bottom:10px;color:#2bd96b;">Η ΑΣΚΗΣΗ ΤΕΛΕΙΩΣΕ</h2>
           ${n.none ? `
             <p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:20px;">Ολοκλήρωσες όλα τα set και αυτή ήταν η τελευταία άσκηση της ημέρας. Μπράβο!</p>
@@ -7408,7 +7406,6 @@ function renderModal(){
     root.innerHTML = `
       <div class="modal-overlay" id="calalt-overlay">
         <div class="modal" style="max-width:400px;text-align:center;">
-          <div style="font-size:40px;margin-bottom:10px;">🏋️</div>
           <p style="font-size:16px;line-height:1.6;color:#ff5c5c;font-weight:700;margin-bottom:22px;">Όταν χρησιμοποιούμε αλτήρες γράφουμε το βάρος του ενός αλτήρα.</p>
           <button class="btn btn-primary" style="width:100%;justify-content:center;" id="calalt-close-btn">Το κατάλαβα</button>
         </div>
@@ -10374,7 +10371,8 @@ function renderClientDaysListView(p, record){
   const fromTpl = !own && !!(record.fromTemplate || record.templateId || record.templateName);
   if(fromTpl) clientEnsureTemplates();
   const t = fromTpl ? clientSourceTemplate(record) : null;
-  const tail = auth.status==='client' ? `<button class="btn btn-primary start-prog-btn" id="client-start-program">ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ ΓΥΜΝΑΣΤΙΚΗΣ</button>
+  const contWk = actWkGet() && actWkGet().programId===p.id;
+  const tail = auth.status==='client' ? `<button class="btn btn-primary start-prog-btn" id="client-start-program">${contWk ? 'ΣΥΝΕΧΙΣΗ' : 'ΕΝΑΡΞΗ'} ΠΡΟΓΡΑΜΜΑΤΟΣ ΓΥΜΝΑΣΤΙΚΗΣ</button>
     <button class="btn btn-outline end-workout-btn" id="client-end-program">⏹ ΤΕΛΟΣ ΠΡΟΠΟΝΗΣΗΣ</button>` : '';
   if(fromTpl || own){
     const closed = progHeadClosed(), sub = own ? '' : tplSubNice(record);
