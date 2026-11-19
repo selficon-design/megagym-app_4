@@ -5949,7 +5949,8 @@ async function endWorkoutFlow(c){
     html: leftHtml + `<p style="font-size:14px;color:#eefcff;margin-bottom:14px;">Θέλεις να σταματήσω την προπόνηση;</p>`,
     yes:{ label:'ΝΑΙ, ΣΤΑΜΑΤΑ', fn:()=>{
       if(timerState.interval){ clearInterval(timerState.interval); timerState.interval = null; }
-      timerState.running = false; if(typeof stopTimerDecimalTicker==='function') stopTimerDecimalTicker();
+      timerState.running = false; timerState.paused = false; if(typeof stopTimerDecimalTicker==='function') stopTimerDecimalTicker();
+      actWkClear();   // σταματά αμέσως και το κουμπί «επιστροφή στο χρονόμετρο / στην προπόνηση»
       if(!code){ toast('Προεπισκόπηση — δεν καταγράφεται.'); endWorkoutLeave(c); return; }
       const P = c ? wnProgram(c) : null;
       state.choiceModal = { icon:'📝', color:'var(--cyan-soft)', title:'ΑΞΙΟΛΟΓΗΣΗ ΠΡΟΠΟΝΗΣΗΣ',
@@ -6201,7 +6202,7 @@ function actWkSet(programId, dayIndex){
   try{ localStorage.setItem(actWkKey(), JSON.stringify({ programId, dayIndex, date: athensDateStr() })); }catch(_){}
   wkBgTick();
 }
-function actWkClear(){ try{ localStorage.removeItem(actWkKey()); }catch(_){} state.lastWorkout = null; wkBgTick(); }
+function actWkClear(){ try{ localStorage.removeItem(actWkKey()); }catch(_){} state.lastWorkout = null; state.wkBg = null; wkBgTick(); }
 function actWkReturn(){
   const a = actWkGet(); if(!a) return;
   const lw = state.lastWorkout;
@@ -6236,6 +6237,7 @@ function wkBgTick(){
   const onWorkout = !!document.getElementById('setBox');
   if(bg && timerState.exerciseKey !== bg.key){ state.wkBg = null; }   // άνοιξε άλλη άσκηση
   if(onWorkout && state.wkBg) state.wkBg = null;
+  if(state.wkBg && !timerState.running && !timerState.paused && timerState.remaining > 0) state.wkBg = null;   // το χρονόμετρο σταμάτησε
   if(!state.wkBg){
     const a = !onWorkout && actWkGet();
     if(!a){ if(pill) pill.style.display = 'none'; return; }
