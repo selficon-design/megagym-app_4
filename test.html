@@ -2229,6 +2229,7 @@ function loadTemplateIntoBuilder(t){
     isPublished: !!t.is_published,
     sessions: (t.data && t.data.sessions) || '', next: (t.data && t.data.next) || 'auto',
     days: (t.data && t.data.days && t.data.days.length) ? t.data.days : tplBuildDays(t.num_days || 4),
+    dayDefaults: (t.data && t.data.dayDefaults) || {},
     addForm: null, lastEdited: null,
   };
   state.tplHighlightId = t.id;   // πορτοκαλί πλαίσιο στο πρόγραμμα της λίστας που επεξεργάζεσαι
@@ -3994,6 +3995,11 @@ function bindTplBuilderEvents(){
         ? { dayIndex:di, type:'cardio', equipment:'', mode:'steady', speedLow:'', speedLowMax:'', speedHigh:'', speedHighMax:'', incline:'', intensity:'', minutes:'', drillEveryMinutes:'', editIndex:null }
         : { dayIndex:di, type:'muscle', groupLabel:'', exercise:'', customExercise:'', set:4, rep:TPL_REP_OPTIONS[3], rest:TPL_REST_OPTIONS[2], tempo: tplMedLocked() ? MED_TEMPO : DEFAULT_TEMPO, failure: tplMedLocked() ? MED_FAILURE : 0,
             equipment:[], editIndex:null };
+      // Τιμές που ορίστηκαν με «Σε ημέρες… / Σε όλες» για αυτή την ημέρα ισχύουν και για τις νέες ασκήσεις της
+      if(type!=='cardio'){
+        const dd = (b.dayDefaults && b.dayDefaults[di]) || {};
+        ['set','rep','rest','tempo','failure'].forEach(k=>{ if(dd[k] !== undefined && !(tplMedLocked() && (k==='tempo'||k==='failure'))) b.addForm[k] = dd[k]; });
+      }
       renderTplFormArea();
     });
   });
@@ -4086,6 +4092,7 @@ function bindTplBuilderEvents(){
       state.tplApplyAllConfirm = null;
       const val = af[key]; let n = 0;
       b.days.forEach(d=>d.items.forEach(it=>{ if(it.type==='muscle'){ if(it[key] !== val) n++; it[key] = val; } }));
+      b.dayDefaults = b.dayDefaults || {}; b.days.forEach((d,di)=>{ b.dayDefaults[di] = { ...(b.dayDefaults[di]||{}), [key]: val }; });   // και στις ασκήσεις που θα προστεθούν
       const shown = key==='failure' ? failureLabel(val) : val;
       state.tplApplyAllDone = { ...(state.tplApplyAllDone||{}), [key]: val };   // πράσινο: εφαρμόστηκε
       renderTplFormArea();
@@ -4109,11 +4116,12 @@ function bindTplBuilderEvents(){
       if(!pd.days.length) return toast('Τσέκαρε τουλάχιστον μία ημέρα.');
       const val = af[key]; let n = 0;
       pd.days.forEach(di=>(b.days[di]?.items||[]).forEach(it=>{ if(it.type==='muscle'){ if(it[key] !== val) n++; it[key] = val; } }));
+      b.dayDefaults = b.dayDefaults || {}; pd.days.forEach(di=>{ b.dayDefaults[di] = { ...(b.dayDefaults[di]||{}), [key]: val }; });   // και στις ασκήσεις που θα προστεθούν μετά
       const shown = key==='failure' ? failureLabel(val) : val;
       state.tplApplyDaysDone = { ...(state.tplApplyDaysDone||{}), [key]: { val, n: pd.days.length } };
       state.tplApplyDays = null;
       renderTplFormArea();
-      toast(`${TPL_ALL_LABELS[key]} «${shown}» σε ${pd.days.length} ${pd.days.length===1?'ημέρα':'ημέρες'} (${n} ασκήσεις άλλαξαν). Θυμήσου «Αποθήκευση Αλλαγών».`);
+      toast(`${TPL_ALL_LABELS[key]} «${shown}» σε ${pd.days.length} ${pd.days.length===1?'ημέρα':'ημέρες'}: ${n} υπάρχουσες ασκήσεις άλλαξαν και θα μπαίνει και στις νέες ασκήσεις αυτών των ημερών. Θυμήσου 💾.`, 5000);
     }));
     const submitBtn = document.getElementById('tpl-af-submit');
     if(submitBtn) submitBtn.addEventListener('click', ()=>{
@@ -4225,7 +4233,7 @@ async function submitTplProgram(opts){
     notes: b.notes.trim() || null,
     sort_order: b.sortOrder || 0,
     is_published: !!b.isPublished,
-    data: { days: b.days, sessions: parseInt(b.sessions) || null, next: b.next || 'auto' }
+    data: { days: b.days, sessions: parseInt(b.sessions) || null, next: b.next || 'auto', dayDefaults: b.dayDefaults || {} }
   };
   let ok;
   if(b.id){
