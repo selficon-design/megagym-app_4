@@ -907,6 +907,9 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .ck-opts{display:flex;flex-wrap:wrap;gap:6px;}
 .ck-opt{padding:7px 12px;border-radius:999px;border:1px solid var(--line-strong);background:rgba(3,11,18,.55);color:var(--ink);font-family:inherit;font-size:12.5px;cursor:pointer;}
 .ck-opt.on{border-color:var(--cyan);background:rgba(61,216,255,.16);color:var(--cyan-soft);font-weight:700;}
+.set-fail-line{font-size:.85em;margin-top:2px;color:#cfe3ee;}
+.set-fail-line.on{color:#ff8b90;}
+.fsets-note{font-size:11px;font-weight:700;color:#ffb347;margin-top:3px;letter-spacing:.02em;}
 .wk-mute-btn{padding:7px 11px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.05);color:#dfe9ef;font:700 11.5px 'Rajdhani',sans-serif;letter-spacing:.05em;cursor:pointer;}
 .wk-mute-btn.on{border-color:#ff8b90;color:#ff8b90;background:rgba(255,107,107,.1);}
 .wk-preview-bar{margin-bottom:14px;padding:12px 14px;border-radius:12px;border:1.5px solid #ffb347;background:rgba(255,179,71,.08);color:#ffe7c2;font-size:13px;line-height:1.5;text-align:center;}
@@ -1558,6 +1561,12 @@ const COMBO_WEIGHTS_FIXED = { set:3, rep:'10-12', rest:'90sec' };
 /* Ένταση (FAILURE) — σε κάθε άσκηση με βάρη, σε όλους τους τύπους προγράμματος */
 const FAILURE_OPTIONS = [0,-1,-2,-3];
 function failureLabel(v){ return 'UNTIL FAILURE '+(v===undefined||v===null?0:v); }
+// Σε ποια set ισχύει το UNTIL FAILURE: 'all' = σε όλα τα set, 'fl2' = στο 1ο και στα 2 τελευταία
+const FAILURE_SETS_OPTIONS = [['all','Σε όλα τα set'],['fl2','Στο 1ο και στα 2 τελευταία set']];
+function failureSetsLabel(v){ return v==='fl2' ? 'στο 1ο και στα 2 τελευταία set' : 'σε όλα τα set'; }
+function failureFull(it){ return failureLabel(it && it.failure) + (it && it.failureSets==='fl2' ? ' · στο 1ο και στα 2 τελευταία set' : ''); }
+// Είναι το set n (1..total) set με UNTIL FAILURE;
+function failureAppliesToSet(fs, n, total){ return fs!=='fl2' || n===1 || n > total-2; }
 const FAILURE_EXPLANATION = 'UNTIL FAILURE 0 σημαίνει μέχρι «μυϊκής αποτυχίας». Δηλαδή προσπαθείς να εκτελέσεις επαναλήψεις μέχρι να μην μπορείς να κάνεις άλλη. UNTIL FAILURE -1 σημαίνει ότι σταματάς μία επανάληψη πριν την αποτυχία, UNTIL FAILURE -2 σταματάς δύο επαναλήψεις πριν την αποτυχία, UNTIL FAILURE -3 σταματάς τρεις επαναλήψεις πριν. Ο τελικός στόχος σου, προκειμένου να πάρεις όλα τα οφέλη του προγράμματος, είναι να πηγαίνεις σε όλες τις ασκήσεις και σε όλα τα σετ έως UNTIL FAILURE 0 — από το πρώτο σετ! Μπορείς στην αρχή να πηγαίνεις UNTIL FAILURE -3 σε όλα τα σετ και μετά UNTIL FAILURE -2, ή να πηγαίνεις UNTIL FAILURE 0 μόνο στο τελευταίο ή στα δύο τελευταία σετ, έως ότου φτάσεις στη μέγιστη απόδοση «FULL UNTIL FAILURE 0». (UNTIL FAILURE +1, UNTIL FAILURE +2, UNTIL FAILURE +3 — δηλαδή με βοήθεια παρτενέρ (spotter) στις τελευταίες επαναλήψεις — δεν πηγαίνουμε ποτέ, αν είμαστε NATURAL αθλούμενοι, αλλά ούτε κι αν δεν είμαστε, γιατί η πιθανότητα καταβολισμού, δηλαδή καύσης μυϊκού ιστού, είναι πολύ μεγάλη. «Καλύτερα να είσαι UNDER παρά OVER», όπως λένε οι Experts των προγραμμάτων TRANSFORMATION.)';
 
 /* ===================================================================
@@ -3725,7 +3734,7 @@ function renderTplItemCard(it, dayIndex, itemIndex, count){
       <div style="flex:1;min-width:0;">
         <div style="font-weight:700;font-size:13px;color:#dffaff;text-transform:uppercase;">${escHtml(tplLabelNow(it.groupLabel))} ${durBadge(it)}</div>
         <div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">${escHtml(it.exercise)}</div>
-        <div style="font-size:11px;color:var(--cyan-soft);margin-top:2px;" class="mono">SET ${it.set} · REP ${escHtml(it.rep)} · ${escHtml(it.rest)} · ${escHtml(it.tempo)} · ${failureLabel(it.failure)}</div>
+        <div style="font-size:11px;color:var(--cyan-soft);margin-top:2px;" class="mono">SET ${it.set} · REP ${escHtml(it.rep)} · ${escHtml(it.rest)} · ${escHtml(it.tempo)} · ${escHtml(failureFull(it))}</div>
         ${(it.equipment||[]).length > tplEquipForExercise(it.exercise, it.equipment).length ? `<div style="font-size:10.5px;color:#ff9f1a;font-weight:700;margin-top:4px;">⚠️ Έχει εξοπλισμό άλλης άσκησης — πάτα «Επεξεργασία» και «Αποθήκευση» για διόρθωση</div>`:''}
         ${(it.equipment&&it.equipment.length) ? `<div style="font-size:10.5px;color:#ffd23f;margin-top:4px;">⚙ ${it.equipment.map(e=>escHtml(e.name)).join(' · ')}</div>` : `<div style="font-size:10.5px;color:#ff8080;margin-top:4px;font-style:italic;">Χωρίς επιλεγμένο εξοπλισμό</div>`}
       </div>
@@ -3737,7 +3746,7 @@ function renderTplItemCard(it, dayIndex, itemIndex, count){
 }
 
 // «Σε όλες»: η τιμή του πεδίου πηγαίνει σε όλες τις ασκήσεις με βάρη του προγράμματος (όλες οι ημέρες)
-const TPL_ALL_LABELS = { set:'Set', rep:'Rep', rest:'Διάλειμμα', tempo:'Τέμπο', failure:'Ένταση' };
+const TPL_ALL_LABELS = { set:'Set', rep:'Rep', rest:'Διάλειμμα', tempo:'Τέμπο', failure:'Ένταση', failureSets:'Until Failure' };
 function tplApplyAllBtn(key){
   const confirm = state.tplApplyAllConfirm === key;
   const af = state.tplBuilder && state.tplBuilder.addForm;
@@ -3752,7 +3761,7 @@ function tplApplyDaysPanel(key){
   const pd = state.tplApplyDays; if(!pd || pd.key !== key) return '';
   const b = state.tplBuilder;
   return `<div class="apply-days">
-    <div class="apply-days-t">Σε ποιες ημέρες να μπει ${TPL_ALL_LABELS[key]} «${escHtml(key==='failure' ? failureLabel(b.addForm[key]) : b.addForm[key])}»;</div>
+    <div class="apply-days-t">Σε ποιες ημέρες να μπει ${TPL_ALL_LABELS[key]} «${escHtml(key==='failure' ? failureLabel(b.addForm[key]) : key==='failureSets' ? failureSetsLabel(b.addForm[key]) : b.addForm[key])}»;</div>
     <div class="chip-row">${b.days.map((d,di)=>`<label class="apply-day ${pd.days.includes(di)?'on':''}"><input type="checkbox" data-tpl-applyday="${di}" ${pd.days.includes(di)?'checked':''}>${escHtml(d.label || ('DAY '+(di+1)))}</label>`).join('')}</div>
     <div style="display:flex;gap:8px;margin-top:8px;">
       <button type="button" class="btn btn-primary" style="padding:6px 12px;font-size:12px;" data-tpl-applydays-ok="${key}">Εφαρμογή</button>
@@ -3798,6 +3807,7 @@ function renderTplAddMuscleForm(af){
       <div class="field"><label class="lbl-all">Διάλειμμα ${tplApplyAllBtn('rest')}</label><div class="chip-row">${TPL_REST_OPTIONS.map(v=>`<button type="button" class="kcal-btn ${af.rest===v?'active':''}" data-tpl-af-rest="${escAttr(v)}">${escHtml(v)}</button>`).join('')}</div>${tplApplyDaysPanel('rest')}</div>
       <div class="field"><label class="lbl-all">Τέμπο ${tplApplyAllBtn('tempo')}</label>${tplMedLocked() ? `<div class="med-note">🩺 Λόγω ιατρικού ιστορικού: μόνο tempo 1-2-1</div>` : ''}<div class="chip-row">${(tplMedLocked() ? [MED_TEMPO] : TPL_TEMPO_OPTIONS).map(v=>`<button type="button" class="kcal-btn ${af.tempo===v?'active':''}" data-tpl-af-tempo="${escAttr(v)}">${escHtml(v)}</button>`).join('')}</div>${tplApplyDaysPanel('tempo')}</div>
       <div class="field"><label class="lbl-all">Ένταση ${tplApplyAllBtn('failure')}</label>${tplMedLocked() ? `<div class="med-note">🩺 Λόγω ιατρικού ιστορικού: μόνο UNTIL FAILURE -3</div>` : ''}<div class="chip-row">${(tplMedLocked() ? [MED_FAILURE] : FAILURE_OPTIONS).map(v=>`<button type="button" class="kcal-btn ${af.failure===v?'active':''}" data-tpl-af-failure="${v}">${failureLabel(v)}</button>`).join('')}</div>${tplApplyDaysPanel('failure')}</div>
+      <div class="field"><label class="lbl-all">Until Failure σε ποια set ${tplApplyAllBtn('failureSets')}</label><div class="chip-row">${FAILURE_SETS_OPTIONS.map(([k,l])=>`<button type="button" class="kcal-btn ${(af.failureSets||'all')===k?'active':''}" data-tpl-af-fsets="${k}">${l}</button>`).join('')}</div>${tplApplyDaysPanel('failureSets')}</div>
       ${(af.exercise && af.exercise!=='ΆΛΛΟ' && EQUIPMENT_BY_EXERCISE[af.exercise]) ? `
       <div class="field">
         <label>Προτεινόμενος Εξοπλισμός (από λίστα)</label>
@@ -4020,7 +4030,7 @@ function bindTplBuilderEvents(){
       // Τιμές που ορίστηκαν με «Σε ημέρες… / Σε όλες» για αυτή την ημέρα ισχύουν και για τις νέες ασκήσεις της
       if(type!=='cardio'){
         const dd = (b.dayDefaults && b.dayDefaults[di]) || {};
-        ['set','rep','rest','tempo','failure'].forEach(k=>{ if(dd[k] !== undefined && !(tplMedLocked() && (k==='tempo'||k==='failure'))) b.addForm[k] = dd[k]; });
+        ['set','rep','rest','tempo','failure','failureSets'].forEach(k=>{ if(dd[k] !== undefined && !(tplMedLocked() && (k==='tempo'||k==='failure'))) b.addForm[k] = dd[k]; });
       }
       renderTplFormArea();
     });
@@ -4037,7 +4047,7 @@ function bindTplBuilderEvents(){
       state.tplApplyAllConfirm = null; state.tplApplyAllDone = null; state.tplApplyDays = null; state.tplApplyDaysDone = null;
       b.addForm = it.type==='cardio'
         ? { dayIndex:di, type:'cardio', equipment:it.equipment, mode:it.mode, speedLow:it.speedLow, speedLowMax:it.speedLowMax||'', speedHigh:it.speedHigh, speedHighMax:it.speedHighMax||'', incline:it.incline, intensity:it.intensity, minutes:it.minutes, drillEveryMinutes:it.drillEveryMinutes, editIndex:ii }
-        : { dayIndex:di, type:'muscle', groupLabel:tplLabelNow(it.groupLabel), exercise:it.exercise, customExercise:'', set:it.set, rep:it.rep, rest:it.rest, tempo:it.tempo, failure:it.failure,
+        : { dayIndex:di, type:'muscle', groupLabel:tplLabelNow(it.groupLabel), exercise:it.exercise, customExercise:'', set:it.set, rep:it.rep, rest:it.rest, tempo:it.tempo, failure:it.failure, failureSets:it.failureSets||'all',
             equipment: tplEquipForExercise(it.exercise, it.equipment).map(e=>({...e})), editIndex:ii };
       renderTplFormArea();
       document.getElementById('tpl-af-box')?.scrollIntoView({behavior:'smooth', block:'nearest'});
@@ -4092,6 +4102,7 @@ function bindTplBuilderEvents(){
     document.querySelectorAll('[data-tpl-af-rest]').forEach(el=>el.addEventListener('click', ()=>{ af.rest=el.getAttribute('data-tpl-af-rest'); renderTplFormArea(); }));
     document.querySelectorAll('[data-tpl-af-tempo]').forEach(el=>el.addEventListener('click', ()=>{ af.tempo=el.getAttribute('data-tpl-af-tempo'); renderTplFormArea(); }));
     document.querySelectorAll('[data-tpl-af-failure]').forEach(el=>el.addEventListener('click', ()=>{ af.failure=parseInt(el.getAttribute('data-tpl-af-failure')); renderTplFormArea(); }));
+    document.querySelectorAll('[data-tpl-af-fsets]').forEach(el=>el.addEventListener('click', ()=>{ af.failureSets = el.getAttribute('data-tpl-af-fsets'); renderTplFormArea(); }));
     document.querySelectorAll('[data-tpl-af-eqcheck]').forEach(el=>{
       el.addEventListener('change', ()=>{
         const eqIdx = parseInt(el.getAttribute('data-eqidx'));
@@ -4112,10 +4123,10 @@ function bindTplBuilderEvents(){
       const key = el.getAttribute('data-tpl-applyall');
       if(state.tplApplyAllConfirm !== key){ state.tplApplyAllConfirm = key; renderTplFormArea(); return; }
       state.tplApplyAllConfirm = null;
-      const val = af[key]; let n = 0;
+      const val = key==='failureSets' ? (af.failureSets||'all') : af[key]; let n = 0;
       b.days.forEach(d=>d.items.forEach(it=>{ if(it.type==='muscle'){ if(it[key] !== val) n++; it[key] = val; } }));
       b.dayDefaults = b.dayDefaults || {}; b.days.forEach((d,di)=>{ b.dayDefaults[di] = { ...(b.dayDefaults[di]||{}), [key]: val }; });   // και στις ασκήσεις που θα προστεθούν
-      const shown = key==='failure' ? failureLabel(val) : val;
+      const shown = key==='failure' ? failureLabel(val) : key==='failureSets' ? failureSetsLabel(val) : val;
       state.tplApplyAllDone = { ...(state.tplApplyAllDone||{}), [key]: val };   // πράσινο: εφαρμόστηκε
       renderTplFormArea();
       toast(`${TPL_ALL_LABELS[key]} «${shown}» σε όλες τις ασκήσεις του προγράμματος (${n} άλλαξαν). Θυμήσου «Αποθήκευση Αλλαγών».`);
@@ -4136,10 +4147,10 @@ function bindTplBuilderEvents(){
     document.querySelectorAll('[data-tpl-applydays-ok]').forEach(el=>el.addEventListener('click', ()=>{
       const key = el.getAttribute('data-tpl-applydays-ok'); const pd = state.tplApplyDays; if(!pd) return;
       if(!pd.days.length) return toast('Τσέκαρε τουλάχιστον μία ημέρα.');
-      const val = af[key]; let n = 0;
+      const val = key==='failureSets' ? (af.failureSets||'all') : af[key]; let n = 0;
       pd.days.forEach(di=>(b.days[di]?.items||[]).forEach(it=>{ if(it.type==='muscle'){ if(it[key] !== val) n++; it[key] = val; } }));
       b.dayDefaults = b.dayDefaults || {}; pd.days.forEach(di=>{ b.dayDefaults[di] = { ...(b.dayDefaults[di]||{}), [key]: val }; });   // και στις ασκήσεις που θα προστεθούν μετά
-      const shown = key==='failure' ? failureLabel(val) : val;
+      const shown = key==='failure' ? failureLabel(val) : key==='failureSets' ? failureSetsLabel(val) : val;
       state.tplApplyDaysDone = { ...(state.tplApplyDaysDone||{}), [key]: { val, n: pd.days.length } };
       state.tplApplyDays = null;
       renderTplFormArea();
@@ -4152,6 +4163,7 @@ function bindTplBuilderEvents(){
       const newItem = {
         type:'muscle', groupLabel: af.groupLabel, exercise: exerciseName,
         set: af.set, rep: af.rep, rest: af.rest, tempo: tplMedLocked() ? MED_TEMPO : af.tempo, failure: tplMedLocked() ? Math.min(Number(af.failure)||0, MED_FAILURE) : af.failure,
+        failureSets: af.failureSets==='fl2' ? 'fl2' : 'all',
         equipment: tplEquipForExercise(exerciseName, af.equipment)
       };
       if(af.editIndex!==null && af.editIndex!==undefined){
@@ -5683,7 +5695,7 @@ function renderTrainerExercisePreviewPage(){
         <div class="calc-field-box"><label>REP</label><div class="val">${escHtml(String(item.rep))}</div></div>
         <div class="calc-field-box"><label>Διάλειμμα</label><div class="val">${escHtml(String(item.rest))}</div></div>
         ${tempoBoxHtml(item.tempo)}
-        <div class="calc-field-box"><label>Ένταση</label><div class="val" style="font-size:15px;">${escHtml(failureLabel(item.failure))}</div></div>
+        <div class="calc-field-box"><label>Ένταση</label><div class="val" style="font-size:15px;">${escHtml(failureLabel(item.failure))}</div>${item.failureSets==='fl2' ? '<div class="fsets-note">στο 1ο και στα 2 τελευταία set</div>' : ''}</div>
       </div>
     </div>
     ${(item.equipment&&item.equipment.length) ? `
@@ -6365,7 +6377,9 @@ function getSetBoxContent(){
   const doneLine = done >= 1 ? `<div class="set-done-line ${live?'live':''}">ΕΚΤΕΛΕΣΤΗΚΕ ΤΟ <span class="set-emph">SET ${done}</span></div>` : '';
   if(nextSet <= totalSets){
     const hand = timerState.hands===2 ? `<div class="hand-badge ${timerState.hand==='B'?'b':''}">ΧΕΡΙ ${timerState.hand==='B'?'Β':'Α'}</div>` : '';
-    return { cls:'', html: `${doneLine}ΕΠΟΜΕΝΟ <span class="set-emph">SET ${nextSet}</span> ΑΠΟ <span class="set-emph">${totalSets}</span>${hand}` };
+    const ex = state.workoutExercise || {};
+    const fl = ex.failureSets==='fl2' ? `<div class="set-fail-line ${failureAppliesToSet('fl2', nextSet, totalSets)?'on':''}">${failureAppliesToSet('fl2', nextSet, totalSets) ? `ΣΤΟ SET ${nextSet}: ${escHtml(failureLabel(ex.failure))}` : `ΣΤΟ SET ${nextSet}: ΧΩΡΙΣ UNTIL FAILURE`}</div>` : '';
+    return { cls:'', html: `${doneLine}ΕΠΟΜΕΝΟ <span class="set-emph">SET ${nextSet}</span> ΑΠΟ <span class="set-emph">${totalSets}</span>${fl}${hand}` };
   } else if(nextSet === totalSets+1){
     return { cls:'completed-blink', html: `${doneLine}ΟΛΟΚΛΗΡΩΘΗΚΑΝ ΟΛΑ ΤΑ <span class="set-emph">SET</span>` };
   }
@@ -6828,7 +6842,7 @@ function renderWorkoutPage(){
     </div>` : ''}
     <div class="panel pad" style="margin-bottom:18px;">
       <h2 style="font-size:18px;margin-bottom:2px;">${escHtml(ex.exercise)}</h2>
-      <div class="sub" style="margin-bottom:0;text-transform:uppercase;">${escHtml(ex.groupLabel||'')} · SET ${ex.set} · REP ${escHtml(String(ex.rep))} · TEMPO ${escHtml(ex.tempo||DEFAULT_TEMPO)}</div>
+      <div class="sub" style="margin-bottom:0;text-transform:uppercase;">${escHtml(ex.groupLabel||'')} · SET ${ex.set} · REP ${escHtml(String(ex.rep))} · TEMPO ${escHtml(ex.tempo||DEFAULT_TEMPO)}${ex.failure!=null ? ` · ${escHtml(failureFull(ex))}` : ''}</div>
 
       <div style="text-align:center;margin-top:16px;">
         <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
@@ -7830,7 +7844,7 @@ function convertTemplateToProgramRecord(t){
     const groups = (d.items||[]).filter(it=>it.type==='muscle').map(it=>({
       exercise: it.exercise,
       groupLabel: GROUP_DISPLAY[extractGreekGroupKey(it.groupLabel)] || it.groupLabel,
-      set: it.set, rep: it.rep, rest: it.rest, tempo: it.tempo || '', failure: it.failure||0, equipment: it.equipment||[]
+      set: it.set, rep: it.rep, rest: it.rest, tempo: it.tempo || '', failure: it.failure||0, failureSets: it.failureSets||'all', equipment: it.equipment||[]
     }));
     const cardioSlots = (d.items||[]).filter(it=>it.type==='cardio').map(it=>({...it, equipment: normalizeCardioEquipment(it.equipment)}));
     return { label: d.label, groups, cardioSlots, topSection: (cardioSlots.length && !groups.length) ? 'cardio' : 'weights', order: (d.items||[]).filter(it=>it.type==='muscle'||it.type==='cardio').map(it=>it.type==='cardio'?'c':'w') };
@@ -10206,7 +10220,7 @@ function getClientDayItems(record, dayIndex){
   }
   const day = (record.days||[])[dayIndex];
   if(!day) return [];
-  const toW = g=>medCapItem({type:'muscle', groupLabel:g.groupLabel, exercise:g.exercise, set:g.set, rep:g.rep, rest:g.rest, tempo:g.tempo, failure:g.failure, equipment:g.equipment||[]});
+  const toW = g=>medCapItem({type:'muscle', groupLabel:g.groupLabel, exercise:g.exercise, set:g.set, rep:g.rep, rest:g.rest, tempo:g.tempo, failure:g.failure, failureSets:g.failureSets||'all', equipment:g.equipment||[]});
   return daySegments(day).flatMap(s=> s.t==='w' ? s.list.map(toW) : s.list.map(c=>({type:'cardio', ...c})));
 }
 
@@ -10373,7 +10387,7 @@ function clientProgramActionsHtml(p, record){
 function recordToBuilderDays(record){
   const toW = g=>{ const k = catalogGroupKeyOfLabel(g.groupLabel||'');
     return { type:'muscle', groupLabel: CATALOG_TPL_LABEL[k] || tplLabelNow(g.groupLabel) || g.groupLabel, exercise: g.exercise,
-      set: g.set, rep: g.rep, rest: g.rest, tempo: g.tempo || DEFAULT_TEMPO, failure: g.failure || 0, equipment: (g.equipment||[]).map(e=>({...e})) }; };
+      set: g.set, rep: g.rep, rest: g.rest, tempo: g.tempo || DEFAULT_TEMPO, failure: g.failure || 0, failureSets: g.failureSets||'all', equipment: (g.equipment||[]).map(e=>({...e})) }; };
   const toC = c=>({ type:'cardio', ...c });
   if(record.subtype==='cardio' && Array.isArray(record.cardioSlots)){
     return [{ label: DAY_LABELS_EXTENDED[0] || 'DAY 1', items: dayCardioList({ cardioSlots: record.cardioSlots }).map(toC) }];
@@ -10677,7 +10691,7 @@ function renderClientExerciseView(item){
         <div class="calc-field-box"><label>REP</label><div class="val">${escHtml(String(item.rep))}</div></div>
         <div class="calc-field-box"><label>Διάλειμμα</label><div class="val">${escHtml(String(item.rest))}</div></div>
         ${tempoBoxHtml(item.tempo)}
-        <div class="calc-field-box"><label>Ένταση</label><div class="val" style="font-size:15px;">${escHtml(failureLabel(item.failure))}</div></div>
+        <div class="calc-field-box"><label>Ένταση</label><div class="val" style="font-size:15px;">${escHtml(failureLabel(item.failure))}</div>${item.failureSets==='fl2' ? '<div class="fsets-note">στο 1ο και στα 2 τελευταία set</div>' : ''}</div>
       </div>
       <div class="info-card"><div class="lbl">Τι σημαίνει η Ένταση (UNTIL FAILURE)</div><div class="txt">${escHtml(FAILURE_EXPLANATION)}</div></div>
       <button class="btn btn-critical" style="width:100%;justify-content:center;" data-firstset-instr="1">ΟΔΗΓΙΕΣ ΕΚΤΕΛΕΣΗΣ ΠΡΩΤΟΥ SET</button>
@@ -10694,8 +10708,8 @@ function renderClientExerciseView(item){
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
               <button class="btn eq-action-btn" ${eq.exercisePhotoUrl?`data-clientlib-eqphoto="${escAttr(eq.exercisePhotoUrl)}"`:'disabled'}>ΑΣΚΗΣΗ</button>
               <button class="btn eq-action-btn" ${eq.videoUrl?`data-clientlib-eqvideo="${escAttr(eq.videoUrl)}"`:'disabled'}>VIDEO</button>
-              <button class="btn eq-action-btn tall" data-wk-focus="timer" data-clientlib-eqworkout="${escAttr(JSON.stringify({exercise:item.exercise,groupLabel:item.groupLabel,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,equipment:[eq]}))}">ΧΡΟΝΟΜΕΤΡΟ</button>
-              <button class="btn eq-action-btn tall" data-wk-focus="calc" data-clientlib-eqworkout="${escAttr(JSON.stringify({exercise:item.exercise,groupLabel:item.groupLabel,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,equipment:[eq]}))}">ΥΠΟΛΟΓΙΣΤΗΣ<br>KG</button>
+              <button class="btn eq-action-btn tall" data-wk-focus="timer" data-clientlib-eqworkout="${escAttr(JSON.stringify({exercise:item.exercise,groupLabel:item.groupLabel,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,failureSets:item.failureSets||'all',equipment:[eq]}))}">ΧΡΟΝΟΜΕΤΡΟ</button>
+              <button class="btn eq-action-btn tall" data-wk-focus="calc" data-clientlib-eqworkout="${escAttr(JSON.stringify({exercise:item.exercise,groupLabel:item.groupLabel,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,failureSets:item.failureSets||'all',equipment:[eq]}))}">ΥΠΟΛΟΓΙΣΤΗΣ<br>KG</button>
               <button class="btn eq-action-btn" style="grid-column:span 2;" data-exinfo="${escAttr(JSON.stringify({exercise:item.exercise,set:item.set,rep:item.rep,rest:item.rest,tempo:item.tempo,failure:item.failure,eq:eq}))}">ΟΔΗΓΙΕΣ ΓΙΑ ΤΗΝ ΕΚΤΕΛΕΣΗ</button>
             </div>
           </div>
@@ -10889,7 +10903,7 @@ function mapTemplateToCustomRecord(t){
   }
   const mappedDays = days.map(d=>{
     const groups = d.items.filter(it=>it.type==='muscle').map(it=>({
-      groupLabel: it.groupLabel, exercise: it.exercise, set: it.set, rep: it.rep, rest: it.rest, tempo: it.tempo || '', failure: it.failure, equipment: it.equipment||[]
+      groupLabel: it.groupLabel, exercise: it.exercise, set: it.set, rep: it.rep, rest: it.rest, tempo: it.tempo || '', failure: it.failure, failureSets: it.failureSets||'all', equipment: it.equipment||[]
     }));
     const cardioSlots = d.items.filter(it=>it.type==='cardio').map(it=>({
       equipment: it.equipment, mode: it.mode, speedLow: it.speedLow, speedLowMax: it.speedLowMax, speedHigh: it.speedHigh, speedHighMax: it.speedHighMax, incline: it.incline, intensity: it.intensity, minutes: it.minutes, drillEveryMinutes: it.drillEveryMinutes
@@ -11313,7 +11327,7 @@ function renderTplLibExerciseView(){
         ${tempoBoxHtml(it.tempo)}
         <div class="calc-field-box"><label>Διάλειμμα</label><div class="val">${escHtml(it.rest)}</div></div>
       </div>
-      <div class="calc-field-box" style="margin-bottom:14px;"><label>Ένταση</label><div class="val" style="font-size:15px;">${escHtml(failureLabel(it.failure))}</div></div>
+      <div class="calc-field-box" style="margin-bottom:14px;"><label>Ένταση</label>${it.failureSets==='fl2' ? '<div class="fsets-note">στο 1ο και στα 2 τελευταία set</div>' : ''}<div class="val" style="font-size:15px;">${escHtml(failureLabel(it.failure))}</div></div>
       <div class="info-card"><div class="lbl">Τι σημαίνει η Ένταση (UNTIL FAILURE)</div><div class="txt">${escHtml(FAILURE_EXPLANATION)}</div></div>
       <button class="btn btn-critical" style="width:100%;justify-content:center;margin-top:6px;" data-firstset-instr="1">ΟΔΗΓΙΕΣ ΕΚΤΕΛΕΣΗΣ ΠΡΩΤΟΥ SET</button>
       ${!(it.equipment||[]).length ? `<button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:8px;" id="tpllib-start-exercise">▶ Έναρξη Προπόνησης</button>` : ''}
@@ -11329,9 +11343,9 @@ function renderTplLibExerciseView(){
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
               <button class="btn eq-action-btn" ${eq.exercisePhotoUrl?`data-tpllib-eqphoto="${escAttr(eq.exercisePhotoUrl)}"`:'disabled'}>ΑΣΚΗΣΗ</button>
               <button class="btn eq-action-btn" ${eq.videoUrl?`data-tpllib-eqvideo="${escAttr(eq.videoUrl)}"`:'disabled'}>VIDEO</button>
-              <button class="btn eq-action-btn tall" data-wk-focus="timer" data-tpllib-eqworkout="${it.exercise?escAttr(JSON.stringify({exercise:it.exercise,groupLabel:it.groupLabel,set:it.set,rep:it.rep,rest:it.rest,tempo:it.tempo,failure:it.failure,equipment:[eq]})):''}">ΧΡΟΝΟΜΕΤΡΟ</button>
-              <button class="btn eq-action-btn tall" data-wk-focus="calc" data-tpllib-eqworkout="${it.exercise?escAttr(JSON.stringify({exercise:it.exercise,groupLabel:it.groupLabel,set:it.set,rep:it.rep,rest:it.rest,tempo:it.tempo,failure:it.failure,equipment:[eq]})):''}">ΥΠΟΛΟΓΙΣΤΗΣ<br>KG</button>
-              <button class="btn eq-action-btn" style="grid-column:span 2;" data-exinfo="${escAttr(JSON.stringify({exercise:it.exercise,set:it.set,rep:it.rep,rest:it.rest,tempo:it.tempo,failure:it.failure,eq:eq}))}">ΟΔΗΓΙΕΣ ΓΙΑ ΤΗΝ ΕΚΤΕΛΕΣΗ</button>
+              <button class="btn eq-action-btn tall" data-wk-focus="timer" data-tpllib-eqworkout="${it.exercise?escAttr(JSON.stringify({exercise:it.exercise,groupLabel:it.groupLabel,set:it.set,rep:it.rep,rest:it.rest,tempo:it.tempo,failure:it.failure,failureSets:it.failureSets||'all',equipment:[eq]})):''}">ΧΡΟΝΟΜΕΤΡΟ</button>
+              <button class="btn eq-action-btn tall" data-wk-focus="calc" data-tpllib-eqworkout="${it.exercise?escAttr(JSON.stringify({exercise:it.exercise,groupLabel:it.groupLabel,set:it.set,rep:it.rep,rest:it.rest,tempo:it.tempo,failure:it.failure,failureSets:it.failureSets||'all',equipment:[eq]})):''}">ΥΠΟΛΟΓΙΣΤΗΣ<br>KG</button>
+              <button class="btn eq-action-btn" style="grid-column:span 2;" data-exinfo="${escAttr(JSON.stringify({exercise:it.exercise,set:it.set,rep:it.rep,rest:it.rest,tempo:it.tempo,failure:it.failure,failureSets:it.failureSets||'all',eq:eq}))}">ΟΔΗΓΙΕΣ ΓΙΑ ΤΗΝ ΕΚΤΕΛΕΣΗ</button>
             </div>
           </div>
         </div>`).join('')}
@@ -11863,7 +11877,7 @@ function catalogCounts(c){
            equipment: Object.values(c.EQUIPMENT_BY_EXERCISE).flat().length, gyms: (c.GYMS||[]).length };
 }
 /* ── Εξαγωγή όλων των έτοιμων προγραμμάτων σε Excel (μία γραμμή ανά άσκηση/αερόβιο) ── */
-const TPL_XLSX_HEAD = ['ID ΠΡΟΓΡΑΜΜΑΤΟΣ','ΦΥΛΟ','ΚΑΤΗΓΟΡΙΑ','ΥΠΟΚΑΤΗΓΟΡΙΑ','ΣΕΙΡΑ','ΠΡΟΓΡΑΜΜΑ','ΔΗΜΟΣΙΕΥΜΕΝΟ','ΗΜΕΡΕΣ ΠΡΟΓΡΑΜΜΑΤΟΣ','ΗΜΕΡΑ','ΟΝΟΜΑ ΗΜΕΡΑΣ','ΙΔΙΑ ΑΣΚΗΣΕΙΣ ΜΕ ΗΜΕΡΑ','ΘΕΣΗ','ΤΥΠΟΣ','ΜΥΪΚΗ ΟΜΑΔΑ','ΑΣΚΗΣΗ','SET','REP','ΔΙΑΛΕΙΜΜΑ','TEMPO','UNTIL FAILURE','ΕΞΟΠΛΙΣΜΟΣ','ΑΕΡΟΒΙΟ ΜΗΧΑΝΗΜΑ','ΛΕΙΤΟΥΡΓΙΑ','ΛΕΠΤΑ','ΤΑΧΥΤΗΤΑ ΑΠΟ','ΤΑΧΥΤΗΤΑ ΕΩΣ','ΓΡΗΓΟΡΗ (DRILL) ΑΠΟ','ΓΡΗΓΟΡΗ (DRILL) ΕΩΣ','ΚΛΙΣΗ','DRILL ΚΑΘΕ (ΛΕΠΤΑ)'];
+const TPL_XLSX_HEAD = ['ID ΠΡΟΓΡΑΜΜΑΤΟΣ','ΦΥΛΟ','ΚΑΤΗΓΟΡΙΑ','ΥΠΟΚΑΤΗΓΟΡΙΑ','ΣΕΙΡΑ','ΠΡΟΓΡΑΜΜΑ','ΔΗΜΟΣΙΕΥΜΕΝΟ','ΗΜΕΡΕΣ ΠΡΟΓΡΑΜΜΑΤΟΣ','ΗΜΕΡΑ','ΟΝΟΜΑ ΗΜΕΡΑΣ','ΙΔΙΑ ΑΣΚΗΣΕΙΣ ΜΕ ΗΜΕΡΑ','ΘΕΣΗ','ΤΥΠΟΣ','ΜΥΪΚΗ ΟΜΑΔΑ','ΑΣΚΗΣΗ','SET','REP','ΔΙΑΛΕΙΜΜΑ','TEMPO','UNTIL FAILURE','UNTIL FAILURE ΣΕ','ΕΞΟΠΛΙΣΜΟΣ','ΑΕΡΟΒΙΟ ΜΗΧΑΝΗΜΑ','ΛΕΙΤΟΥΡΓΙΑ','ΛΕΠΤΑ','ΤΑΧΥΤΗΤΑ ΑΠΟ','ΤΑΧΥΤΗΤΑ ΕΩΣ','ΓΡΗΓΟΡΗ (DRILL) ΑΠΟ','ΓΡΗΓΟΡΗ (DRILL) ΕΩΣ','ΚΛΙΣΗ','DRILL ΚΑΘΕ (ΛΕΠΤΑ)'];
 function tplXlsxSheetName(g, top, sub, used){
   let n = (g==='ΓΥΝΑΙΚΕΣ'?'ΓΥΝ ':'ΑΝΔ ') + (sub ? sub.replace('ΓΥΜΝΑΖΕΙ ','').replace('ΜΕ ΑΚΟΜΗ ΠΕΡΙΣΣΟΤΕΡΗ ΕΜΦΑΣΗ','ΠΟΛΥ ΕΜΦΑΣΗ').replace('ΜΕ ΕΜΦΑΣΗ','ΕΜΦΑΣΗ').replace(' ΤΟΥ ΣΩΜΑΤΟΣ','').replace(' ΜΕΡΟΣ','').replace('ΚΑΥΣΗ ΛΙΠΟΥΣ ','') : (top||'ΧΩΡΙΣ ΚΑΤΗΓΟΡΙΑ'));
   n = n.replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,31).trim();
@@ -11938,9 +11952,9 @@ async function exportTemplatesXlsx(){
         const c = tplXlsxColor(it.groupLabel, it.type==='cardio', extra);
         G.styles.push(c ? colorIdx(c) : null);
         if(it.type==='cardio'){
-          G.rows.push(pad(base.concat([ii+1, 'ΑΕΡΟΒΙΟ', '', '', '', '', '', '', '', '', it.equipment||'', it.mode==='drill'?'DRILL':'ΣΤΑΘΕΡΗ', it.minutes||'', it.speedLow||'', it.speedLowMax||'', it.mode==='drill'?(it.speedHigh||''):'', it.mode==='drill'?(it.speedHighMax||''):'', it.incline||'', it.mode==='drill'?(it.drillEveryMinutes||''):''])));
+          G.rows.push(pad(base.concat([ii+1, 'ΑΕΡΟΒΙΟ', '', '', '', '', '', '', '', '', '', it.equipment||'', it.mode==='drill'?'DRILL':'ΣΤΑΘΕΡΗ', it.minutes||'', it.speedLow||'', it.speedLowMax||'', it.mode==='drill'?(it.speedHigh||''):'', it.mode==='drill'?(it.speedHighMax||''):'', it.incline||'', it.mode==='drill'?(it.drillEveryMinutes||''):''])));
         } else {
-          G.rows.push(pad(base.concat([ii+1, 'ΑΣΚΗΣΗ', it.groupLabel||'', it.exercise||it.customExercise||'', it.set??'', it.rep||'', it.rest||'', it.tempo||'', it.failure??'', eqTxt(it.equipment)])));
+          G.rows.push(pad(base.concat([ii+1, 'ΑΣΚΗΣΗ', it.groupLabel||'', it.exercise||it.customExercise||'', it.set??'', it.rep||'', it.rest||'', it.tempo||'', it.failure??'', it.failureSets==='fl2' ? '1ο + 2 τελευταία' : 'ΟΛΑ', eqTxt(it.equipment)])));
         }
       });
     });
@@ -11957,7 +11971,7 @@ async function exportTemplatesXlsx(){
     const [g, top, sub] = key.split('|');
     const name = tplXlsxSheetName(g, top, sub, used);
     const ws = X.utils.aoa_to_sheet([TPL_XLSX_HEAD].concat(G.rows));
-    ws['!cols'] = TPL_XLSX_HEAD.map((h,i)=>({ wch: i===0?10 : [5,14].includes(i)?28 : i===20?34 : Math.max(8, Math.min(22, h.length+2)) }));
+    ws['!cols'] = TPL_XLSX_HEAD.map((h,i)=>({ wch: i===0?10 : [5,14].includes(i)?28 : i===21?34 : Math.max(8, Math.min(22, h.length+2)) }));
     ws['!autofilter'] = { ref: X.utils.encode_range({ s:{r:0,c:0}, e:{r:G.rows.length, c:W-1} }) };
     const rs = { 1: 1 }; G.styles.forEach((st, i)=>{ if(st!=null) rs[i+2] = st; });
     sheets.push([name, ws]); sheetStyles.push(rs);
