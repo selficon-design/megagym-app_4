@@ -909,6 +909,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .ck-opt.on{border-color:var(--cyan);background:rgba(61,216,255,.16);color:var(--cyan-soft);font-weight:700;}
 .wk-mute-btn{padding:7px 11px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.05);color:#dfe9ef;font:700 11.5px 'Rajdhani',sans-serif;letter-spacing:.05em;cursor:pointer;}
 .wk-mute-btn.on{border-color:#ff8b90;color:#ff8b90;background:rgba(255,107,107,.1);}
+.wk-preview-bar{margin-bottom:14px;padding:12px 14px;border-radius:12px;border:1.5px solid #ffb347;background:rgba(255,179,71,.08);color:#ffe7c2;font-size:13px;line-height:1.5;text-align:center;}
 #wk-bg-pill{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9000;display:none;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;border:2px solid #ffb347;background:linear-gradient(145deg,#1b2a36,#0a1720);color:#fff;font:700 13.5px 'Rajdhani',sans-serif;letter-spacing:.03em;box-shadow:0 8px 24px rgba(0,0,0,.55),0 0 0 4px rgba(255,179,71,.18);cursor:pointer;white-space:nowrap;max-width:calc(100vw - 24px);}
 #wk-bg-pill .wk-bg-arrow{font-size:18px;color:#ffb347;}
 #wk-bg-pill .wk-bg-t{font-size:17px;font-weight:900;color:#ffe14d;font-variant-numeric:tabular-nums;}
@@ -5832,6 +5833,7 @@ async function sessSave(c, mutate){
 }
 function sessRecordSet(){
   const c = state.workoutNextCtx; if(!c || c.src!=='client') return;
+  if(wkIsPreview(c.programId)) return;   // δοκιμαστική χρήση: δεν καταγράφεται
   const doneSets = Math.min(timerState.nextSet-1, timerState.totalSets);
   sessSave(c, prog=>{ prog[c.itemIndex] = Math.max(Number(prog[c.itemIndex])||0, doneSets); });
 }
@@ -6233,8 +6235,30 @@ function actWkGet(){
 }
 function actWkSet(programId, dayIndex){
   if(auth.status!=='client') return;
+  if(state.wkPreview===programId) state.wkPreview = null;
   try{ localStorage.setItem(actWkKey(), JSON.stringify({ programId, dayIndex, date: athensDateStr() })); }catch(_){}
   wkBgTick();
+}
+/* Δοκιμαστική χρήση (χωρίς «ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ»): ο αθλούμενος δοκιμάζει χρονόμετρο/υπολογιστή χωρίς καταγραφή */
+function wkIsPreview(programId){ return auth.status==='client' && !!state.wkPreview && state.wkPreview===programId; }
+// Πριν το χρονόμετρο/υπολογιστή: αν δεν έχει γίνει «ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ», ρωτά. Επιστρέφει true αν μπορεί να ανοίξει.
+function wkGateStart(p, openFn){
+  if(auth.status!=='client' || !p) return true;
+  const a = actWkGet();
+  if(a && a.programId===p.id){ state.wkPreview = null; return true; }
+  if(state.wkPreview===p.id) return true;   // έχει ήδη διαλέξει δοκιμαστική χρήση
+  state.choiceModal = { icon:'', color:'var(--cyan-soft)', title:'ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ',
+    html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:16px;">Θέλεις να κάνω <b>έναρξη προγράμματος</b>;</p>`,
+    yes:{ label:'ΝΑΙ', fn:()=>{ state.wkPreview = null; startProgramFlow(p); } },
+    no:{ label:'ΟΧΙ', fn:()=>{
+      state.wkPreview = p.id;
+      state.choiceModal = { icon:'', color:'#ffb648', title:'ΔΟΚΙΜΑΣΤΙΚΗ ΧΡΗΣΗ',
+        html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:16px;">Μπορείς να δεις πώς λειτουργεί το πρόγραμμα. <b>Αυτό δεν σημαίνει ότι θα ξεκινήσει να καταγράφεται το πρόγραμμα.</b><br><br>Κάνε κινήσεις να δεις πώς λειτουργεί και όταν είσαι έτοιμος πάτα <b>ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ</b>.</p>`,
+        yes:{ label:'ΕΝΤΑΞΕΙ', fn:()=>openFn() }, no:null };
+      renderModal();
+    } } };
+  renderModal();
+  return false;
 }
 function actWkClear(){ try{ localStorage.removeItem(actWkKey()); }catch(_){} state.lastWorkout = null; state.wkBg = null; wkBgTick(); }
 function actWkReturn(){
@@ -6686,6 +6710,10 @@ function renderWorkoutPage(){
   const setBoxContent = getSetBoxContent();
   const html = `
     <div class="auth-back" id="workout-back">${ICON.back}Πίσω</div>
+    ${state.workoutNextCtx && state.workoutNextCtx.src==='client' && wkIsPreview(state.workoutNextCtx.programId) ? `<div class="wk-preview-bar">
+      <div><b>ΔΟΚΙΜΑΣΤΙΚΗ ΧΡΗΣΗ</b> — δεν καταγράφεται. Όταν είσαι έτοιμος πάτα ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ.</div>
+      <button class="btn btn-primary start-prog-btn" id="wk-preview-start" style="margin:8px 0 0;">ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ ΓΥΜΝΑΣΤΙΚΗΣ</button>
+    </div>` : ''}
     <div class="panel pad" style="margin-bottom:18px;">
       <h2 style="font-size:18px;margin-bottom:2px;">${escHtml(ex.exercise)}</h2>
       <div class="sub" style="margin-bottom:0;text-transform:uppercase;">${escHtml(ex.groupLabel||'')} · SET ${ex.set} · REP ${escHtml(String(ex.rep))} · TEMPO ${escHtml(ex.tempo||DEFAULT_TEMPO)}</div>
@@ -6773,6 +6801,13 @@ function renderWorkoutPage(){
 }
 function bindWorkoutPageEvents(){
   document.getElementById('workout-back')?.addEventListener('click', ()=>closeWorkoutPage());
+  document.getElementById('wk-preview-start')?.addEventListener('click', ()=>{
+    const c = state.workoutNextCtx, p = c && (state.selectedCustomerPrograms||[]).find(x=>x.id===c.programId);
+    if(timerState.interval){ clearInterval(timerState.interval); timerState.interval = null; }
+    timerState.running = false; timerState.paused = false; timerState.exerciseKey = null;   // ό,τι έγινε δοκιμαστικά δεν μετράει
+    state.wkPreview = null; closeWorkoutPage(true);
+    if(p) startProgramFlow(p);
+  });
   document.getElementById('timerInstructionsBtn')?.addEventListener('click', ()=>{ state.instructionsModalOpen=true; renderModal(); });
   document.getElementById('prevWorkoutsBtn')?.addEventListener('click', ()=>{ state.previousWorkoutsModalOpen=true; renderModal(); });
   document.getElementById('workoutEndBtn')?.addEventListener('click', ()=>endWorkoutFlow(state.workoutNextCtx));
@@ -7183,16 +7218,17 @@ function renderModal(){
     root.innerHTML = `<div class="modal-overlay"><div class="modal" style="max-width:420px;text-align:center;">
       <h2 style="font-size:18px;margin-bottom:10px;color:${m.color||'var(--cyan-soft)'};">${escHtml(m.title||'')}</h2>
       ${m.html||''}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      ${m.no ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <button class="btn btn-primary" style="justify-content:center;font-size:12.5px;" id="choice-yes">${escHtml(m.yes.label)}</button>
         <button class="btn btn-outline" style="justify-content:center;font-size:12.5px;" id="choice-no">${escHtml(m.no.label)}</button>
       </div>
-      <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;font-size:12px;" id="choice-cancel">Άκυρο</button>
+      <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;font-size:12px;" id="choice-cancel">Άκυρο</button>`
+      : `<button class="btn btn-primary" style="width:100%;justify-content:center;font-size:12.5px;" id="choice-yes">${escHtml(m.yes.label)}</button>`}
     </div></div>`;
     const done = fn=>{ state.choiceModal = null; renderModal(); fn && fn(); };
     document.getElementById('choice-yes').addEventListener('click', ()=>done(m.yes.fn));
-    document.getElementById('choice-no').addEventListener('click', ()=>done(m.no.fn));
-    document.getElementById('choice-cancel').addEventListener('click', ()=>done(null));
+    document.getElementById('choice-no')?.addEventListener('click', ()=>done(m.no && m.no.fn));
+    document.getElementById('choice-cancel')?.addEventListener('click', ()=>done(null));
     return;
   }
   if(state.dayDoneModal){
@@ -10549,7 +10585,8 @@ function renderClientExerciseView(item){
             </div>
           </div>
         </div>`).join('')}
-    ` : ''}`;
+    ` : ''}
+    ${auth.status==='client' && !(actWkGet() && actWkGet().programId===state.clientNav.programId) ? `<button class="btn btn-primary start-prog-btn" data-ex-start-program="1" style="margin-top:6px;">ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ ΓΥΜΝΑΣΤΙΚΗΣ</button>` : ''}`;
 }
 
 function bindClientNavEvents(){
@@ -10631,6 +10668,10 @@ function bindClientNavEvents(){
     if(item) openIntensityGraphModal(item);
   });
   document.getElementById('client-cardio-next')?.addEventListener('click', ()=>cardioNextFlow('client'));
+  document.querySelectorAll('[data-ex-start-program]').forEach(el=>el.addEventListener('click', ()=>{
+    const p = state.selectedCustomerPrograms.find(x=>x.id===state.clientNav.programId);
+    if(p){ state.wkPreview = null; startProgramFlow(p); }
+  }));
   document.getElementById('client-start-exercise')?.addEventListener('click', ()=>{
     const nav = state.clientNav;
     const p = state.selectedCustomerPrograms.find(x=>x.id===nav.programId);
@@ -10638,9 +10679,12 @@ function bindClientNavEvents(){
     const items = getClientDayItems(p.record, nav.dayIndex);
     const item = items[nav.itemIndex];
     if(item && item.type==='muscle'){
-      state.workoutLogContext = { customerCode: auth.customer ? auth.customer.code : null, programName: getProgramNameForRecord(p.record) };
-      state.workoutNextCtx = { src:'client', programId: nav.programId, dayIndex: nav.dayIndex, itemIndex: nav.itemIndex };
-      openWorkoutMode(item, rebuildClientDashboardShell);
+      const open = ()=>{
+        state.workoutLogContext = { customerCode: (auth.customer && !wkIsPreview(nav.programId)) ? auth.customer.code : null, programName: getProgramNameForRecord(p.record) };
+        state.workoutNextCtx = { src:'client', programId: nav.programId, dayIndex: nav.dayIndex, itemIndex: nav.itemIndex };
+        openWorkoutMode(item, rebuildClientDashboardShell);
+      };
+      if(wkGateStart(p, open)) open();
     }
   });
   document.querySelectorAll('[data-clientlib-eqphoto]').forEach(el=>{
@@ -10653,11 +10697,13 @@ function bindClientNavEvents(){
     el.addEventListener('click', ()=>{
       const nav = state.clientNav;
       const p = state.selectedCustomerPrograms.find(x=>x.id===nav.programId);
-      try{
-        state.workoutLogContext = { customerCode: auth.customer ? auth.customer.code : null, programName: p ? getProgramNameForRecord(p.record) : '' };
+      const open = ()=>{ try{
+        const preview = wkIsPreview(nav.programId);
+        state.workoutLogContext = { customerCode: (auth.customer && !preview) ? auth.customer.code : null, programName: p ? getProgramNameForRecord(p.record) : '' };
         state.workoutNextCtx = { src:'client', programId: nav.programId, dayIndex: nav.dayIndex, itemIndex: nav.itemIndex };
         openWorkoutMode(JSON.parse(el.getAttribute('data-clientlib-eqworkout')), rebuildClientDashboardShell, el.getAttribute('data-wk-focus'));
-      }catch(e){}
+      }catch(e){} };
+      if(wkGateStart(p, open)) open();
     });
   });
 }
