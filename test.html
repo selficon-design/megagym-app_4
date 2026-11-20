@@ -5919,6 +5919,7 @@ function startProgAnswer(yes){
   renderModal();
   const rec = m.p.record, cardioOnly = rec.subtype==='cardio';
   actWkSet(m.p.id, cardioOnly ? 0 : m.dayIndex);
+  if(m.fresh){ clientOpenDayStart(m.p, m.dayIndex); return; }
   if(m.kind==='resumeOpen'){ clientResumeAt(m.p, m.dayIndex, m.resume.index, m.resume.setN || 1); return; }
   state.clientNav = { ...state.clientNav, view:'exercise', programId:m.p.id, dayIndex: cardioOnly ? 0 : m.dayIndex, itemIndex:0 };
   renderClientMain(); window.scrollTo(0,0);
@@ -5939,12 +5940,20 @@ function clientOpenDayStart(p, dayIndex){
   if(document.getElementById('setBox') || !document.getElementById('client-content')) rebuildClientDashboardShell(); else renderClientMain();
   window.scrollTo(0,0);
 }
+// Μετά το «από την αρχή»: «Η ημέρα προπόνησης είναι η …, η πρώτη άσκηση είναι η … — να την ανοίξω;»
+function startProgFreshAsk(p, dayIndex){
+  if(timerState.interval){ clearInterval(timerState.interval); timerState.interval = null; }
+  timerState.running = false; timerState.paused = false; timerState.exerciseKey = null;
+  state.wkBg = null; state.lastWorkout = null; actWkClear();   // καμία «επιστροφή στην προπόνηση» — ξεκινάμε από την αρχή
+  const P = wnProgram({ src:'client', programId:p.id, dayIndex, itemIndex:0 }); if(!P) return;
+  const first = P.items(dayIndex)[0]; if(!first) return toast('Η ημέρα δεν έχει ασκήσεις.');
+  state.startProgModal = { kind:'today', fresh:true, p, dayIndex, dayLabel:P.label(dayIndex), first };
+  renderModal();
+}
 function startProgNextDay(){
   const m = state.startProgModal; state.startProgModal = null; renderModal();
   const nx = m && startProgNextDayInfo(m); if(!nx) return;
-  actWkSet(m.p.id, nx.dayIndex);
-  clientOpenDayStart(m.p, nx.dayIndex);
-  toast('Πάμε στην '+nx.label+'.');
+  startProgFreshAsk(m.p, nx.dayIndex);
 }
 // «ΟΧΙ, ΘΕΛΩ ΝΑ ΞΕΚΙΝΗΣΩ ΑΠΟ ΤΗΝ ΑΡΧΗ» → «ΣΗΜΕΡΙΝΗ ΗΜΕΡΑ ΑΠΟ ΤΗΝ ΑΡΧΗ»: μηδενίζει τη σημερινή πρόοδο της ημέρας και ανοίγει την 1η άσκηση από το SET 1
 async function startProgRestart(){
@@ -5953,9 +5962,7 @@ async function startProgRestart(){
   const di = m.dayIndex, c = { src:'client', programId:m.p.id, dayIndex:di, itemIndex:0 };
   await sessSave(c, prog=>{ Object.keys(prog).forEach(k=>delete prog[k]); });
   state.daysDoneToday && delete state.daysDoneToday[m.p.id+'|'+di+'|'+athensDateStr()];
-  actWkSet(m.p.id, di);
-  clientOpenDayStart(m.p, di);
-  toast('Ξεκινάς την '+(m.dayLabel||'ημέρα')+' από την αρχή.');
+  startProgFreshAsk(m.p, di);
 }
 // Τι δεν έχει γίνει σήμερα σε μια ημέρα προγράμματος
 async function sessLeftovers(c){
@@ -6297,7 +6304,9 @@ function wkBgTick(){
   if(onWorkout && state.wkBg) state.wkBg = null;
   if(state.wkBg && !timerState.running && !timerState.paused && timerState.remaining > 0) state.wkBg = null;   // το χρονόμετρο σταμάτησε
   if(!state.wkBg){
-    const a = !onWorkout && actWkGet();
+    let a = !onWorkout && actWkGet();
+    const nav = state.clientNav || {};
+    if(a && state.clientViewMode==='mine' && nav.programId===a.programId && ['exercise','days','items'].includes(nav.view) && document.getElementById('client-content')) a = null;   // είσαι ήδη μέσα στην προπόνηση
     if(!a){ if(pill) pill.style.display = 'none'; return; }
     if(!pill){ pill = document.createElement('button'); pill.id = 'wk-bg-pill'; pill.type = 'button'; pill.addEventListener('click', ()=>wkPillClick()); document.body.appendChild(pill); }
     pill.innerHTML = `<span class="wk-bg-arrow">↩</span><span class="wk-bg-l">ΕΠΙΣΤΡΟΦΗ ΣΤΗΝ ΠΡΟΠΟΝΗΣΗ</span>`;
@@ -7275,10 +7284,10 @@ function renderModal(){
         <p style="font-size:14px;color:#eefcff;margin-bottom:16px;">${m.resume.item.type==='cardio' ? 'Να ανοίξω το αερόβιο;' : 'Να ανοίξω την άσκηση;'}</p>
         ${yesNo('sp-yes','sp-no')}`;
     else body = `
-        <h2 style="font-size:18px;margin-bottom:10px;color:var(--cyan-soft);">${m.kind==='doneToday' ? 'Η ΣΗΜΕΡΙΝΗ ΠΡΟΠΟΝΗΣΗ ΟΛΟΚΛΗΡΩΘΗΚΕ' : 'ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ'}</h2>
-        <p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:14px;">${m.kind==='doneToday' ? `Ολοκληρώσατε σήμερα την <b>${escHtml(m.doneLabel)}</b>. Η επόμενη είναι η <b>${escHtml(m.dayLabel)}</b>.` : `Σήμερα έχετε να κάνετε την <b>${escHtml(m.dayLabel)}</b>.`}</p>
-        <div style="padding:10px 12px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(3,11,18,.6);margin-bottom:14px;font-size:13px;color:var(--ink-soft);">Ξεκινά με: <b style="color:#fff;">${escHtml(wnDescribe(m.first).group)} — ${escHtml(wnDescribe(m.first).name)}</b></div>
-        <p style="font-size:14px;color:#eefcff;margin-bottom:16px;">Να ανοίξω την προπόνηση της ημέρας αυτής;</p>
+        <h2 style="font-size:18px;margin-bottom:10px;color:var(--cyan-soft);">${m.kind==='doneToday' ? 'Η ΣΗΜΕΡΙΝΗ ΠΡΟΠΟΝΗΣΗ ΟΛΟΚΛΗΡΩΘΗΚΕ' : (m.fresh ? 'ΑΠΟ ΤΗΝ ΑΡΧΗ' : 'ΕΝΑΡΞΗ ΠΡΟΓΡΑΜΜΑΤΟΣ')}</h2>
+        <p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:14px;">${m.kind==='doneToday' ? `Ολοκληρώσατε σήμερα την <b>${escHtml(m.doneLabel)}</b>. Η επόμενη είναι η <b>${escHtml(m.dayLabel)}</b>.` : (m.fresh ? `Η ημέρα προπόνησης είναι η <b>${escHtml(m.dayLabel)}</b>.` : `Σήμερα έχετε να κάνετε την <b>${escHtml(m.dayLabel)}</b>.`)}</p>
+        <div style="padding:10px 12px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(3,11,18,.6);margin-bottom:14px;font-size:13px;color:var(--ink-soft);">${m.fresh ? 'Η πρώτη άσκηση είναι:' : 'Ξεκινά με:'} <b style="color:#fff;">${escHtml(wnDescribe(m.first).group)} — ${escHtml(wnDescribe(m.first).name)}</b></div>
+        <p style="font-size:14px;color:#eefcff;margin-bottom:16px;">${m.fresh ? 'Να την ανοίξω για να προχωρήσεις;' : 'Να ανοίξω την προπόνηση της ημέρας αυτής;'}</p>
         ${yesNo('sp-yes','sp-no')}`;
     root.innerHTML = `<div class="modal-overlay"><div class="modal" style="max-width:420px;text-align:center;">${body}</div></div>`;
     document.getElementById('sp-yes')?.addEventListener('click', ()=>startProgAnswer(true));
