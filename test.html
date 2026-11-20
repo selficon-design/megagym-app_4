@@ -5746,6 +5746,7 @@ function openWorkoutMode(ex, returnFn, focus){
     workoutCalcRevealed = { reps:false, kg:false };
     workoutFailureQuality = null;
     isFreshOpen = true;
+    wkTimerClear();   // νέα άσκηση: το αποθηκευμένο διάλειμμα της προηγούμενης δεν ισχύει πια
   }
   timerState.hands = workoutHands(ex); if(timerState.hands!==2) timerState.hand = 'A'; else if(!timerState.hand) timerState.hand = 'A';
   state.workoutExercise = ex;
@@ -6267,7 +6268,7 @@ function wkGateStart(p, openFn){
   renderModal();
   return false;
 }
-function actWkClear(){ try{ localStorage.removeItem(actWkKey()); }catch(_){} state.lastWorkout = null; state.wkBg = null; wkBgTick(); }
+function actWkClear(){ try{ localStorage.removeItem(actWkKey()); }catch(_){} wkTimerClear(); state.lastWorkout = null; state.wkBg = null; wkBgTick(); }
 function actWkReturn(){
   const a = actWkGet(); if(!a) return;
   const lw = state.lastWorkout;
@@ -6404,20 +6405,88 @@ function startWorkoutTimer(){
     }
   }
   timerState.running=true; timerState.paused=false;
+  timerState.endAt = Date.now() + timerState.remaining*1000;
   updateWorkoutTimerUI();
+  wkTimerRun();
+  wkTimerSave();
+}
+/* Το χρονόμετρο μετράει με βάση την ώρα λήξης (endAt), ώστε να μένει σωστό ακόμα κι αν το κινητό
+   «παγώσει» την εφαρμογή στο παρασκήνιο ή κλείσει και ξανανοίξει. */
+function wkTimerRun(){
+  if(timerState.interval) clearInterval(timerState.interval);
   startTimerDecimalTicker();
-  timerState.interval=setInterval(()=>{
-    timerState.remaining-=1;
-    pulseTimerRingGlow();
-    if(timerState.remaining<=0){
-      timerState.remaining=0;
-      clearInterval(timerState.interval); timerState.interval=null;
-      timerState.running=false; timerState.paused=false;
-      stopTimerDecimalTicker();
-      wkBeep3();
-    }
-    updateWorkoutTimerUI();
-  },1000);
+  timerState.interval = setInterval(wkTimerTick, 1000);
+}
+function wkTimerTick(){
+  if(!timerState.running || !timerState.endAt) return;
+  const left = Math.max(0, Math.ceil((timerState.endAt - Date.now())/1000));
+  if(left !== timerState.remaining) pulseTimerRingGlow();
+  timerState.remaining = left;
+  if(left <= 0){
+    timerState.remaining = 0;
+    clearInterval(timerState.interval); timerState.interval = null;
+    timerState.running = false; timerState.paused = false; timerState.endAt = null;
+    stopTimerDecimalTicker();
+    wkBeep3();
+    wkTimerSave();
+  }
+  updateWorkoutTimerUI();
+}
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && timerState.running) wkTimerTick(); });
+/* Αποθήκευση χρονόμετρου στη συσκευή (για όταν βγαίνεις από την εφαρμογή ή την κλείνεις) */
+function wkTimerKey(){ return 'forma_timer_v1_' + ((auth.customer && auth.customer.code) || ''); }
+function wkTimerSave(){
+  try{
+    if(auth.status!=='client' || !state.workoutExercise || !timerState.exerciseKey) return;
+    const t = timerState;
+    localStorage.setItem(wkTimerKey(), JSON.stringify({
+      date: athensDateStr(), savedAt: Date.now(), ex: state.workoutExercise, nextCtx: state.workoutNextCtx || null, logCtx: state.workoutLogContext || null,
+      preview: state.wkPreview || null,
+      t: { exerciseKey:t.exerciseKey, max:t.max, remaining:t.remaining, totalSets:t.totalSets, nextSet:t.nextSet, running:!!t.running, paused:!!t.paused, endAt:t.endAt||null,
+           lastAdvanceSource:t.lastAdvanceSource||null, skipNextAdvance:!!t.skipNextAdvance, hands:t.hands||1, hand:t.hand||'A', recordedSets:t.recordedSets }
+    }));
+  }catch(_){}
+}
+function wkTimerClear(){ try{ localStorage.removeItem(wkTimerKey()); }catch(_){} }
+// Με το άνοιγμα της εφαρμογής: αν υπήρχε διάλειμμα σε εξέλιξη (ή μόλις τελείωσε), ανοίγει ξανά το χρονόμετρο
+function wkTimerRestore(){
+  let d = null;
+  try{ d = JSON.parse(localStorage.getItem(wkTimerKey())||'null'); }catch(_){}
+  if(!d || !d.t || !d.ex) return;
+  const t = d.t, now = Date.now();
+  if(d.date !== athensDateStr() || now - (d.savedAt||0) > 4*3600*1000){ wkTimerClear(); return; }
+  const reshow = !t.running && !t.paused && d.shownAt && now - d.shownAt < 20000;   // η εφαρμογή ξαναζωγράφισε αμέσως μετά το άνοιγμα
+  if(!t.running && !t.paused && !reshow){ return; }   // δεν μετρούσε διάλειμμα — δεν χρειάζεται επαναφορά
+  if(document.getElementById('setBox')) return;
+  state.workoutNextCtx = d.nextCtx; state.workoutLogContext = d.logCtx;
+  if(d.preview) state.wkPreview = d.preview;
+  state.skipDoneTodayCheck = true;
+  openWorkoutMode(d.ex, rebuildClientDashboardShell, 'timer');
+  state.skipDoneTodayCheck = false;
+  Object.assign(timerState, { max:t.max, totalSets:t.totalSets, nextSet:t.nextSet, lastAdvanceSource:t.lastAdvanceSource, skipNextAdvance:t.skipNextAdvance, hands:t.hands, hand:t.hand });
+  if(t.recordedSets != null) timerState.recordedSets = t.recordedSets;
+  if(t.running && t.endAt && t.endAt > now){
+    timerState.endAt = t.endAt; timerState.running = true; timerState.paused = false;
+    timerState.remaining = Math.max(1, Math.ceil((t.endAt - now)/1000));
+    wkTimerRun();
+    toast('Το διάλειμμα συνεχίζεται.');
+  } else if(reshow){
+    timerState.running = false; timerState.paused = false; timerState.remaining = 0; timerState.endAt = null;
+    updateWorkoutTimerUI(); return;
+  } else if(t.running){
+    timerState.running = false; timerState.paused = false; timerState.remaining = 0; timerState.endAt = null;
+    wkBeep3();
+    updateWorkoutTimerUI(); wkTimerSave();
+    try{ const x = JSON.parse(localStorage.getItem(wkTimerKey())||'null'); if(x){ x.shownAt = Date.now(); localStorage.setItem(wkTimerKey(), JSON.stringify(x)); } }catch(_){}
+    const { nextSet, totalSets } = timerState;
+    toast(nextSet <= totalSets ? `Τέλος διαλείμματος — πάμε στο SET ${nextSet} από ${totalSets}!` : 'Τέλος διαλείμματος — ολοκληρώθηκαν όλα τα SET!', 6000);
+    setTimeout(()=>{ const box = document.getElementById('setBox'); if(box){ box.classList.add('wk-bg-flash'); setTimeout(()=>box.classList.remove('wk-bg-flash'), 4000); } }, 50);
+    return;
+  } else {
+    timerState.paused = true; timerState.running = false; timerState.remaining = t.remaining; timerState.endAt = null;
+  }
+  updateWorkoutTimerUI();
+  wkTimerSave();
 }
 /* Ήχος «πιπ-πιπ-πιπ» στο τέλος του διαλείμματος (iPhone & Android).
    Τα κινητά επιτρέπουν ήχο μόνο αφού ο χρήστης πατήσει κάτι — γι' αυτό «ξεκλειδώνει» με το START. */
@@ -6494,19 +6563,22 @@ function stopTimerDecimalTicker(){
 }
 function stopWorkoutTimer(){
   if(!timerState.running) return;
+  wkTimerTick();
   clearInterval(timerState.interval); timerState.interval=null;
-  timerState.running=false; timerState.paused=true;
+  timerState.running=false; timerState.paused=true; timerState.endAt=null;
   stopTimerDecimalTicker();
   updateWorkoutTimerUI();
+  wkTimerSave();
 }
 function resetWorkoutTimer(){
   if(timerState.interval) clearInterval(timerState.interval);
   timerState.interval=null; timerState.remaining=timerState.max;
-  timerState.running=false; timerState.paused=false;
+  timerState.running=false; timerState.paused=false; timerState.endAt=null;
   timerState.skipNextAdvance=true; // η επόμενη START απλά ξαναρχίζει το ίδιο σετ, δεν προχωράει σε νέο
   if(timerState.hands===2) timerState.hand='A';
   stopTimerDecimalTicker();
   updateWorkoutTimerUI();
+  wkTimerSave();
 }
 
 function selectWorkoutCalcField(field){
@@ -10094,6 +10166,7 @@ async function renderAppClient(){
   const [progs] = await Promise.all([loadProgramsFor(c.code), cprofLoad()]);
   state.selectedCustomerPrograms = progs.sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
   if(state.clientViewMode==='home') renderClientHome(); else renderClientMain();
+  try{ wkTimerRestore(); }catch(e){ console.error(e); }
 }
 
 function getClientDayItems(record, dayIndex){
