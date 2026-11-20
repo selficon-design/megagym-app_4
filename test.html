@@ -2187,6 +2187,26 @@ function tplDraftSave(b){
 }
 function tplDraftRead(){ try{ const d = JSON.parse(localStorage.getItem(TPL_DRAFT_KEY)||'null'); return d && d.b ? d : null; }catch(_){ return null; } }
 function tplDraftClear(){ try{ localStorage.removeItem(TPL_DRAFT_KEY); }catch(_){} }
+/* Αλλαγή οθόνης με ανοιχτό πρόγραμμα που δεν αποθηκεύτηκε: ρωτά πρώτα */
+function tplUnsaved(){
+  const b = state.tplBuilder;
+  return !!(b && b.mode!=='client' && state.tab==='tplbuilder' && state.tplFormOpen && tplDirty(b));
+}
+function goTab(tab){
+  if(tab === state.tab){ render(); return; }
+  if(!tplUnsaved()){ state.tab = tab; render(); return; }
+  const b = state.tplBuilder;
+  state.choiceModal = { icon:'', color:'#ff8b90', title:'ΔΕΝ ΕΧΕΙΣ ΑΠΟΘΗΚΕΥΣΕΙ!',
+    html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:16px;">Το πρόγραμμα <b>«${escHtml(b.name || 'χωρίς όνομα')}»</b> έχει αλλαγές που <b>δεν έχουν αποθηκευτεί</b>.<br>Τι θέλεις να κάνω;</p>`,
+    yes:{ label:'💾 ΑΠΟΘΗΚΕΥΣΗ ΚΑΙ ΣΥΝΕΧΕΙΑ', fn: async ()=>{
+      await submitTplProgram({ keep:true });
+      if(!tplDirty(state.tplBuilder)){ state.tplReopenForm = true; state.tab = tab; render(); }   // αν η αποθήκευση δεν έγινε (π.χ. λείπει όνομα), μένεις εδώ
+    } },
+    no:{ label:'ΦΥΓΕ ΧΩΡΙΣ ΑΠΟΘΗΚΕΥΣΗ', fn:()=>{ state.tplReopenForm = true; state.tab = tab; render(); } },
+    cancelLabel:'ΜΕΝΩ ΕΔΩ' };
+  renderModal();
+}
+window.addEventListener('beforeunload', e=>{ if(tplUnsaved()){ e.preventDefault(); e.returnValue = ''; } });
 function freshTplBuilder(){
   return {
     id: null, // αν έχει τιμή, κάνουμε επεξεργασία υπάρχοντος προγράμματος (όχι νέα δημιουργία)
@@ -3437,7 +3457,9 @@ function renderWorkoutLogHtml(logs){
 
 async function renderTplBuilderTab(){
   if(!state.tplBuilder) state.tplBuilder = freshTplBuilder();
-  state.tplFormOpen = !!state.tplFormOpenNext; state.tplFormOpenNext = false;
+  // γυρνώντας στην οθόνη, το πρόγραμμα που δούλευες (και δεν αποθηκεύτηκε) ξανανοίγει όπως ήταν
+  const reopen = state.tplReopenForm && state.tplBuilder && state.tplBuilder.mode!=='client' && (state.tplBuilder.id || tplDirty(state.tplBuilder));
+  state.tplFormOpen = !!state.tplFormOpenNext || !!reopen; state.tplFormOpenNext = false; state.tplReopenForm = false;
   const main = document.getElementById('main');
   main.innerHTML = `
     <div class="topbar"><div><h1>Έτοιμα Προγράμματα</h1><div class="sub">Δημιούργησε πρότυπα προγράμματα που θα βλέπουν και θα «τρέχουν» οι πελάτες</div></div></div>
@@ -4252,7 +4274,8 @@ async function submitTplProgram(opts){
     if(!wasEdit && typeof ok==='string') b.id = ok;
     b._savedSnap = tplSnap(b); b._cancelConfirm = false;
     tplDraftClear();
-    toast(wasEdit ? '💾 Αποθηκεύτηκε — συνεχίζεις.' : '💾 Το «'+b.name.trim()+'» αποθηκεύτηκε στη βιβλιοθήκη — συνεχίζεις.');
+    const what = (opts && opts.withItem) ? 'Η άσκηση και το πρόγραμμα' : 'Το πρόγραμμα';
+    toast(wasEdit ? `💾 ${what} αποθηκεύτηκαν — συνεχίζεις.` : '💾 Το «'+b.name.trim()+'» αποθηκεύτηκε στη βιβλιοθήκη'+((opts && opts.withItem)?' (μαζί με την άσκηση)':'')+' — συνεχίζεις.');
     renderTplFormArea();
     state.tplTemplates = await loadTemplatePrograms();
     renderTplListArea();
@@ -4388,7 +4411,7 @@ function renderTplListArea(){
   document.querySelectorAll('[data-tpl-order]').forEach(el=>el.addEventListener('click', ()=>tplMove(list, ...el.getAttribute('data-tpl-order').split(':'))));
   document.querySelectorAll('[data-tpl-preview]').forEach(el=>el.addEventListener('click', ()=>{
     state.tplLibJump = el.getAttribute('data-tpl-preview');
-    state.tab = 'tplpreview'; render();
+    goTab('tplpreview');
   }));
   document.querySelectorAll('[data-tpl-dup]').forEach(el=>el.addEventListener('click', ()=>{
     const t = state.tplTemplates.find(x=>x.id===el.getAttribute('data-tpl-dup')); if(!t) return;
@@ -4683,7 +4706,7 @@ function renderNav(){
     <button class="${state.tab===it.id?'active':''}" data-tab="${it.id}">${it.label.split(' ')[0]}</button>
   `).join('');
   document.querySelectorAll('[data-tab]').forEach(el=>{
-    el.addEventListener('click', ()=>{ state.tab = el.getAttribute('data-tab'); render(); });
+    el.addEventListener('click', ()=>goTab(el.getAttribute('data-tab')));
   });
   renderSidebarAccount();
 }
@@ -7311,7 +7334,7 @@ function renderModal(){
         <button class="btn btn-primary" style="justify-content:center;font-size:12.5px;" id="choice-yes">${escHtml(m.yes.label)}</button>
         <button class="btn btn-outline" style="justify-content:center;font-size:12.5px;" id="choice-no">${escHtml(m.no.label)}</button>
       </div>
-      <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;font-size:12px;" id="choice-cancel">Άκυρο</button>`
+      <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;font-size:12px;" id="choice-cancel">${escHtml(m.cancelLabel || 'Άκυρο')}</button>`
       : `<button class="btn btn-primary" style="width:100%;justify-content:center;font-size:12.5px;" id="choice-yes">${escHtml(m.yes.label)}</button>`}
     </div></div>`;
     const done = fn=>{ state.choiceModal = null; renderModal(); fn && fn(); };
@@ -12457,11 +12480,13 @@ resolveAuthState();
 function tplQuickSave(){
   const inClient = auth.role==='client' && state.clientViewMode==='build';
   if(state.tab!=='tplbuilder' && !inClient) return false;
+  // 1) εκκρεμές «📅 Σε ημέρες…» → εφαρμογή  2) ανοιχτή φόρμα άσκησης/αερόβιου → αποθήκευση  3) όλο το πρόγραμμα → βάση
+  document.querySelector('[data-tpl-applydays-ok]')?.click();
   const form = document.getElementById('tpl-af-submit') || document.getElementById('tpl-af-csubmit');
   if(form) form.click();
   if(!inClient && state.tplBuilder && state.tplBuilder.mode!=='client' && state.tplFormOpen){
     if(document.getElementById('tpl-af-submit') || document.getElementById('tpl-af-csubmit')) return true;  // η φόρμα άσκησης έχει λάθος — μένει ανοιχτή
-    submitTplProgram({ keep:true });
+    submitTplProgram({ keep:true, withItem: !!form });
     return true;
   }
   if(form) return true;
