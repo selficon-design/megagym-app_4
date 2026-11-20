@@ -7264,7 +7264,8 @@ function renderModal(){
         <h2 style="font-size:18px;margin-bottom:10px;color:#ffb648;">ΔΕΝ ΟΛΟΚΛΗΡΩΘΗΚΕ Η ΠΡΟΠΟΝΗΣΗ</h2>
         <p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:14px;">Δεν έχετε εκτελέσει όλα τα set της προπόνησης <b>${escHtml(m.dayLabel)}</b> (έγιναν ${m.doneSets} από ${m.totalSets}).<br>Θέλετε να συνεχίσετε από εκεί που σταματήσατε, από το επόμενο set;</p>
         ${yesNo('sp-yes','sp-no')}
-        <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;" id="sp-restart">ΟΧΙ, ΘΕΛΩ ΝΑ ΞΕΚΙΝΗΣΩ ΑΠΟ ΤΗΝ ΑΡΧΗ</button>`;
+        <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;" id="sp-restart">ΟΧΙ, ΘΕΛΩ ΝΑ ΞΕΚΙΝΗΣΩ ΑΠΟ ΤΗΝ ΑΡΧΗ</button>
+        <button class="btn btn-outline end-red" style="width:100%;justify-content:center;margin-top:10px;" id="sp-end">ΤΕΛΟΣ ΠΡΟΠΟΝΗΣΗΣ</button>`;
     else if(m.kind==='restartChoice'){
       const nx = startProgNextDayInfo(m);
       body = `
@@ -7296,6 +7297,7 @@ function renderModal(){
     document.getElementById('sp-today')?.addEventListener('click', ()=>startProgRestart());
     document.getElementById('sp-nextday')?.addEventListener('click', ()=>startProgNextDay());
     document.getElementById('sp-cancel')?.addEventListener('click', ()=>{ state.startProgModal = null; renderModal(); });
+    document.getElementById('sp-end')?.addEventListener('click', ()=>{ state.startProgModal = null; renderModal(); endWorkoutFlow({ src:'client', programId:m.p.id, dayIndex:m.dayIndex, itemIndex:0 }); });
     return;
   }
   if(state.cardioAskModal){
