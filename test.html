@@ -717,6 +717,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .tpl-gcmp-ph{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:16px;margin-bottom:8px;}
 .tpl-gcmp-day{display:grid;grid-template-columns:150px 1fr;gap:10px;padding:7px 0;border-top:1px solid var(--line);}
 .tpl-gcmp-dl{font-size:12px;font-weight:700;color:var(--cyan-soft,#8fe3ff);}
+.tpl-gcmp-it.last{outline:2px solid #ffb347;outline-offset:4px;border-radius:6px;background:rgba(255,179,71,.07);}
+.tpl-gcmp-day.last{outline:2px solid #ffb347;outline-offset:2px;border-radius:8px;}
 .tpl-gcmp-ebtn{margin-left:6px;padding:2px 8px;border-radius:7px;border:1px solid rgba(61,216,255,.55);background:rgba(61,216,255,.08);color:#9fe8ff;font:600 10.5px inherit;font-family:inherit;cursor:pointer;vertical-align:middle;}
 .tpl-gcmp-dbtn{display:block;margin-top:5px;padding:4px 8px;border-radius:7px;border:1px solid rgba(255,179,71,.6);background:rgba(255,179,71,.08);color:#ffcf8a;font:600 10.5px inherit;font-family:inherit;cursor:pointer;}
 .kbd{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:5px;border:1px solid rgba(0,0,0,.35);background:rgba(0,0,0,.18);font-size:10.5px;font-weight:700;}
@@ -3777,6 +3779,7 @@ function tplGcmpClose(keepBack){
 // Από τη σύγκριση: ανοίγει το πρόγραμμα με ΜΟΝΟ εκείνη την ημέρα ανοιχτή και πηγαίνει εκεί
 function tplGcmpOpenAt(id, di, ii){
   const g = state.tplGcmp; const grp = g && g.group;
+  if(g){ g.lastId = id; g.lastDi = di; g.lastIi = (ii==null ? null : ii); }   // για το πορτοκαλί πλαίσιο όταν γυρίσεις
   const t = (state.tplTemplates||[]).find(x=>x.id===id);
   tplGcmpClose(true); if(!t) return;
   state.tplGroupFilter = grp;
@@ -3797,9 +3800,12 @@ function tplGcmpOpenAt(id, di, ii){
 }
 function tplGcmpBack(){
   const L = state.tplGcmpLast; if(!L) return;
-  state.tplGcmp = { group:L.group, near:L.near, cat:L.cat, focusId:L.focusId, _scrolled:true };
+  state.tplGcmp = { group:L.group, near:L.near, cat:L.cat, focusId:L.focusId, lastId:L.lastId, lastDi:L.lastDi, lastIi:L.lastIi, _scrolled:true };
   tplGcmpRender();
-  const ov = document.getElementById('tpl-gcmp'); if(ov){ ov.scrollTop = L.scrollTop||0; requestAnimationFrame(()=>{ ov.scrollTop = L.scrollTop||0; }); }
+  const ov = document.getElementById('tpl-gcmp'); if(!ov) return;
+  const target = ov.querySelector('.tpl-gcmp-it.last, .tpl-gcmp-day.last') || (L.lastId && document.getElementById('tpl-gcmp-p-'+L.lastId));
+  const place = ()=>{ if(target){ const r = target.getBoundingClientRect(); ov.scrollTop += r.top - ov.clientHeight/2 + r.height/2; } else ov.scrollTop = L.scrollTop||0; };
+  place(); requestAnimationFrame(place);
 }
 function tplGcmpRender(){
   const g = state.tplGcmp; if(!g) return;
@@ -3821,14 +3827,15 @@ function tplGcmpRender(){
     ${fi>=0 ? `<label style="display:flex;gap:8px;align-items:center;font-size:12.5px;margin-bottom:10px;cursor:pointer;"><input type="checkbox" id="tpl-gcmp-near" ${g.near?'checked':''}> Μόνο τα κοντινά (2 πριν και 2 μετά από το «${escHtml((state.tplTemplates.find(t=>t.id===g.focusId)||{}).name||'')}»)</label>` : ''}
     ${list.map(t=>{
       const days = (t.data && t.data.days) || [];
-      return `<div class="tpl-gcmp-prog ${t.id===g.focusId?'cur':''}" id="tpl-gcmp-p-${t.id}">
+      return `<div class="tpl-gcmp-prog ${t.id===(g.lastId||g.focusId)?'cur':''}" id="tpl-gcmp-p-${t.id}">
         <div class="tpl-gcmp-ph"><span><b>${escHtml(t.name)}</b>${t._live?' <span style="font-size:11px;color:#ffb347;">(ανοιχτό τώρα)</span>':''}${t.is_published?'':' <span style="font-size:11px;color:var(--ink-soft);">· κρυφό</span>'}</span>
           <button class="btn btn-outline" style="padding:5px 9px;font-size:11px;" data-tpl-gcmp-open="${t.id}">Άνοιγμα →</button></div>
         ${days.map((d,di)=>{ const its = (d.items||[]).map((it,ii)=>({ ...it, _ii:ii })).filter(it=>tplGroupOf(it)===g.group);
-          return `<div class="tpl-gcmp-day"><div class="tpl-gcmp-dl">${di+1}. ${escHtml(d.label||'')}<button type="button" class="tpl-gcmp-dbtn" data-tpl-gcmp-day="${t.id}|${di}">Άνοιγμα ημέρας →</button></div>
+          const lastDay = g.lastId===t.id && g.lastDi===di;
+          return `<div class="tpl-gcmp-day ${lastDay && g.lastIi==null ? 'last' : ''}"><div class="tpl-gcmp-dl">${di+1}. ${escHtml(d.label||'')}<button type="button" class="tpl-gcmp-dbtn" data-tpl-gcmp-day="${t.id}|${di}">Άνοιγμα ημέρας →</button></div>
             ${its.length ? its.map(it=> it.type==='cardio'
-              ? `<div class="tpl-gcmp-it">${escHtml(it.equipment||'Αερόβιο')} · ${escHtml(String(it.minutes||''))}′ ${it.mode==='drill'?'DRILL':''} <button type="button" class="tpl-gcmp-ebtn" data-tpl-gcmp-edit="${t.id}|${di}|${it._ii}">✎ Διόρθωση</button></div>`
-              : `<div class="tpl-gcmp-it"><div>${escHtml(it.exercise||'—')} <button type="button" class="tpl-gcmp-ebtn" data-tpl-gcmp-edit="${t.id}|${di}|${it._ii}">✎ Διόρθωση</button></div><div class="mono">${it.set}×${escHtml(it.rep||'')} · ${escHtml(it.rest||'')} · ${escHtml(it.tempo||'')} · ${escHtml(failureFull(it))}</div>${eqNames(it).length?`<div class="tpl-gcmp-eq">${escHtml(eqNames(it).join(' · '))}</div>`:''}</div>`).join('')
+              ? `<div class="tpl-gcmp-it ${lastDay && g.lastIi===it._ii ? 'last' : ''}">${escHtml(it.equipment||'Αερόβιο')} · ${escHtml(String(it.minutes||''))}′ ${it.mode==='drill'?'DRILL':''} <button type="button" class="tpl-gcmp-ebtn" data-tpl-gcmp-edit="${t.id}|${di}|${it._ii}">✎ Διόρθωση</button></div>`
+              : `<div class="tpl-gcmp-it ${lastDay && g.lastIi===it._ii ? 'last' : ''}"><div>${escHtml(it.exercise||'—')} <button type="button" class="tpl-gcmp-ebtn" data-tpl-gcmp-edit="${t.id}|${di}|${it._ii}">✎ Διόρθωση</button></div><div class="mono">${it.set}×${escHtml(it.rep||'')} · ${escHtml(it.rest||'')} · ${escHtml(it.tempo||'')} · ${escHtml(failureFull(it))}</div>${eqNames(it).length?`<div class="tpl-gcmp-eq">${escHtml(eqNames(it).join(' · '))}</div>`:''}</div>`).join('')
               : `<div class="tpl-gcmp-none">—</div>`}
           </div>`; }).join('')}
       </div>`; }).join('') || '<div class="tpl-empty">Κανένα πρόγραμμα.</div>'}
@@ -3847,6 +3854,7 @@ function tplGcmpRender(){
   }));
   ov.querySelectorAll('[data-tpl-gcmp-open]').forEach(el=>el.addEventListener('click', ()=>{
     const t = (state.tplTemplates||[]).find(x=>x.id===el.getAttribute('data-tpl-gcmp-open')); const grp = g.group;
+    g.lastId = t && t.id; g.lastDi = null; g.lastIi = null;
     tplGcmpClose(true); if(!t) return;
     state.tplGroupFilter = grp;
     if(state.tplBuilder && state.tplBuilder.id===t.id){ state.tplBuilder.closedDays = {}; renderTplFormArea(); return; }
