@@ -3928,7 +3928,7 @@ function renderTplMetaForm(b){
       <div class="field"><label>Αποτελέσματα</label><textarea id="tpl-results" rows="2" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);font-family:inherit;">${escHtml(b.results)}</textarea></div>
       <div class="field"><label>Διατροφή</label><textarea id="tpl-nutrition" rows="2" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);font-family:inherit;">${escHtml(b.nutrition)}</textarea></div>
       <div class="field"><label>Παρατηρήσεις</label><textarea id="tpl-notes" rows="2" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(3,11,18,.78);color:var(--ink);font-family:inherit;">${escHtml(b.notes)}</textarea></div>
-      <div class="field"><label>Σειρά Εμφάνισης (μικρότερος αριθμός = πρώτο · πιο εύκολα: ▲▼ στη λίστα)</label><input type="number" id="tpl-sortorder" value="${escAttr(b.sortOrder)}" style="max-width:120px;"></div>
+      <div class="field"><label>Σειρά Εμφάνισης — θέση στη λίστα της κατηγορίας (1 = πρώτο)</label><input type="number" min="1" id="tpl-sortorder" value="${escAttr(b.sortOrder || '')}" placeholder="στο τέλος" style="max-width:120px;"><div class="food-note" style="margin:4px 0 0;">Αν αλλάξεις τον αριθμό, με την αποθήκευση το πρόγραμμα μετακινείται σε αυτή τη θέση και τα υπόλοιπα προσαρμόζονται. Ίδια σειρά βλέπουν και οι αθλούμενοι.</div></div>
       <div class="field"><label>Προπονήσεις σε αυτό το πρόγραμμα <span style="text-transform:none;font-weight:400;color:var(--ink-soft);">(πόσες προπονήσεις πριν περάσει στο επόμενο)</span></label>
         <input type="number" id="tpl-sessions" min="1" max="500" value="${escAttr(b.sessions||'')}" placeholder="π.χ. 24" style="max-width:120px;">
         <div class="food-note" style="margin:4px 0 0;">Αργότερα μπορεί να προσαρμόζεται από το ιστορικό του αθλούμενου.</div></div>
@@ -4282,14 +4282,16 @@ async function submitTplProgram(opts){
   }
   const wasEdit = !!b.id;
   if(btn){ btn.disabled=false; btn.innerHTML = ICON.save+(wasEdit?'Αποθήκευση Αλλαγών':'Αποθήκευση Προγράμματος στη Βιβλιοθήκη'); }
+  if(ok){ const pid = wasEdit ? b.id : (typeof ok==='string' ? ok : null); if(pid) await tplPlaceInCategory(pid, b.sortOrder); }
   if(ok && keep){   // 💾 / Ctrl+S: αποθηκεύει και συνεχίζεις να δουλεύεις στο ίδιο πρόγραμμα
     if(!wasEdit && typeof ok==='string') b.id = ok;
     b._savedSnap = tplSnap(b); b._cancelConfirm = false;
     tplDraftClear();
     const what = (opts && opts.withItem) ? 'Η άσκηση και το πρόγραμμα' : 'Το πρόγραμμα';
     toast(wasEdit ? `💾 ${what} αποθηκεύτηκαν — συνεχίζεις.` : '💾 Το «'+b.name.trim()+'» αποθηκεύτηκε στη βιβλιοθήκη'+((opts && opts.withItem)?' (μαζί με την άσκηση)':'')+' — συνεχίζεις.');
+    if(b.id){ const me = (state.tplTemplates||[]).find(t=>t.id===b.id); if(me) b.sortOrder = me.sort_order; }
+    b._savedSnap = tplSnap(b);
     renderTplFormArea();
-    state.tplTemplates = await loadTemplatePrograms();
     renderTplListArea();
     return;
   }
@@ -4299,7 +4301,6 @@ async function submitTplProgram(opts){
     state.tplBuilder = freshTplBuilder();
     state.tplFormOpen = false;
     renderTplFormArea();
-    state.tplTemplates = await loadTemplatePrograms();
     renderTplListArea();
   } else {
     toast('Σφάλμα αποθήκευσης. Δοκίμασε ξανά.');
@@ -4356,6 +4357,29 @@ function tplGroupedListHtml(gender, list){
   if(other.length) html += `<div class="tpl-group"><div class="tpl-group-h" style="color:#ff9f1a;">ΧΩΡΙΣ ΣΩΣΤΗ ΚΑΤΗΓΟΡΙΑ <span>${other.length}</span></div>${other.sort(order).map(tplListCardHtml).join('')}</div>`;
   return html;
 }
+/* Η «Σειρά εμφάνισης» είναι η θέση του προγράμματος μέσα στην κατηγορία του (1, 2, 3…) — ίδια για τον γυμναστή και τους αθλούμενους.
+   Μετά από αποθήκευση: το πρόγραμμα μπαίνει στη θέση που γράφει το πεδίο και τα υπόλοιπα ξανα-αριθμούνται χωρίς κενά/διπλά. */
+async function tplPlaceInCategory(id, wantedPos){
+  const list = await loadTemplatePrograms(); if(!list) return;
+  const me = list.find(t=>t.id===id); if(!me) return;
+  const key = tplCatOf(me) || ('?|'+me.gender+'|'+me.top_category+'|'+(me.sub_category||''));
+  const same = list.filter(t=>t.id!==id && (tplCatOf(t) || ('?|'+t.gender+'|'+t.top_category+'|'+(t.sub_category||'')))===key).sort(tplOrderCmp);
+  const pos = Math.min(Math.max(1, parseInt(wantedPos)||same.length+1), same.length+1);
+  same.splice(pos-1, 0, me);
+  const changes = same.map((t,n)=>({ t, so:n+1 })).filter(c=>(c.t.sort_order||0)!==c.so);
+  await Promise.all(changes.map(c=>updateTemplateProgram(c.t.id, { sort_order:c.so })));
+  changes.forEach(c=>{ c.t.sort_order = c.so; });
+  state.tplTemplates = list;
+  if(state.tplBuilder && state.tplBuilder.id===id){ state.tplBuilder.sortOrder = pos; if(state.tplBuilder._savedSnap){ state.tplBuilder._savedSnap = tplSnap(state.tplBuilder); } }
+  return pos;
+}
+// Αν σε μια κατηγορία τα νούμερα έχουν κενά ή διπλά (π.χ. 12, 12, 12), τα διορθώνει με τη σειρά που φαίνονται
+async function tplNormalizeCategory(list){
+  const changes = list.map((t,n)=>({ t, so:n+1 })).filter(c=>(c.t.sort_order||0)!==c.so);
+  if(!changes.length) return;
+  changes.forEach(c=>{ c.t.sort_order = c.so; });
+  await Promise.all(changes.map(c=>updateTemplateProgram(c.t.id, { sort_order:c.so })));
+}
 // Αλλαγή σειράς με ▲▼: ξανα-αριθμεί την κατηγορία 1, 2, 3… (χωρίς διπλά νούμερα) και αποθηκεύει
 async function tplMove(list, id, dir){
   if(state.tplMoving) return;
@@ -4378,6 +4402,7 @@ function renderTplListArea(){
   const k = state.tplCatView || '';
   const order = tplOrderCmp;
   const list = state.tplTemplates.filter(t=> k==='orphans' ? !tplCatOf(t) : tplCatOf(t)===k).sort(order);
+  if(k && k!=='orphans' && list.some((t,n)=>(t.sort_order||0)!==n+1) && !state.tplMoving){ tplNormalizeCategory(list); }
   const [g, top, sub] = k.split('|');
   const title = k==='orphans' ? 'Χωρίς σωστή κατηγορία' : `${g} · ${top}${sub?' · '+sub:''}`;
   const trash = state.tplTrash || [];
