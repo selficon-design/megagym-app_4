@@ -3527,7 +3527,25 @@ function renderTplGenderSwitch(){
     </div>`).join('') + (orphans ? `<div class="tpl-cat-row"><div class="tpl-cat-btns"><button type="button" class="orphan ${state.tplCatView==='orphans'?'active':''}" data-tpl-catview="orphans">⚠️ Χωρίς σωστή κατηγορία <span>${orphans}</span></button></div></div>` : '');
   box.querySelectorAll('[data-tpl-catview]').forEach(el=>el.addEventListener('click', ()=>setTplCatView(el.getAttribute('data-tpl-catview'))));
 }
+// Ανοίγει άλλο πρόγραμμα στον builder· αν το τρέχον έχει αλλαγές, ρωτά πρώτα
+function tplOpenOther(t){
+  if(!tplUnsaved()){ loadTemplateIntoBuilder(t); return; }
+  const b = state.tplBuilder;
+  state.choiceModal = { icon:'', color:'#ff8b90', title:'ΔΕΝ ΕΧΕΙΣ ΑΠΟΘΗΚΕΥΣΕΙ!',
+    html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:16px;">Το «${escHtml(b.name||'χωρίς όνομα')}» έχει αλλαγές που δεν έχουν αποθηκευτεί. Τι κάνω πριν ανοίξω το «${escHtml(t.name)}» (${escHtml(tplShortSub(t.top_category, t.sub_category||''))});</p>`,
+    yes:{ label:'💾 ΑΠΟΘΗΚΕΥΣΗ ΚΑΙ ΑΝΟΙΓΜΑ', fn: async ()=>{ await submitTplProgram({ keep:true }); if(!tplDirty(state.tplBuilder)) loadTemplateIntoBuilder((state.tplTemplates||[]).find(x=>x.id===t.id) || t); } },
+    no:{ label:'ΑΝΟΙΓΜΑ ΧΩΡΙΣ ΑΠΟΘΗΚΕΥΣΗ', fn:()=>loadTemplateIntoBuilder(t) },
+    cancelLabel:'ΜΕΝΩ ΕΔΩ' };
+  renderModal();
+}
 function setTplCatView(k){
+  // Με ανοιχτό πρόγραμμα: πάει κατευθείαν στο πρόγραμμα με το ίδιο όνομα στην άλλη κατηγορία (για σύγκριση)
+  const ob = state.tplBuilder;
+  if(k !== 'orphans' && ob && ob.id && ob.mode!=='client' && state.tplFormOpen && k !== state.tplCatView){
+    const twin = (state.tplTemplates||[]).find(t=>t.id!==ob.id && tplCatOf(t)===k && String(t.name||'').trim().toUpperCase()===String(ob.name||'').trim().toUpperCase());
+    if(twin){ tplOpenOther(twin); return; }
+    toast(`Δεν υπάρχει «${ob.name}» σε αυτή την κατηγορία — βλέπεις τη λίστα της.`, 4000);
+  }
   state.tplCatView = k;
   if(k !== 'orphans'){
     const [g, top, sub] = k.split('|');
