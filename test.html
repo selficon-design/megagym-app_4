@@ -707,6 +707,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .tpl-photo-ctrl{flex:1 1 260px;min-width:0;}
 .tpl-photo-side{flex:0 1 380px;width:100%;}
 .tpl-draft-box{border-color:#ffb347 !important;margin-bottom:14px;}
+.tpl-eqcheck{margin:12px 0;padding:12px 14px;border:1.5px solid #ffb347;border-radius:12px;background:rgba(255,179,71,.06);}
+.tpl-eqrow{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line);}
 .tpl-gf{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 14px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(3,11,18,.4);}
 .tpl-gf-lbl{font-size:12px;font-weight:700;color:var(--cyan-soft,#8fe3ff);margin-right:4px;}
 .tpl-gf-chip{padding:6px 10px;border-radius:999px;border:1.5px solid rgba(61,216,255,.3);background:transparent;color:var(--ink);font:600 11.5px inherit;font-family:inherit;cursor:pointer;}
@@ -4279,6 +4281,40 @@ function bindTplBuilderEvents(){
   });
 }
 
+/* Έλεγχος: ασκήσεις με εξοπλισμό που δεν ανήκει στην άσκηση (σύμφωνα με το Excel «ΕΞΟΠΛΙΣΜΟΣ ΑΝΑ ΑΣΚΗΣΗ») */
+function tplEqProblems(){
+  const out = [];
+  (state.tplTemplates||[]).slice().sort((a,b)=>String(a.gender).localeCompare(String(b.gender),'el') || String(a.sub_category||'').localeCompare(String(b.sub_category||''),'el') || tplOrderCmp(a,b)).forEach(t=>{
+    ((t.data && t.data.days) || []).forEach((d, di)=>(d.items||[]).forEach((it, ii)=>{
+      if(it.type==='cardio' || !it.exercise) return;
+      const own = EQUIPMENT_BY_EXERCISE[it.exercise];
+      const eq = (it.equipment||[]).map(e=> typeof e==='string' ? e : (e && e.name) || '').filter(Boolean);
+      if(!own){ out.push({ t, di, ii, it, kind:'noex', bad:eq }); return; }
+      const names = new Set(own.map(e=>e.name));
+      const bad = eq.filter(n=>!names.has(n));
+      if(bad.length) out.push({ t, di, ii, it, kind:'bad', bad });
+    }));
+  });
+  return out;
+}
+function tplEqCheckHtml(){
+  const rows = tplEqProblems();
+  if(!rows.length) return `<div class="tpl-eqcheck"><b>✓ Όλα σωστά.</b> Σε κανένα έτοιμο πρόγραμμα δεν υπάρχει εξοπλισμός από άλλη άσκηση.</div>`;
+  const nProg = new Set(rows.map(r=>r.t.id)).size;
+  return `<div class="tpl-eqcheck">
+    <div style="font-weight:800;margin-bottom:4px;">⚠️ Βρέθηκαν ${rows.length} ασκήσεις σε ${nProg} προγράμματα</div>
+    <div class="food-note" style="margin:0 0 10px;">Πάτα «Άνοιγμα» για να πας κατευθείαν στην άσκηση. Εκεί «Επεξεργασία» → διόρθωσε τον εξοπλισμό → «Αποθήκευση» και 💾.</div>
+    ${rows.map(r=>`<div class="tpl-eqrow">
+      <div style="min-width:0;flex:1;">
+        <div style="font-size:11px;color:var(--ink-soft);">${escHtml([r.t.gender, tplShortSub(r.t.top_category, r.t.sub_category||'')].join(' · '))}</div>
+        <div><b>${escHtml(r.t.name)}</b> · ${escHtml((r.t.data.days[r.di]||{}).label || 'Ημέρα '+(r.di+1))} · θέση ${r.ii+1}</div>
+        <div style="font-size:12.5px;">${escHtml(r.it.exercise)}</div>
+        <div style="font-size:11.5px;color:#ff9f1a;">${r.kind==='noex' ? 'Η άσκηση δεν υπάρχει στο Excel εξοπλισμού (ίσως άλλαξε όνομα)' : 'Λάθος εξοπλισμός: '+escHtml(r.bad.join(', '))}</div>
+      </div>
+      <button class="btn btn-outline" style="padding:6px 10px;font-size:11px;white-space:nowrap;" data-tpl-eqfix="${r.t.id}|${r.di}|${r.ii}">Άνοιγμα →</button>
+    </div>`).join('')}
+  </div>`;
+}
 function tplScrollToCard(id){
   const go = ()=>{
     const btn = document.querySelector(`#tpl-list-area [data-tpl-edit="${CSS.escape(id)}"]`);
@@ -4463,9 +4499,11 @@ function renderTplListArea(){
       <div class="section-title" style="margin:0;"><span class="dot"></span>Αποθηκευμένα Έτοιμα Προγράμματα (${list.length})</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-outline" id="tpl-export-xlsx" style="padding:6px 10px;font-size:11px;">📥 Excel όλων των προγραμμάτων</button>
+        <button class="btn btn-outline" id="tpl-eqcheck-btn" style="padding:6px 10px;font-size:11px;">🔍 Έλεγχος εξοπλισμού</button>
         <button class="btn btn-outline" id="tpl-trash-btn" style="padding:6px 10px;font-size:11px;">🗑 Κάδος${trash.length?` (${trash.length})`:''}</button>
       </div>
     </div>
+    ${state.tplEqCheckOpen ? tplEqCheckHtml() : ''}
     ${state.tplTrashOpen ? `<div class="tpl-trash">
       <div class="tpl-sub-h" style="margin-top:0;">Διαγραμμένα προγράμματα — κρατάμε τα 10 τελευταία</div>
       ${trash.length ? trash.map(x=>{ const r = x.row||{}; const cat = [r.gender, r.top_category, r.sub_category].filter(Boolean).join(' · ');
@@ -4475,6 +4513,16 @@ function renderTplListArea(){
     </div>` : ''}
     <div class="tpl-sub-h" style="margin-top:${state.tplTrashOpen?'14px':'0'};">${escHtml(title)}</div>
     ${list.length ? list.map((t,i)=>tplListCardHtml(t, k==='orphans'?null:i, list.length)).join('') : `<div class="tpl-empty">Κανένα πρόγραμμα ακόμα σε αυτή την κατηγορία. Η φόρμα παραπάνω είναι ήδη ρυθμισμένη σε αυτήν — φτιάξε το πρώτο.</div>`}`;
+  document.getElementById('tpl-eqcheck-btn')?.addEventListener('click', ()=>{ state.tplEqCheckOpen = !state.tplEqCheckOpen; renderTplListArea(); });
+  document.querySelectorAll('[data-tpl-eqfix]').forEach(el=>el.addEventListener('click', ()=>{
+    const [id, di, ii] = el.getAttribute('data-tpl-eqfix').split('|'); const t = (state.tplTemplates||[]).find(x=>x.id===id); if(!t) return;
+    const go = ()=>{
+      const b = state.tplBuilder; b.closedDays = {}; state.tplGroupFilter = null; b.lastEdited = { di:+di, ii:+ii }; renderTplFormArea();
+      setTimeout(()=>{ document.getElementById(`tpl-item-${di}-${ii}`)?.scrollIntoView({ block:'center' }); }, 60);
+    };
+    if(tplUnsaved()){ tplOpenOther(t); setTimeout(()=>{ if(state.tplBuilder && state.tplBuilder.id===id) go(); }, 800); }
+    else { loadTemplateIntoBuilder(t); go(); }
+  }));
   document.getElementById('tpl-export-xlsx')?.addEventListener('click', async (e)=>{
     const btn = e.currentTarget; btn.disabled = true; const old = btn.textContent; btn.textContent = 'Ετοιμάζεται...';
     try{ await exportTemplatesXlsx(); } catch(err){ toast('Σφάλμα: '+(err.message||err)); }
