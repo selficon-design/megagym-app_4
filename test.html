@@ -937,7 +937,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .ck-opt.on{border-color:var(--cyan);background:rgba(61,216,255,.16);color:var(--cyan-soft);font-weight:700;}
 .set-fail-line{font-size:.85em;margin-top:2px;color:#cfe3ee;}
 .set-fail-line.on{color:#ff8b90;}
-.hands-tgl{flex-shrink:0;padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.04);color:#cfe3ee;font:700 10px inherit;font-family:inherit;cursor:pointer;white-space:nowrap;}
+.hands-tgl{flex-shrink:0;padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.04);color:#cfe3ee;font:700 10px inherit;font-family:inherit;cursor:default;white-space:nowrap;}
 .hands-tgl.two{border-color:#ffb347;color:#ffcf8a;background:rgba(255,179,71,.1);}
 .hands-tgl.off{opacity:.55;cursor:default;}
 .hands-badge{display:inline-block;margin:-4px 0 10px;padding:5px 9px;border-radius:8px;border:1px solid #ffb347;background:rgba(255,179,71,.1);color:#ffcf8a;font-size:11.5px;font-weight:700;}
@@ -3986,8 +3986,7 @@ function renderTplAddMuscleForm(af){
                 ${checked && (af.equipment||[]).length>1 ? `<span class="eq-order-n sm">${(af.equipment||[]).findIndex(e=>e.name===eq.name)+1}</span>`:''}${escHtml(eq.name)}
               </label>
               ${(()=>{ const chosen = (af.equipment||[]).find(e=>e.name===eq.name); const h = eqHandsOf(af.exercise, chosen || eq);
-                 return chosen ? `<button type="button" class="hands-tgl ${h===2?'two':''}" data-tpl-af-hands="${escAttr(eq.name)}" title="Πάτα για αλλαγή">${h===2 ? '✋✋ 2 ΧΕΡΙΑ' : '✋ 1 ΧΕΡΙ'}</button>`
-                               : `<span class="hands-tgl off ${h===2?'two':''}">${h===2 ? '✋✋ 2 ΧΕΡΙΑ' : '✋ 1 ΧΕΡΙ'}</span>`; })()}
+                 return `<span class="hands-tgl ${chosen?'':'off'} ${h===2?'two':''}" title="Από το Excel (στήλη ΧΕΡΙΑ)">${h===2 ? '✋✋ 2 ΧΕΡΙΑ' : '✋ 1 ΧΕΡΙ'}</span>`; })()}
               <button type="button" class="btn btn-outline" style="padding:4px 9px;font-size:10px;flex-shrink:0;white-space:nowrap;" data-eqpreview-exercise="${escAttr(af.exercise)}" data-eqpreview-name="${escAttr(eq.name)}">👁 PREVIEW</button>
             </div>`;
           }).join('')}
@@ -4276,10 +4275,6 @@ function bindTplBuilderEvents(){
     document.querySelectorAll('[data-tpl-af-tempo]').forEach(el=>el.addEventListener('click', ()=>{ af.tempo=el.getAttribute('data-tpl-af-tempo'); renderTplFormArea(); }));
     document.querySelectorAll('[data-tpl-af-failure]').forEach(el=>el.addEventListener('click', ()=>{ af.failure=parseInt(el.getAttribute('data-tpl-af-failure')); renderTplFormArea(); }));
     document.querySelectorAll('[data-tpl-af-fsets]').forEach(el=>el.addEventListener('click', ()=>{ af.failureSets = el.getAttribute('data-tpl-af-fsets'); renderTplFormArea(); }));
-    document.querySelectorAll('[data-tpl-af-hands]').forEach(el=>el.addEventListener('click', ()=>{
-      const name = el.getAttribute('data-tpl-af-hands'); const e = (af.equipment||[]).find(x=>x.name===name); if(!e) return;
-      e.handsSet = eqHandsOf(af.exercise, e)===2 ? 1 : 2; renderTplFormArea();
-    }));
     document.querySelectorAll('[data-tpl-af-eqcheck]').forEach(el=>{
       el.addEventListener('change', ()=>{
         const eqIdx = parseInt(el.getAttribute('data-eqidx'));
@@ -6002,13 +5997,13 @@ function workoutHands(ex){
   const eq = ex && ex.equipment && ex.equipment[0];
   return eq ? eqHandsOf(ex.exercise, eq) : 1;
 }
-// 1 ή 2 χέρια για συγκεκριμένο εξοπλισμό άσκησης: ό,τι ορίστηκε στον builder, αλλιώς ό,τι λέει το Excel (στήλη ΧΕΡΙΑ)
+// 1 ή 2 χέρια για συγκεκριμένο εξοπλισμό άσκησης: πάντα από το Excel (φύλλο «ΕΞΟΠΛΙΣΜΟΣ ΑΝΑ ΑΣΚΗΣΗ», στήλη ΧΕΡΙΑ: 1 ή 2)
 function eqHandsOf(exercise, eq){
   if(!eq) return 1;
-  if(Number(eq.handsSet) === 1 || Number(eq.handsSet) === 2) return Number(eq.handsSet);
   const list = (typeof EQUIPMENT_BY_EXERCISE!=='undefined' && EQUIPMENT_BY_EXERCISE[exercise]) || [];
   const cat = list.find(e=>String(e.name||'').trim()===String(eq.name||'').trim());
-  return Number((cat && cat.hands) || eq.hands) === 2 ? 2 : 1;
+  if(cat) return Number(cat.hands) === 2 ? 2 : 1;      // το Excel μετράει πάντα — και αν αλλάξει αργότερα
+  return Number(eq.hands) === 2 ? 2 : 1;
 }
 function handsBadgeHtml(n){
   return n===2 ? `<div class="hands-badge">✋✋ ΜΕ 2 ΧΕΡΙΑ — πρώτα ΧΕΡΙ Α, μετά ΧΕΡΙ Β χωρίς διάλειμμα</div>` : '';
