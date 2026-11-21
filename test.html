@@ -937,6 +937,10 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .ck-opt.on{border-color:var(--cyan);background:rgba(61,216,255,.16);color:var(--cyan-soft);font-weight:700;}
 .set-fail-line{font-size:.85em;margin-top:2px;color:#cfe3ee;}
 .set-fail-line.on{color:#ff8b90;}
+.hands-tgl{flex-shrink:0;padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.04);color:#cfe3ee;font:700 10px inherit;font-family:inherit;cursor:pointer;white-space:nowrap;}
+.hands-tgl.two{border-color:#ffb347;color:#ffcf8a;background:rgba(255,179,71,.1);}
+.hands-tgl.off{opacity:.55;cursor:default;}
+.hands-badge{display:inline-block;margin:-4px 0 10px;padding:5px 9px;border-radius:8px;border:1px solid #ffb347;background:rgba(255,179,71,.1);color:#ffcf8a;font-size:11.5px;font-weight:700;}
 .fsets-note{font-size:11px;font-weight:700;color:#ffb347;margin-top:3px;letter-spacing:.02em;}
 .wk-mute-btn{padding:7px 11px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.05);color:#dfe9ef;font:700 11.5px 'Rajdhani',sans-serif;letter-spacing:.05em;cursor:pointer;}
 .wk-mute-btn.on{border-color:#ff8b90;color:#ff8b90;background:rgba(255,107,107,.1);}
@@ -3897,7 +3901,7 @@ function renderTplItemCard(it, dayIndex, itemIndex, count){
         <div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">${escHtml(it.exercise)}</div>
         <div style="font-size:11px;color:var(--cyan-soft);margin-top:2px;" class="mono">SET ${it.set} · REP ${escHtml(it.rep)} · ${escHtml(it.rest)} · ${escHtml(it.tempo)} · ${escHtml(failureFull(it))}</div>
         ${(it.equipment||[]).length > tplEquipForExercise(it.exercise, it.equipment).length ? `<div style="font-size:10.5px;color:#ff9f1a;font-weight:700;margin-top:4px;">⚠️ Έχει εξοπλισμό άλλης άσκησης — πάτα «Επεξεργασία» και «Αποθήκευση» για διόρθωση</div>`:''}
-        ${(it.equipment&&it.equipment.length) ? `<div style="font-size:10.5px;color:#ffd23f;margin-top:4px;">⚙ ${it.equipment.map(e=>escHtml(e.name)).join(' · ')}</div>` : `<div style="font-size:10.5px;color:#ff8080;margin-top:4px;font-style:italic;">Χωρίς επιλεγμένο εξοπλισμό</div>`}
+        ${(it.equipment&&it.equipment.length) ? `<div style="font-size:10.5px;color:#ffd23f;margin-top:4px;">⚙ ${it.equipment.map(e=>escHtml(e.name)+(eqHandsOf(it.exercise, e)===2 ? ' <b style="color:#ffb347;">(✋✋ 2 ΧΕΡΙΑ)</b>' : '')).join(' · ')}</div>` : `<div style="font-size:10.5px;color:#ff8080;margin-top:4px;font-style:italic;">Χωρίς επιλεγμένο εξοπλισμό</div>`}
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
         <button class="btn btn-info" style="padding:6px 10px;font-size:11px;" data-tpl-edititem="${dayIndex}:${itemIndex}">Επεξεργασία</button>
@@ -3981,6 +3985,9 @@ function renderTplAddMuscleForm(af){
                 <input type="checkbox" data-tpl-af-eqcheck data-eqidx="${ei}" ${checked?'checked':''}>
                 ${checked && (af.equipment||[]).length>1 ? `<span class="eq-order-n sm">${(af.equipment||[]).findIndex(e=>e.name===eq.name)+1}</span>`:''}${escHtml(eq.name)}
               </label>
+              ${(()=>{ const chosen = (af.equipment||[]).find(e=>e.name===eq.name); const h = eqHandsOf(af.exercise, chosen || eq);
+                 return chosen ? `<button type="button" class="hands-tgl ${h===2?'two':''}" data-tpl-af-hands="${escAttr(eq.name)}" title="Πάτα για αλλαγή">${h===2 ? '✋✋ 2 ΧΕΡΙΑ' : '✋ 1 ΧΕΡΙ'}</button>`
+                               : `<span class="hands-tgl off ${h===2?'two':''}">${h===2 ? '✋✋ 2 ΧΕΡΙΑ' : '✋ 1 ΧΕΡΙ'}</span>`; })()}
               <button type="button" class="btn btn-outline" style="padding:4px 9px;font-size:10px;flex-shrink:0;white-space:nowrap;" data-eqpreview-exercise="${escAttr(af.exercise)}" data-eqpreview-name="${escAttr(eq.name)}">👁 PREVIEW</button>
             </div>`;
           }).join('')}
@@ -4269,6 +4276,10 @@ function bindTplBuilderEvents(){
     document.querySelectorAll('[data-tpl-af-tempo]').forEach(el=>el.addEventListener('click', ()=>{ af.tempo=el.getAttribute('data-tpl-af-tempo'); renderTplFormArea(); }));
     document.querySelectorAll('[data-tpl-af-failure]').forEach(el=>el.addEventListener('click', ()=>{ af.failure=parseInt(el.getAttribute('data-tpl-af-failure')); renderTplFormArea(); }));
     document.querySelectorAll('[data-tpl-af-fsets]').forEach(el=>el.addEventListener('click', ()=>{ af.failureSets = el.getAttribute('data-tpl-af-fsets'); renderTplFormArea(); }));
+    document.querySelectorAll('[data-tpl-af-hands]').forEach(el=>el.addEventListener('click', ()=>{
+      const name = el.getAttribute('data-tpl-af-hands'); const e = (af.equipment||[]).find(x=>x.name===name); if(!e) return;
+      e.handsSet = eqHandsOf(af.exercise, e)===2 ? 1 : 2; renderTplFormArea();
+    }));
     document.querySelectorAll('[data-tpl-af-eqcheck]').forEach(el=>{
       el.addEventListener('change', ()=>{
         const eqIdx = parseInt(el.getAttribute('data-eqidx'));
@@ -5989,10 +6000,18 @@ document.addEventListener('click', e=>{
 // 2 = η άσκηση γίνεται πρώτα με το ΧΕΡΙ Α και μετά με το ΧΕΡΙ Β (στήλη «ΧΕΡΙΑ» του Excel, ανά εξοπλισμό)
 function workoutHands(ex){
   const eq = ex && ex.equipment && ex.equipment[0];
+  return eq ? eqHandsOf(ex.exercise, eq) : 1;
+}
+// 1 ή 2 χέρια για συγκεκριμένο εξοπλισμό άσκησης: ό,τι ορίστηκε στον builder, αλλιώς ό,τι λέει το Excel (στήλη ΧΕΡΙΑ)
+function eqHandsOf(exercise, eq){
   if(!eq) return 1;
-  const list = (typeof EQUIPMENT_BY_EXERCISE!=='undefined' && EQUIPMENT_BY_EXERCISE[ex.exercise]) || [];
+  if(Number(eq.handsSet) === 1 || Number(eq.handsSet) === 2) return Number(eq.handsSet);
+  const list = (typeof EQUIPMENT_BY_EXERCISE!=='undefined' && EQUIPMENT_BY_EXERCISE[exercise]) || [];
   const cat = list.find(e=>String(e.name||'').trim()===String(eq.name||'').trim());
   return Number((cat && cat.hands) || eq.hands) === 2 ? 2 : 1;
+}
+function handsBadgeHtml(n){
+  return n===2 ? `<div class="hands-badge">✋✋ ΜΕ 2 ΧΕΡΙΑ — πρώτα ΧΕΡΙ Α, μετά ΧΕΡΙ Β χωρίς διάλειμμα</div>` : '';
 }
 // Κύλιση ώστε το σημείο να φαίνεται ακριβώς κάτω από τη σταθερή μπάρα της κορυφής
 function wkTopBarH(){
@@ -10952,6 +10971,7 @@ function renderClientExerciseView(item){
           <div class="pad">
             <div class="priority-badge">${ei+1}η ΠΡΟΤΕΡΑΙΟΤΗΤΑ</div>
             <h3 style="font-size:15px;margin-bottom:10px;">${escHtml(eq.name)}</h3>
+            ${handsBadgeHtml(eqHandsOf(item.exercise, eq))}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
               <button class="btn eq-action-btn" ${eq.exercisePhotoUrl?`data-clientlib-eqphoto="${escAttr(eq.exercisePhotoUrl)}"`:'disabled'}>ΑΣΚΗΣΗ</button>
               <button class="btn eq-action-btn" ${eq.videoUrl?`data-clientlib-eqvideo="${escAttr(eq.videoUrl)}"`:'disabled'}>VIDEO</button>
@@ -11587,6 +11607,7 @@ function renderTplLibExerciseView(){
           <div class="pad">
             <div class="priority-badge">${ei+1}η ΠΡΟΤΕΡΑΙΟΤΗΤΑ</div>
             <h3 style="font-size:15px;margin-bottom:10px;">${escHtml(eq.name)}</h3>
+            ${handsBadgeHtml(eqHandsOf(it.exercise, eq))}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
               <button class="btn eq-action-btn" ${eq.exercisePhotoUrl?`data-tpllib-eqphoto="${escAttr(eq.exercisePhotoUrl)}"`:'disabled'}>ΑΣΚΗΣΗ</button>
               <button class="btn eq-action-btn" ${eq.videoUrl?`data-tpllib-eqvideo="${escAttr(eq.videoUrl)}"`:'disabled'}>VIDEO</button>
