@@ -868,6 +868,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .tpl-pos b{font-size:15px;color:#ffd23f;min-width:22px;text-align:center;}
 .tpl-new-btn{width:100%;justify-content:center;padding:14px;font-size:15px;margin-bottom:6px;background:linear-gradient(145deg,#2bd96b,#14a34a);border:1.5px solid #6dffa3;color:#04210f;font-weight:800;box-shadow:0 0 18px rgba(43,217,107,.45);}
 @media (hover:hover) and (pointer:fine){ .tpl-new-btn:hover{filter:brightness(1.08);} }
+.tpl-back-row{position:sticky;top:8px;z-index:6;display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.tpl-back-row .tpl-back-btn{position:static;margin-bottom:0;}
 .tpl-back-btn{position:sticky;top:8px;z-index:6;margin-bottom:12px;padding:9px 14px;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.45);background:#071623;}
 .tpl-days-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
 .tpl-days-btns{display:flex;gap:8px;flex-wrap:wrap;}
@@ -3635,7 +3637,7 @@ function renderTplFormArea(){
   tplHistRecord(b);   // αναίρεση/επανάληψη: κρατάμε κάθε αλλαγή στις ημέρες
   const scroller = document.scrollingElement || document.documentElement, keepY = scroller.scrollTop; // η οθόνη μένει εκεί που είναι
   area.innerHTML = `
-    ${clientMode ? '' : `<button class="btn btn-outline tpl-back-btn" id="tpl-back-btn">← Πίσω στα έτοιμα προγράμματα</button>`}
+    ${clientMode ? '' : `<div class="tpl-back-row"><button class="btn btn-outline tpl-back-btn" id="tpl-back-btn">← Πίσω στα έτοιμα προγράμματα</button>${state.tplGcmpLast ? `<button class="btn btn-primary tpl-back-btn" id="tpl-gcmp-back">↩ Πίσω στη σύγκριση${state.tplGcmpLast.group ? ' · '+escHtml(state.tplGcmpLast.group) : ''}</button>` : ''}</div>`}
     ${renderGymSelector()}
     ${b.id ? `<div class="calc-type-box" style="text-align:center;">✎ ΕΠΕΞΕΡΓΑΣΙΑ ΥΠΑΡΧΟΝΤΟΣ ΠΡΟΓΡΑΜΜΑΤΟΣ — «${escHtml(b.name)}»</div>`:''}
     ${clientMode ? renderClientBuilderMeta(b) : (b.id && !b.metaOpen ? tplMetaClosedHtml(b) : renderTplMetaForm(b) + (b.id ? `<button type="button" class="btn btn-outline tpl-meta-toggle" id="tpl-meta-toggle" style="margin:-8px 0 18px;">▴ Κλείσιμο πληροφοριών προγράμματος</button>` : ''))}
@@ -3763,7 +3765,17 @@ function tplGcmpOpen(){
   state.tplGcmp = { group: state.tplGroupFilter || null, near: true, cat: (b && b.id && tplCatOf((state.tplTemplates||[]).find(t=>t.id===b.id)||{})) || state.tplCatView, focusId: b && b.id };
   tplGcmpRender();
 }
-function tplGcmpClose(){ state.tplGcmp = null; document.getElementById('tpl-gcmp')?.remove(); document.body.style.overflow = ''; }
+function tplGcmpClose(keepBack){
+  const ov = document.getElementById('tpl-gcmp');
+  if(keepBack && state.tplGcmp){ state.tplGcmpLast = { ...state.tplGcmp, scrollTop: ov ? ov.scrollTop : 0 }; }   // για το «↩ Πίσω στη σύγκριση»
+  else if(!keepBack) state.tplGcmpLast = null;
+  state.tplGcmp = null; document.getElementById('tpl-gcmp')?.remove(); document.body.style.overflow = ''; }
+function tplGcmpBack(){
+  const L = state.tplGcmpLast; if(!L) return;
+  state.tplGcmp = { group:L.group, near:L.near, cat:L.cat, focusId:L.focusId, _scrolled:true };
+  tplGcmpRender();
+  const ov = document.getElementById('tpl-gcmp'); if(ov){ ov.scrollTop = L.scrollTop||0; requestAnimationFrame(()=>{ ov.scrollTop = L.scrollTop||0; }); }
+}
 function tplGcmpRender(){
   const g = state.tplGcmp; if(!g) return;
   const b = state.tplBuilder;
@@ -3799,12 +3811,12 @@ function tplGcmpRender(){
   let ov = document.getElementById('tpl-gcmp');
   if(!ov){ ov = document.createElement('div'); ov.id = 'tpl-gcmp'; document.body.appendChild(ov); }
   ov.innerHTML = html; document.body.style.overflow = 'hidden';
-  ov.querySelector('#tpl-gcmp-x').addEventListener('click', tplGcmpClose);
+  ov.querySelector('#tpl-gcmp-x').addEventListener('click', ()=>{ tplGcmpClose(false); renderTplFormArea(); });
   ov.querySelectorAll('[data-tpl-gcmp-g]').forEach(el=>el.addEventListener('click', ()=>{ g.group = el.getAttribute('data-tpl-gcmp-g'); const y = ov.scrollTop; tplGcmpRender(); ov.scrollTop = y; }));
   ov.querySelector('#tpl-gcmp-near')?.addEventListener('change', e=>{ g.near = e.target.checked; tplGcmpRender(); });
   ov.querySelectorAll('[data-tpl-gcmp-open]').forEach(el=>el.addEventListener('click', ()=>{
     const t = (state.tplTemplates||[]).find(x=>x.id===el.getAttribute('data-tpl-gcmp-open')); const grp = g.group;
-    tplGcmpClose(); if(!t) return;
+    tplGcmpClose(true); if(!t) return;
     state.tplGroupFilter = grp;
     if(state.tplBuilder && state.tplBuilder.id===t.id){ state.tplBuilder.closedDays = {}; renderTplFormArea(); return; }
     tplOpenOther(t); setTimeout(()=>{ if(state.tplBuilder && state.tplBuilder.id===t.id){ state.tplBuilder.closedDays = {}; renderTplFormArea(); } }, 300);
@@ -4171,6 +4183,7 @@ function bindTplBuilderEvents(){
     renderTplFormArea();
   }));
   document.getElementById('tpl-gcmp-open')?.addEventListener('click', tplGcmpOpen);
+  document.getElementById('tpl-gcmp-back')?.addEventListener('click', tplGcmpBack);
   document.querySelectorAll('[data-tpl-gfilter]').forEach(el=>el.addEventListener('click', ()=>{
     state.tplGroupFilter = el.getAttribute('data-tpl-gfilter') || null; renderTplFormArea();
   }));
