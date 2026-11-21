@@ -3613,7 +3613,8 @@ function renderTplFormArea(){
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-primary" id="tpl-draft-resume">↩ Συνέχεια από εκεί που έμεινα</button>
           <button class="btn btn-outline" id="tpl-draft-drop">${state.tplDraftDropConfirm ? 'Σίγουρα; Πάτα ξανά — θα σβηστεί' : '🗑 Διαγραφή πρόχειρου'}</button>
-        </div></div>` : '') + `<button class="btn tpl-new-btn" id="tpl-new-btn">＋ Δημιουργία νέου προγράμματος</button>`;
+        </div></div>` : '') + (state.tplGcmpLast ? `<button class="btn btn-primary" id="tpl-gcmp-back2" style="width:100%;justify-content:center;margin-bottom:10px;">↩ Πίσω στη σύγκριση${state.tplGcmpLast.group ? ' · '+escHtml(state.tplGcmpLast.group) : ''} <span class="kbd">Esc</span></button>` : '') + `<button class="btn tpl-new-btn" id="tpl-new-btn">＋ Δημιουργία νέου προγράμματος</button>`;
+    document.getElementById('tpl-gcmp-back2')?.addEventListener('click', tplGcmpBack);
     document.getElementById('tpl-draft-resume')?.addEventListener('click', ()=>{
       const d = tplDraftRead(); if(!d) return;
       const nb = Object.assign(freshTplBuilder(), d.b);
@@ -4479,8 +4480,8 @@ async function submitTplProgram(opts){
     if(!wasEdit && typeof ok==='string') b.id = ok;
     b._savedSnap = tplSnap(b); b._cancelConfirm = false;
     tplDraftClear();
-    const what = (opts && opts.withItem) ? 'Η άσκηση και το πρόγραμμα' : 'Το πρόγραμμα';
-    toast(wasEdit ? `💾 ${what} αποθηκεύτηκαν — συνεχίζεις.` : '💾 Το «'+b.name.trim()+'» αποθηκεύτηκε στη βιβλιοθήκη'+((opts && opts.withItem)?' (μαζί με την άσκηση)':'')+' — συνεχίζεις.');
+    const what = (opts && opts.withItem) ? 'Η άσκηση και το πρόγραμμα αποθηκεύτηκαν' : 'Το πρόγραμμα αποθηκεύτηκε';
+    toast(wasEdit ? `💾 ${what} — συνεχίζεις.${state.tplGcmpLast ? ' (Esc = πίσω στη σύγκριση)' : ''}` : '💾 Το «'+b.name.trim()+'» αποθηκεύτηκε στη βιβλιοθήκη'+((opts && opts.withItem)?' (μαζί με την άσκηση)':'')+' — συνεχίζεις.');
     if(b.id){ const me = (state.tplTemplates||[]).find(t=>t.id===b.id); if(me) b.sortOrder = me.sort_order; }
     b._savedSnap = tplSnap(b);
     renderTplFormArea();
@@ -12626,7 +12627,7 @@ document.addEventListener('keydown', e=>{
   const isB = e.altKey && (e.code==='KeyB' || e.key==='b' || e.key==='B' || e.key==='β');
   if(e.key!=='Escape' && !isB) return;
   if(document.getElementById('tpl-gcmp')){ if(e.key==='Escape'){ e.preventDefault(); tplGcmpClose(true); renderTplFormArea(); } return; }
-  if(state.tab!=='tplbuilder' || !state.tplGcmpLast || !state.tplFormOpen) return;
+  if(state.tab!=='tplbuilder' || !state.tplGcmpLast) return;   // δουλεύει και αφού έκλεισε το πρόγραμμα με «Αποθήκευση»
   if(document.querySelector('.modal-backdrop, .modal')) return;            // ανοιχτό μήνυμα: το Esc πάει εκεί
   const tag = (document.activeElement && document.activeElement.tagName) || '';
   if(e.key==='Escape' && (tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT')){ document.activeElement.blur(); return; }
