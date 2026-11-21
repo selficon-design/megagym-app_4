@@ -4245,14 +4245,24 @@ function bindTplBuilderEvents(){
       return;
     }
     tplDraftClear();
+    const backTo = b.id || null;   // επιστροφή στη λίστα, ακριβώς στο πρόγραμμα που είχες ανοιχτό
     state.tplBuilder = freshTplBuilder();
     state.tplFormOpen = false;
-    state.tplHighlightId = null;
+    state.tplHighlightId = backTo;
     renderTplListArea();
     renderTplFormArea();
+    if(backTo) tplScrollToCard(backTo);
   });
 }
 
+function tplScrollToCard(id){
+  const go = ()=>{
+    const btn = document.querySelector(`#tpl-list-area [data-tpl-edit="${CSS.escape(id)}"]`);
+    const card = btn && btn.closest('.tl-card');
+    if(card){ card.scrollIntoView({ block:'center' }); card.classList.add('tpl-hl'); }
+  };
+  go(); requestAnimationFrame(go);
+}
 async function submitTplProgram(opts){
   const keep = !!(opts && opts.keep);
   const b = state.tplBuilder;
