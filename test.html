@@ -709,6 +709,20 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .tpl-draft-box{border-color:#ffb347 !important;margin-bottom:14px;}
 .tpl-eqcheck{margin:12px 0;padding:12px 14px;border:1.5px solid #ffb347;border-radius:12px;background:rgba(255,179,71,.06);}
 .tpl-eqrow{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line);}
+#tpl-gcmp{position:fixed;inset:0;z-index:9500;background:rgba(2,8,14,.97);overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.tpl-gcmp-in{max-width:1100px;margin:0 auto;padding:14px 16px 60px;}
+.tpl-gcmp-top{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;background:rgba(2,8,14,.97);}
+.tpl-gcmp-prog{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:14px;background:rgba(7,22,35,.7);}
+.tpl-gcmp-prog.cur{border-color:#ffb347;box-shadow:0 0 0 2px rgba(255,179,71,.25);}
+.tpl-gcmp-ph{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:16px;margin-bottom:8px;}
+.tpl-gcmp-day{display:grid;grid-template-columns:150px 1fr;gap:10px;padding:7px 0;border-top:1px solid var(--line);}
+.tpl-gcmp-dl{font-size:12px;font-weight:700;color:var(--cyan-soft,#8fe3ff);}
+.tpl-gcmp-it{font-size:13px;margin-bottom:6px;}
+.tpl-gcmp-it .mono{font-size:11.5px;color:var(--ink-soft);}
+.tpl-gcmp-eq{font-size:11px;color:#c9b38a;}
+.tpl-gcmp-none{font-size:12px;color:var(--ink-soft);}
+.tpl-gf-cmp{margin-left:auto;padding:6px 10px;font-size:11.5px;}
+@media (max-width:640px){ .tpl-gcmp-day{grid-template-columns:1fr;gap:2px;} }
 .tpl-gf{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 14px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(3,11,18,.4);}
 .tpl-gf-lbl{font-size:12px;font-weight:700;color:var(--cyan-soft,#8fe3ff);margin-right:4px;}
 .tpl-gf-chip{padding:6px 10px;border-radius:999px;border:1.5px solid rgba(61,216,255,.3);background:transparent;color:var(--ink);font:600 11.5px inherit;font-family:inherit;cursor:pointer;}
@@ -3740,7 +3754,62 @@ function tplGroupFilterHtml(b){
   return `<div class="tpl-gf"><span class="tpl-gf-lbl">Μυϊκή ομάδα:</span>
     <button type="button" class="tpl-gf-chip ${!state.tplGroupFilter?'on':''}" data-tpl-gfilter="">Όλες</button>
     ${groups.map(g=>`<button type="button" class="tpl-gf-chip ${state.tplGroupFilter===g?'on':''}" data-tpl-gfilter="${escAttr(g)}">${escHtml(g)}</button>`).join('')}
+    <button type="button" class="btn btn-outline tpl-gf-cmp" id="tpl-gcmp-open">📊 ${state.tplGroupFilter ? escHtml(state.tplGroupFilter)+' σε' : 'Σύγκριση σε'} όλα τα προγράμματα</button>
   </div>`;
+}
+/* Σύγκριση μιας μυϊκής ομάδας σε όλα τα προγράμματα της κατηγορίας (π.χ. ΠΟΔΙΑ σε PRO 1…PRO 6), το ένα κάτω από το άλλο */
+function tplGcmpOpen(){
+  const b = state.tplBuilder;
+  state.tplGcmp = { group: state.tplGroupFilter || null, near: true, cat: (b && b.id && tplCatOf((state.tplTemplates||[]).find(t=>t.id===b.id)||{})) || state.tplCatView, focusId: b && b.id };
+  tplGcmpRender();
+}
+function tplGcmpClose(){ state.tplGcmp = null; document.getElementById('tpl-gcmp')?.remove(); document.body.style.overflow = ''; }
+function tplGcmpRender(){
+  const g = state.tplGcmp; if(!g) return;
+  const b = state.tplBuilder;
+  let list = (state.tplTemplates||[]).filter(t=>tplCatOf(t)===g.cat).sort(tplOrderCmp)
+    .map(t=> (b && b.id===t.id) ? { ...t, data:{ ...(t.data||{}), days:b.days }, _live:true } : t);   // το ανοιχτό πρόγραμμα με τις τρέχουσες αλλαγές
+  const groups = []; list.forEach(t=>((t.data&&t.data.days)||[]).forEach(d=>(d.items||[]).forEach(it=>{ const x = tplGroupOf(it); if(!groups.includes(x)) groups.push(x); })));
+  if(!g.group || !groups.includes(g.group)) g.group = groups.find(x=>x!=='ΑΕΡΟΒΙΟ') || groups[0] || null;
+  const fi = list.findIndex(t=>t.id===g.focusId);
+  if(g.near && fi>=0) list = list.slice(Math.max(0, fi-2), fi+3);
+  const eqNames = it=>(it.equipment||[]).map(e=> typeof e==='string' ? e : (e && e.name) || '').filter(Boolean);
+  const [cg, ctop, csub] = String(g.cat||'').split('|');
+  const html = `<div class="tpl-gcmp-in">
+    <div class="tpl-gcmp-top">
+      <div><b>Σύγκριση μυϊκής ομάδας</b><div style="font-size:12px;color:var(--ink-soft);">${escHtml([cg, tplShortSub(ctop||'', csub||'')].filter(Boolean).join(' · '))}</div></div>
+      <button class="btn btn-outline" id="tpl-gcmp-x">✕ Κλείσιμο</button>
+    </div>
+    <div class="tpl-gf" style="margin:10px 0;">${groups.map(x=>`<button type="button" class="tpl-gf-chip ${g.group===x?'on':''}" data-tpl-gcmp-g="${escAttr(x)}">${escHtml(x)}</button>`).join('')}</div>
+    ${fi>=0 ? `<label style="display:flex;gap:8px;align-items:center;font-size:12.5px;margin-bottom:10px;cursor:pointer;"><input type="checkbox" id="tpl-gcmp-near" ${g.near?'checked':''}> Μόνο τα κοντινά (2 πριν και 2 μετά από το «${escHtml((state.tplTemplates.find(t=>t.id===g.focusId)||{}).name||'')}»)</label>` : ''}
+    ${list.map(t=>{
+      const days = (t.data && t.data.days) || [];
+      return `<div class="tpl-gcmp-prog ${t.id===g.focusId?'cur':''}" id="tpl-gcmp-p-${t.id}">
+        <div class="tpl-gcmp-ph"><span><b>${escHtml(t.name)}</b>${t._live?' <span style="font-size:11px;color:#ffb347;">(ανοιχτό τώρα)</span>':''}${t.is_published?'':' <span style="font-size:11px;color:var(--ink-soft);">· κρυφό</span>'}</span>
+          <button class="btn btn-outline" style="padding:5px 9px;font-size:11px;" data-tpl-gcmp-open="${t.id}">Άνοιγμα →</button></div>
+        ${days.map((d,di)=>{ const its = (d.items||[]).filter(it=>tplGroupOf(it)===g.group);
+          return `<div class="tpl-gcmp-day"><div class="tpl-gcmp-dl">${di+1}. ${escHtml(d.label||'')}</div>
+            ${its.length ? its.map(it=> it.type==='cardio'
+              ? `<div class="tpl-gcmp-it">${escHtml(it.equipment||'Αερόβιο')} · ${escHtml(String(it.minutes||''))}′ ${it.mode==='drill'?'DRILL':''}</div>`
+              : `<div class="tpl-gcmp-it"><div>${escHtml(it.exercise||'—')}</div><div class="mono">${it.set}×${escHtml(it.rep||'')} · ${escHtml(it.rest||'')} · ${escHtml(it.tempo||'')} · ${escHtml(failureFull(it))}</div>${eqNames(it).length?`<div class="tpl-gcmp-eq">${escHtml(eqNames(it).join(' · '))}</div>`:''}</div>`).join('')
+              : `<div class="tpl-gcmp-none">—</div>`}
+          </div>`; }).join('')}
+      </div>`; }).join('') || '<div class="tpl-empty">Κανένα πρόγραμμα.</div>'}
+  </div>`;
+  let ov = document.getElementById('tpl-gcmp');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'tpl-gcmp'; document.body.appendChild(ov); }
+  ov.innerHTML = html; document.body.style.overflow = 'hidden';
+  ov.querySelector('#tpl-gcmp-x').addEventListener('click', tplGcmpClose);
+  ov.querySelectorAll('[data-tpl-gcmp-g]').forEach(el=>el.addEventListener('click', ()=>{ g.group = el.getAttribute('data-tpl-gcmp-g'); const y = ov.scrollTop; tplGcmpRender(); ov.scrollTop = y; }));
+  ov.querySelector('#tpl-gcmp-near')?.addEventListener('change', e=>{ g.near = e.target.checked; tplGcmpRender(); });
+  ov.querySelectorAll('[data-tpl-gcmp-open]').forEach(el=>el.addEventListener('click', ()=>{
+    const t = (state.tplTemplates||[]).find(x=>x.id===el.getAttribute('data-tpl-gcmp-open')); const grp = g.group;
+    tplGcmpClose(); if(!t) return;
+    state.tplGroupFilter = grp;
+    if(state.tplBuilder && state.tplBuilder.id===t.id){ state.tplBuilder.closedDays = {}; renderTplFormArea(); return; }
+    tplOpenOther(t); setTimeout(()=>{ if(state.tplBuilder && state.tplBuilder.id===t.id){ state.tplBuilder.closedDays = {}; renderTplFormArea(); } }, 300);
+  }));
+  if(!g._scrolled && g.focusId){ g._scrolled = true; setTimeout(()=>document.getElementById('tpl-gcmp-p-'+g.focusId)?.scrollIntoView({ block:'start' }), 30); }
 }
 // Ημέρα κλειστή; (ανοιχτή πάντα αν δουλεύεις μέσα της)
 function tplDayClosed(b, di){
@@ -4101,6 +4170,7 @@ function bindTplBuilderEvents(){
     if(tplDayClosed(b, di)) delete b.closedDays[di]; else if(!(b.addForm && b.addForm.dayIndex===di)) b.closedDays[di] = true;
     renderTplFormArea();
   }));
+  document.getElementById('tpl-gcmp-open')?.addEventListener('click', tplGcmpOpen);
   document.querySelectorAll('[data-tpl-gfilter]').forEach(el=>el.addEventListener('click', ()=>{
     state.tplGroupFilter = el.getAttribute('data-tpl-gfilter') || null; renderTplFormArea();
   }));
