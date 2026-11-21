@@ -717,6 +717,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .tpl-gcmp-ph{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:16px;margin-bottom:8px;}
 .tpl-gcmp-day{display:grid;grid-template-columns:150px 1fr;gap:10px;padding:7px 0;border-top:1px solid var(--line);}
 .tpl-gcmp-dl{font-size:12px;font-weight:700;color:var(--cyan-soft,#8fe3ff);}
+.tpl-gcmp-dbtn{display:block;margin-top:5px;padding:4px 8px;border-radius:7px;border:1px solid rgba(255,179,71,.6);background:rgba(255,179,71,.08);color:#ffcf8a;font:600 10.5px inherit;font-family:inherit;cursor:pointer;}
+.kbd{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:5px;border:1px solid rgba(0,0,0,.35);background:rgba(0,0,0,.18);font-size:10.5px;font-weight:700;}
 .tpl-gcmp-it{font-size:13px;margin-bottom:6px;}
 .tpl-gcmp-it .mono{font-size:11.5px;color:var(--ink-soft);}
 .tpl-gcmp-eq{font-size:11px;color:#c9b38a;}
@@ -3637,7 +3639,7 @@ function renderTplFormArea(){
   tplHistRecord(b);   // αναίρεση/επανάληψη: κρατάμε κάθε αλλαγή στις ημέρες
   const scroller = document.scrollingElement || document.documentElement, keepY = scroller.scrollTop; // η οθόνη μένει εκεί που είναι
   area.innerHTML = `
-    ${clientMode ? '' : `<div class="tpl-back-row"><button class="btn btn-outline tpl-back-btn" id="tpl-back-btn">← Πίσω στα έτοιμα προγράμματα</button>${state.tplGcmpLast ? `<button class="btn btn-primary tpl-back-btn" id="tpl-gcmp-back">↩ Πίσω στη σύγκριση${state.tplGcmpLast.group ? ' · '+escHtml(state.tplGcmpLast.group) : ''}</button>` : ''}</div>`}
+    ${clientMode ? '' : `<div class="tpl-back-row"><button class="btn btn-outline tpl-back-btn" id="tpl-back-btn">← Πίσω στα έτοιμα προγράμματα</button>${state.tplGcmpLast ? `<button class="btn btn-primary tpl-back-btn" id="tpl-gcmp-back" title="Πλήκτρο Esc ή Alt+B">↩ Πίσω στη σύγκριση${state.tplGcmpLast.group ? ' · '+escHtml(state.tplGcmpLast.group) : ''} <span class="kbd">Esc</span></button>` : ''}</div>`}
     ${renderGymSelector()}
     ${b.id ? `<div class="calc-type-box" style="text-align:center;">✎ ΕΠΕΞΕΡΓΑΣΙΑ ΥΠΑΡΧΟΝΤΟΣ ΠΡΟΓΡΑΜΜΑΤΟΣ — «${escHtml(b.name)}»</div>`:''}
     ${clientMode ? renderClientBuilderMeta(b) : (b.id && !b.metaOpen ? tplMetaClosedHtml(b) : renderTplMetaForm(b) + (b.id ? `<button type="button" class="btn btn-outline tpl-meta-toggle" id="tpl-meta-toggle" style="margin:-8px 0 18px;">▴ Κλείσιμο πληροφοριών προγράμματος</button>` : ''))}
@@ -3770,6 +3772,22 @@ function tplGcmpClose(keepBack){
   if(keepBack && state.tplGcmp){ state.tplGcmpLast = { ...state.tplGcmp, scrollTop: ov ? ov.scrollTop : 0 }; }   // για το «↩ Πίσω στη σύγκριση»
   else if(!keepBack) state.tplGcmpLast = null;
   state.tplGcmp = null; document.getElementById('tpl-gcmp')?.remove(); document.body.style.overflow = ''; }
+// Από τη σύγκριση: ανοίγει το πρόγραμμα με ΜΟΝΟ εκείνη την ημέρα ανοιχτή και πηγαίνει εκεί
+function tplGcmpOpenAt(id, di){
+  const g = state.tplGcmp; const grp = g && g.group;
+  const t = (state.tplTemplates||[]).find(x=>x.id===id);
+  tplGcmpClose(true); if(!t) return;
+  state.tplGroupFilter = grp;
+  const show = ()=>{
+    const b = state.tplBuilder; if(!b || b.id!==id) return;
+    b.closedDays = {}; b.days.forEach((d,i)=>{ if(i!==di) b.closedDays[i] = true; });
+    renderTplFormArea();
+    setTimeout(()=>{ const card = document.querySelector(`[data-tpl-daytoggle="${di}"]`); if(card){ const y = card.getBoundingClientRect().top + window.scrollY - 70; window.scrollTo({ top: Math.max(0,y) }); } }, 60);
+  };
+  if(state.tplBuilder && state.tplBuilder.id===id){ show(); return; }
+  if(tplUnsaved()){ tplOpenOther(t); const wait = setInterval(()=>{ if(state.tplBuilder && state.tplBuilder.id===id){ clearInterval(wait); show(); } }, 150); setTimeout(()=>clearInterval(wait), 30000); }
+  else { loadTemplateIntoBuilder(t); show(); }
+}
 function tplGcmpBack(){
   const L = state.tplGcmpLast; if(!L) return;
   state.tplGcmp = { group:L.group, near:L.near, cat:L.cat, focusId:L.focusId, _scrolled:true };
@@ -3790,7 +3808,7 @@ function tplGcmpRender(){
   const html = `<div class="tpl-gcmp-in">
     <div class="tpl-gcmp-top">
       <div><b>Σύγκριση μυϊκής ομάδας</b><div style="font-size:12px;color:var(--ink-soft);">${escHtml([cg, tplShortSub(ctop||'', csub||'')].filter(Boolean).join(' · '))}</div></div>
-      <button class="btn btn-outline" id="tpl-gcmp-x">✕ Κλείσιμο</button>
+      <div style="display:flex;gap:8px;align-items:center;"><span style="font-size:11px;color:var(--ink-soft);">Esc = πίσω στο πρόγραμμα</span><button class="btn btn-outline" id="tpl-gcmp-x">✕ Κλείσιμο</button></div>
     </div>
     <div class="tpl-gf" style="margin:10px 0;">${groups.map(x=>`<button type="button" class="tpl-gf-chip ${g.group===x?'on':''}" data-tpl-gcmp-g="${escAttr(x)}">${escHtml(x)}</button>`).join('')}</div>
     ${fi>=0 ? `<label style="display:flex;gap:8px;align-items:center;font-size:12.5px;margin-bottom:10px;cursor:pointer;"><input type="checkbox" id="tpl-gcmp-near" ${g.near?'checked':''}> Μόνο τα κοντινά (2 πριν και 2 μετά από το «${escHtml((state.tplTemplates.find(t=>t.id===g.focusId)||{}).name||'')}»)</label>` : ''}
@@ -3800,7 +3818,7 @@ function tplGcmpRender(){
         <div class="tpl-gcmp-ph"><span><b>${escHtml(t.name)}</b>${t._live?' <span style="font-size:11px;color:#ffb347;">(ανοιχτό τώρα)</span>':''}${t.is_published?'':' <span style="font-size:11px;color:var(--ink-soft);">· κρυφό</span>'}</span>
           <button class="btn btn-outline" style="padding:5px 9px;font-size:11px;" data-tpl-gcmp-open="${t.id}">Άνοιγμα →</button></div>
         ${days.map((d,di)=>{ const its = (d.items||[]).filter(it=>tplGroupOf(it)===g.group);
-          return `<div class="tpl-gcmp-day"><div class="tpl-gcmp-dl">${di+1}. ${escHtml(d.label||'')}</div>
+          return `<div class="tpl-gcmp-day"><div class="tpl-gcmp-dl">${di+1}. ${escHtml(d.label||'')}<button type="button" class="tpl-gcmp-dbtn" data-tpl-gcmp-day="${t.id}|${di}">Άνοιγμα ημέρας →</button></div>
             ${its.length ? its.map(it=> it.type==='cardio'
               ? `<div class="tpl-gcmp-it">${escHtml(it.equipment||'Αερόβιο')} · ${escHtml(String(it.minutes||''))}′ ${it.mode==='drill'?'DRILL':''}</div>`
               : `<div class="tpl-gcmp-it"><div>${escHtml(it.exercise||'—')}</div><div class="mono">${it.set}×${escHtml(it.rep||'')} · ${escHtml(it.rest||'')} · ${escHtml(it.tempo||'')} · ${escHtml(failureFull(it))}</div>${eqNames(it).length?`<div class="tpl-gcmp-eq">${escHtml(eqNames(it).join(' · '))}</div>`:''}</div>`).join('')
@@ -3814,6 +3832,9 @@ function tplGcmpRender(){
   ov.querySelector('#tpl-gcmp-x').addEventListener('click', ()=>{ tplGcmpClose(false); renderTplFormArea(); });
   ov.querySelectorAll('[data-tpl-gcmp-g]').forEach(el=>el.addEventListener('click', ()=>{ g.group = el.getAttribute('data-tpl-gcmp-g'); const y = ov.scrollTop; tplGcmpRender(); ov.scrollTop = y; }));
   ov.querySelector('#tpl-gcmp-near')?.addEventListener('change', e=>{ g.near = e.target.checked; tplGcmpRender(); });
+  ov.querySelectorAll('[data-tpl-gcmp-day]').forEach(el=>el.addEventListener('click', ()=>{
+    const [id, di] = el.getAttribute('data-tpl-gcmp-day').split('|'); tplGcmpOpenAt(id, +di);
+  }));
   ov.querySelectorAll('[data-tpl-gcmp-open]').forEach(el=>el.addEventListener('click', ()=>{
     const t = (state.tplTemplates||[]).find(x=>x.id===el.getAttribute('data-tpl-gcmp-open')); const grp = g.group;
     tplGcmpClose(true); if(!t) return;
@@ -12600,6 +12621,17 @@ function bindFlowScreen(nodes, byId){
     flowChanged(); renderFlowScreen(); toast('Η σύνδεση διαγράφηκε.');
   });
 }
+// Πλήκτρα για τη σύγκριση μυϊκής ομάδας: Esc ή Alt+B = «Πίσω στη σύγκριση» (μέσα στη σύγκριση το Esc την κλείνει)
+document.addEventListener('keydown', e=>{
+  const isB = e.altKey && (e.code==='KeyB' || e.key==='b' || e.key==='B' || e.key==='β');
+  if(e.key!=='Escape' && !isB) return;
+  if(document.getElementById('tpl-gcmp')){ if(e.key==='Escape'){ e.preventDefault(); tplGcmpClose(true); renderTplFormArea(); } return; }
+  if(state.tab!=='tplbuilder' || !state.tplGcmpLast || !state.tplFormOpen) return;
+  if(document.querySelector('.modal-backdrop, .modal')) return;            // ανοιχτό μήνυμα: το Esc πάει εκεί
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  if(e.key==='Escape' && (tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT')){ document.activeElement.blur(); return; }
+  e.preventDefault(); tplGcmpBack();
+});
 document.addEventListener('keydown', e=>{
   if(!document.getElementById('flow-screen')) return;
   if(e.key==='Escape'){ if(flow.connectFrom || flow.edit){ flow.connectFrom = null; flow.edit = null; renderFlowScreen(); } else closeFlowScreen(); }
