@@ -707,6 +707,11 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .tpl-photo-ctrl{flex:1 1 260px;min-width:0;}
 .tpl-photo-side{flex:0 1 380px;width:100%;}
 .tpl-draft-box{border-color:#ffb347 !important;margin-bottom:14px;}
+.tpl-gf{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 14px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(3,11,18,.4);}
+.tpl-gf-lbl{font-size:12px;font-weight:700;color:var(--cyan-soft,#8fe3ff);margin-right:4px;}
+.tpl-gf-chip{padding:6px 10px;border-radius:999px;border:1.5px solid rgba(61,216,255,.3);background:transparent;color:var(--ink);font:600 11.5px inherit;font-family:inherit;cursor:pointer;}
+.tpl-gf-chip.on{background:var(--accent,#ffb347);border-color:var(--accent,#ffb347);color:#1a1205;}
+.tpl-gf-none{font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;font-style:italic;}
 .tpl-meta-closed{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 .tpl-bigprev-lbl{margin:0 0 6px;font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--cyan-soft,#8fe3ff);}
 .tpl-bigprev{width:100%;max-width:460px;aspect-ratio:1/1;border-radius:12px;border:1.5px solid rgba(61,216,255,.4);overflow:hidden;background:rgba(3,11,18,.6);display:flex;align-items:center;justify-content:center;cursor:zoom-in;}
@@ -3693,11 +3698,12 @@ function renderTplDaysEditor(b){
           <button type="button" class="btn btn-outline" data-tpl-days-all="even">▾ Ζυγές (2, 4, 6…)</button>
         </div>
       </div>
+      ${tplGroupFilterHtml(b)}
       ${b.days.map((day,di)=>{ const closed = tplDayClosed(b, di); return `
         <div class="day-card ${closed?'tpl-day-closed':''}" style="margin-bottom:16px;">
           <div class="day-head tpl-day-head" data-tpl-daytoggle="${di}" title="${closed?'Άνοιγμα ημέρας':'Κλείσιμο ημέρας'}">
             <div class="tag"><span class="tpl-day-caret">${closed?'▸':'▾'}</span><div class="day-num">${di+1}</div><h3>${escHtml(day.label)}</h3></div>
-            <div class="count">${day.items.length} στοιχεία ${dayDurationHtml(day.items)}</div>
+            <div class="count">${state.tplGroupFilter ? `${day.items.filter(tplGroupMatch).length} ${escHtml(state.tplGroupFilter)} · ` : ''}${day.items.length} στοιχεία ${dayDurationHtml(day.items)}</div>
             <button type="button" class="btn btn-outline day-copy-btn ${state.tplDayCopy && state.tplDayCopy.from===di?'on':''}" data-tpl-daycopy="${di}" title="Αντιγραφή αυτής της ημέρας σε άλλο νούμερο ημέρας">⧉ Αντιγραφή ημέρας</button>
           </div>
           ${tplDayCopyPanel(b, di)}
@@ -3705,9 +3711,11 @@ function renderTplDaysEditor(b){
           ${closed ? `<div class="tpl-day-sum">${escHtml(day.items.map(it=>it.type==='cardio' ? '🏃 '+(it.equipment||'Αερόβιο') : tplLabelNow(it.groupLabel)).join(' · ') || 'Χωρίς ασκήσεις')}</div>` : `
           <div style="padding:16px 20px;">
             ${day.items.length===0 ? `<div style="color:var(--ink-soft);font-size:12.5px;margin-bottom:10px;">Δεν έχεις προσθέσει ακόμα τίποτα σε αυτή την ημέρα.</div>` :
-              day.items.map((it,ii)=> (b.addForm && b.addForm.dayIndex===di && b.addForm.editIndex===ii)
+              (day.items.map((it,ii)=> (b.addForm && b.addForm.dayIndex===di && b.addForm.editIndex===ii)
                 ? `<div id="tpl-af-box">${renderTplAddItemForm(b.addForm)}</div>`      // η επεξεργασία ανοίγει στη θέση της άσκησης
+                : !tplGroupMatch(it) ? ''                                              // φίλτρο μυϊκής ομάδας
                 : `<div id="tpl-item-${di}-${ii}" class="${b.lastEdited && b.lastEdited.di===di && b.lastEdited.ii===ii ? 'tpl-last' : ''}">${renderTplItemCard(it,di,ii,day.items.length)}</div>`).join('')
+               || `<div class="tpl-gf-none">Χωρίς «${escHtml(state.tplGroupFilter)}» σε αυτή την ημέρα.</div>`)
             }
             ${b.addForm && b.addForm.dayIndex===di && b.addForm.editIndex==null ? `<div id="tpl-af-box">${renderTplAddItemForm(b.addForm)}</div>` : `
               <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">
@@ -3718,6 +3726,19 @@ function renderTplDaysEditor(b){
           </div>`}
         </div>`; }).join('')}
     </div>`;
+}
+/* Φίλτρο μυϊκής ομάδας: δείχνει μόνο αυτή την ομάδα σε όλες τις ανοιχτές ημέρες (για σύγκριση) */
+function tplGroupOf(it){ return it.type==='cardio' ? 'ΑΕΡΟΒΙΟ' : (tplLabelNow(it.groupLabel) || 'ΧΩΡΙΣ ΟΜΑΔΑ'); }
+function tplGroupMatch(it){ return !state.tplGroupFilter || tplGroupOf(it)===state.tplGroupFilter; }
+function tplGroupFilterHtml(b){
+  const groups = [];
+  b.days.forEach(d=>(d.items||[]).forEach(it=>{ const g = tplGroupOf(it); if(!groups.includes(g)) groups.push(g); }));
+  if(groups.length < 2) return '';
+  if(state.tplGroupFilter && !groups.includes(state.tplGroupFilter)) state.tplGroupFilter = null;
+  return `<div class="tpl-gf"><span class="tpl-gf-lbl">Μυϊκή ομάδα:</span>
+    <button type="button" class="tpl-gf-chip ${!state.tplGroupFilter?'on':''}" data-tpl-gfilter="">Όλες</button>
+    ${groups.map(g=>`<button type="button" class="tpl-gf-chip ${state.tplGroupFilter===g?'on':''}" data-tpl-gfilter="${escAttr(g)}">${escHtml(g)}</button>`).join('')}
+  </div>`;
 }
 // Ημέρα κλειστή; (ανοιχτή πάντα αν δουλεύεις μέσα της)
 function tplDayClosed(b, di){
@@ -4077,6 +4098,9 @@ function bindTplBuilderEvents(){
     b.closedDays = b.closedDays || {};
     if(tplDayClosed(b, di)) delete b.closedDays[di]; else if(!(b.addForm && b.addForm.dayIndex===di)) b.closedDays[di] = true;
     renderTplFormArea();
+  }));
+  document.querySelectorAll('[data-tpl-gfilter]').forEach(el=>el.addEventListener('click', ()=>{
+    state.tplGroupFilter = el.getAttribute('data-tpl-gfilter') || null; renderTplFormArea();
   }));
   document.querySelectorAll('[data-tpl-days-all]').forEach(el=>el.addEventListener('click', ()=>{
     const mode = el.getAttribute('data-tpl-days-all');
