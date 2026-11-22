@@ -10465,6 +10465,7 @@ function renderClientWeights(){
 function medSummary(){
   const d = cprof.data || {};
   if(d.heart_problem==null && d.high_blood_pressure==null) return 'Δεν έχει συμπληρωθεί';
+  if(!d.doctor_allows_weights) return 'Λείπει η απάντηση για την έγκριση του γιατρού';
   const items = [d.heart_problem ? 'Καρδιολογικό' : '', d.high_blood_pressure ? 'Υψηλή πίεση' : ''].filter(Boolean);
   return items.length ? items.join(' · ') + ' — UNTIL FAILURE -3 · tempo 1-2-1' : 'Συμπληρωμένο';
 }
@@ -10480,9 +10481,9 @@ function renderClientMedical(){
     <div class="panel pad">
       <div class="med-q"><div class="med-t">Έχετε κάποιο καρδιολογικό πρόβλημα;</div><div class="chip-row">${yn('heart_problem', true)}${yn('heart_problem', false)}</div></div>
       <div class="med-q"><div class="med-t">Έχετε υψηλή πίεση;</div><div class="chip-row">${yn('high_blood_pressure', true)}${yn('high_blood_pressure', false)}</div></div>
-      ${risk ? `<div class="med-q"><div class="med-t">Σας επιτρέπει ο γιατρός σας (ο καρδιολόγος σας) να γυμνάζεστε με αντιστάσεις ή βάρη;</div><div class="chip-row">${yn('doctor_allows_weights','ΝΑΙ')}${yn('doctor_allows_weights','ΟΧΙ')}</div></div>
-        <div class="med-info">Για λόγους ασφαλείας, σε <b>όλα</b> τα προγράμματα —και σε αυτά του TRANSFORMATION και στα δικά σου— το <b>UNTIL FAILURE θα είναι -3</b> (σταματάς κάθε set έχοντας ακόμα 3 επαναλήψεις «στα πόδια σου») και το <b>tempo 1-2-1</b>.</div>` : ''}
-      ${risk && m.doctor_allows_weights==='ΟΧΙ' ? `<div class="med-warn">⚠️ Μην κάνεις ασκήσεις με αντιστάσεις ή βάρη χωρίς την έγκριση του καρδιολόγου σου. Μίλησε με τον γυμναστή σου για ένα κατάλληλο πρόγραμμα.</div>` : ''}
+      <div class="med-q"><div class="med-t">Σας επιτρέπει ο γιατρός σας (ο καρδιολόγος σας) να γυμνάζεστε με αντιστάσεις ή βάρη;</div><div class="chip-row">${yn('doctor_allows_weights','ΝΑΙ')}${yn('doctor_allows_weights','ΟΧΙ')}</div></div>
+      ${risk ? `<div class="med-info">Για λόγους ασφαλείας, σε <b>όλα</b> τα προγράμματα —και σε αυτά του TRANSFORMATION και στα δικά σου— το <b>UNTIL FAILURE θα είναι -3</b> (σταματάς κάθε set έχοντας ακόμα 3 επαναλήψεις «στα πόδια σου») και το <b>tempo 1-2-1</b>.</div>` : ''}
+      ${m.doctor_allows_weights==='ΟΧΙ' ? `<div class="med-warn">⚠️ Μην κάνεις ασκήσεις με αντιστάσεις ή βάρη χωρίς την έγκριση του γιατρού (καρδιολόγου) σου. Μίλησε με τον γυμναστή σου για ένα κατάλληλο πρόγραμμα.</div>` : ''}
       <button class="btn btn-critical" id="cm-save" style="width:100%;justify-content:center;margin-top:10px;">${ICON.save}Αποθήκευση</button>
     </div>`;
   document.getElementById('cm-back').addEventListener('click', ()=>{ cprof.view = 'form'; renderClientProfile(); });
@@ -10492,10 +10493,9 @@ function renderClientMedical(){
     renderClientMedical();
   }));
   document.getElementById('cm-save').addEventListener('click', async ()=>{
-    if(m.heart_problem==null || m.high_blood_pressure==null) return toast('Απάντησε και στις δύο ερωτήσεις.');
+    if(m.heart_problem==null || m.high_blood_pressure==null || !m.doctor_allows_weights) return toast('Απάντησε και στις τρεις ερωτήσεις.');
     const r = m.heart_problem || m.high_blood_pressure;
-    if(r && !m.doctor_allows_weights) return toast('Απάντησε αν σου επιτρέπει ο καρδιολόγος σου να γυμνάζεσαι με βάρη.');
-    const ok = await cprofSave({ heart_problem: m.heart_problem, high_blood_pressure: m.high_blood_pressure, doctor_allows_weights: r ? m.doctor_allows_weights : null });
+    const ok = await cprofSave({ heart_problem: m.heart_problem, high_blood_pressure: m.high_blood_pressure, doctor_allows_weights: m.doctor_allows_weights });
     if(!ok) return toast('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.');
     toast(r ? 'Αποθηκεύτηκε. Σε όλα τα προγράμματα: UNTIL FAILURE -3 και tempo 1-2-1.' : 'Αποθηκεύτηκε.', 4000);
     cprof.view = 'form'; cprof.medDraft = null; renderClientProfile();
