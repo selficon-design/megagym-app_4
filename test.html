@@ -10714,6 +10714,13 @@ function renderClientFat(){
   box.innerHTML = `
     <div class="auth-back" id="cf-back">${ICON.back}Προσωπικά στοιχεία</div>
     <div class="topbar"><div><h1 style="font-size:20px;">📏 Λιπομετρήσεις</h1><div class="sub"><span class="wl-ok">πράσινο</span> = λιγότερο λίπος από την προηγούμενη μέτρηση · <span class="wl-up">πορτοκαλί</span> = περισσότερο.</div></div></div>
+    ${list.length ? (()=>{ const f = list[0], pv = list[1], d = pv ? Math.round((Number(f.fat_pct)-Number(pv.fat_pct))*10)/10 : null, cls = d==null ? '' : d<0 ? 'down' : d>0 ? 'up' : 'same';
+      return `<div class="panel pad wl-avg" style="margin-bottom:14px;">
+        <div class="wl-avg-t">ΤΕΛΕΥΤΑΙΑ ΛΙΠΟΜΕΤΡΗΣΗ</div>
+        <div class="wl-avg-v">${fmtKg(f.fat_pct)}%</div>
+        <div class="wl-avg-s">${escHtml(fmtDateGr(f.log_date))} · ${FAT_METHODS[f.method]?.icon||''} ${escHtml(FAT_METHODS[f.method]?.short||'')}</div>
+        ${d!=null ? `<div style="margin-top:8px;"><span class="wl-box ${cls}" style="min-width:0;padding:4px 10px;cursor:default;">${d===0 ? '±0' : (d>0?'+':'−')+fmtKg(Math.abs(d))} από την προηγούμενη</span></div>` : ''}
+      </div>`; })() : ''}
     <div class="panel pad" style="margin-bottom:14px;">
       <div class="fat-ms">${methodBtn('analysis')}${methodBtn('kanellakis')}${methodBtn('expert')}</div>
       ${form}
