@@ -10692,19 +10692,19 @@ function renderClientFat(){
         <button class="btn btn-critical" id="cf-save" ${cprof.saving?'disabled':''}>${cprof.saving?'…':'Καταχώρηση'}</button>
       </div>`;
   else if(m==='kanellakis') form = `
-      <div class="fat-hint">Υπολογισμός <b>κατά προσέγγιση</b> με μεζούρα. Μέτρησε σε εκατοστά:
-        <br>• <b>Μέση</b>: στο ύψος του αφαλού, χωρίς να «ρουφάς» την κοιλιά
-        <br>• <b>Γοφοί</b>: στο φαρδύτερο σημείο των γλουτών
-        <br>• <b>Αντιβράχιο</b>: στο φαρδύτερο σημείο, κάτω από τον αγκώνα, με το χέρι χαλαρό
-        <br>Χρησιμοποιούνται επίσης το <b>φύλο</b> και το <b>ύψος</b> από τα στοιχεία σου.</div>
+      <div class="fat-hint">Ένας πρακτικός τρόπος, αν δεν μπορούμε να κάνουμε σωματική ανάλυση, είναι να μετρήσουμε με μία <b>μεζούρα</b> σε εκατοστά:
+        <br>• την περιφέρεια των <b>γοφών</b> μας, στο μεγαλύτερο σημείο
+        <br>• την περιφέρεια της <b>κοιλιάς</b> μας, στο ύψος του αφαλού
+        <br>• τον <b>πήχη</b> μας (αντιβράχιο), στο σημείο με τη μεγαλύτερη περιφέρεια κοντά στον αγκώνα
+        <br>Το αποτέλεσμα είναι <b>κατά προσέγγιση</b>. Χρησιμοποιούνται επίσης το <b>φύλο</b> και το <b>ύψος</b> από τα στοιχεία σου.</div>
       ${(()=>{ const pd = cprof.data||{}, okG = CPROF_GENDERS.includes(pd.gender), okH = Number(pd.height_cm) > 50;
         if(!okG || !okH) return `<div class="fat-soon" style="border-color:#ff9f1a;">⚠️ Συμπλήρωσε πρώτα ${!okG ? 'το <b>φύλο</b>' : ''}${!okG && !okH ? ' και ' : ''}${!okH ? 'το <b>ύψος</b>' : ''} στα προσωπικά στοιχεία.</div>`;
         const mv = (ed && ed.method==='kanellakis' && ed.measurements) || {};
         return `<div class="cp-grid" style="margin-bottom:8px;">
           <div class="field" style="margin:0;"><label>Ημερομηνία</label><input type="date" id="cf-kdate" value="${escAttr(ed ? ed.log_date : todayLocalISO())}" max="${todayLocalISO()}"></div>
-          <div class="field" style="margin:0;"><label>Μέση (cm)</label><input type="text" inputmode="decimal" id="cf-waist" value="${escAttr(mv.waist??'')}" placeholder="π.χ. 88"></div>
+          <div class="field" style="margin:0;"><label>Κοιλιά (cm)</label><input type="text" inputmode="decimal" id="cf-waist" value="${escAttr(mv.waist??'')}" placeholder="π.χ. 88"></div>
           <div class="field" style="margin:0;"><label>Γοφοί (cm)</label><input type="text" inputmode="decimal" id="cf-hips" value="${escAttr(mv.hips??'')}" placeholder="π.χ. 102"></div>
-          <div class="field" style="margin:0;"><label>Αντιβράχιο (cm)</label><input type="text" inputmode="decimal" id="cf-forearm" value="${escAttr(mv.forearm??'')}" placeholder="π.χ. 27"></div>
+          <div class="field" style="margin:0;"><label>Πήχης (cm)</label><input type="text" inputmode="decimal" id="cf-forearm" value="${escAttr(mv.forearm??'')}" placeholder="π.χ. 27"></div>
         </div>
         <div id="cf-kres" class="fat-soon" style="margin-bottom:10px;">Συμπλήρωσε τις 3 μετρήσεις</div>
         <button class="btn btn-critical" id="cf-ksave" style="width:100%;justify-content:center;" ${cprof.saving?'disabled':''}>${cprof.saving?'…':'Καταχώρηση'}</button>`; })()}`;
@@ -10757,7 +10757,7 @@ function renderClientFat(){
     const dte = $('cf-kdate').value, r = kCalc();
     if(!dte) return toast('Διάλεξε ημερομηνία.');
     if(dte > todayLocalISO()) return toast('Η ημερομηνία δεν μπορεί να είναι στο μέλλον.');
-    if(!r) return toast('Συμπλήρωσε μέση, γοφούς και αντιβράχιο.');
+    if(!r) return toast('Συμπλήρωσε κοιλιά, γοφούς και πήχη.');
     if(r.err) return toast(r.err);
     cprof.saving = true; renderClientFat();
     if(ed && ed.method==='kanellakis' && ed.log_date !== dte) await sb.from('body_fat_logs').delete().eq('customer_code', auth.customer.code).eq('log_date', ed.log_date).eq('method', 'kanellakis');
