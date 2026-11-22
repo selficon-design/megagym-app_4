@@ -61,6 +61,10 @@ jobs:
           fi
           echo "::add-mask::$BACKUP_PASSWORD"
           7z | head -3 | tail -2
+          mkdir -p /tmp/z && echo hi > /tmp/z/a.txt && cd /tmp/z
+          for v in "-mem=AES256" "-mem=AES128" "-mem=ZipCrypto" "" ; do rm -f /tmp/z.zip; if 7z a -tzip $v -px /tmp/z.zip a.txt >/tmp/zl 2>&1; then echo "VARIANT OK [$v]"; else echo "VARIANT FAIL [$v] $(grep -m1 E_ /tmp/zl)"; fi; done
+          rm -f /tmp/z.zip; 7z a /tmp/z.7z -px -mhe=on a.txt >/dev/null 2>&1 && echo "VARIANT OK [7z format]" || echo "VARIANT FAIL [7z format]"
+          cd /tmp/bk
           printf '%s' "$BACKUP_PASSWORD" | LC_ALL=C grep -q '[^ -~]' && echo "Ο κωδικός έχει μη λατινικούς χαρακτήρες ή αλλαγή γραμμής" || echo "Ο κωδικός είναι απλοί λατινικοί χαρακτήρες"
           printf '%s' "$BACKUP_PASSWORD" | grep -q '^-' && echo "Ο κωδικός ξεκινάει με -" || true
           cd /tmp/bk && LC_ALL=C.UTF-8 LANG=C.UTF-8 7z a -tzip -mem=AES256 -p"$BACKUP_PASSWORD" "/tmp/forma-backup-$D.zip" . >/dev/null
