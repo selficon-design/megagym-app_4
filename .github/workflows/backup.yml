@@ -60,6 +60,9 @@ jobs:
             echo "save=no" >> "$GITHUB_OUTPUT"; exit 0
           fi
           echo "::add-mask::$BACKUP_PASSWORD"
+          7z | head -3 | tail -2
+          printf '%s' "$BACKUP_PASSWORD" | LC_ALL=C grep -q '[^ -~]' && echo "Ο κωδικός έχει μη λατινικούς χαρακτήρες ή αλλαγή γραμμής" || echo "Ο κωδικός είναι απλοί λατινικοί χαρακτήρες"
+          printf '%s' "$BACKUP_PASSWORD" | grep -q '^-' && echo "Ο κωδικός ξεκινάει με -" || true
           cd /tmp/bk && LC_ALL=C.UTF-8 LANG=C.UTF-8 7z a -tzip -mem=AES256 -p"$BACKUP_PASSWORD" "/tmp/forma-backup-$D.zip" . >/dev/null
           echo "save=yes" >> "$GITHUB_OUTPUT"; echo "name=forma-backup-$D" >> "$GITHUB_OUTPUT"
           ls -la /tmp/forma-backup-$D.zip | awk '{print "Αρχείο:", $5, "bytes"}'
