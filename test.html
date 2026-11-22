@@ -4478,11 +4478,14 @@ async function tplLogActivity(b, pid, wasEdit){
     let oldB = null; try{ oldB = wasEdit && b._savedSnap ? JSON.parse(b._savedSnap) : null; }catch(_){}
     const d = tplDiff(oldB, b);
     const place = { ...(d.place||{}), group: state.tplGroupFilter || null };
+    const G = state.tplGcmpLast;   // ήρθες από τη σύγκριση («✎ Διόρθωση» / «Άνοιγμα»): το «Πού έμεινα» γυρίζει εκεί
+    if(G) place.gcmp = { group:G.group, near:G.near, cat:G.cat, focusId:G.focusId };
     const row = { template_id: pid, program_name: b.name, category: [b.gender, tplShortSub(b.topCategory, b.subCategory||'')].filter(Boolean).join(' · '), summary: d.summary, place };
     try{ localStorage.setItem('forma_tpl_lastwork', JSON.stringify({ ...row, created_at: new Date().toISOString() })); }catch(_){}
     await sb.from('template_activity').insert(row);
   }catch(e){ console.error(e); }
 }
+function tplWhereToGcmp(r){ return !!(r && r.place && (r.place.gcmp || r.place.group)); }
 async function tplWhereOpen(){
   let rows = [];
   try{ const { data } = await sb.from('template_activity').select('*').order('created_at', { ascending:false }).limit(40); rows = data || []; }catch(_){}
@@ -4492,8 +4495,8 @@ async function tplWhereOpen(){
   const when = t=>{ const d = new Date(t); return d.toLocaleDateString('el-GR', { weekday:'short', day:'numeric', month:'short' })+' '+d.toLocaleTimeString('el-GR', { hour:'2-digit', minute:'2-digit' }); };
   const rowHtml = (r, big)=>`<div class="tpl-gcmp-prog ${big?'cur':''}">
       <div class="tpl-gcmp-ph"><span><b>${escHtml(r.program_name||'')}</b> <span style="font-size:11.5px;color:var(--ink-soft);">${escHtml(r.category||'')}</span></span>
-        ${r.template_id ? `<button class="btn ${big?'btn-primary':'btn-outline'}" style="padding:6px 10px;font-size:11.5px;white-space:nowrap;" data-tpl-where-go="${r.template_id}|${r.place && r.place.day!=null ? r.place.day : ''}|${r.place && r.place.item!=null ? r.place.item : ''}">Συνέχεια εκεί →</button>` : ''}</div>
-      <div style="font-size:11.5px;color:var(--cyan-soft);margin-bottom:6px;">🕘 ${escHtml(when(r.created_at))}${r.place && r.place.day!=null ? ` · ημέρα ${r.place.day+1}${r.place.item!=null ? ', θέση '+(r.place.item+1) : ''}` : ''}${r.place && r.place.group ? ' · φίλτρο '+escHtml(r.place.group) : ''}</div>
+        ${r.template_id ? `<button class="btn ${big?'btn-primary':'btn-outline'}" style="padding:6px 10px;font-size:11.5px;white-space:nowrap;" title="${tplWhereToGcmp(r) ? 'Γυρίζει στη σύγκριση μυϊκής ομάδας' : ''}" data-tpl-where-go="${r.created_at}|${r.template_id}|${r.place && r.place.day!=null ? r.place.day : ''}|${r.place && r.place.item!=null ? r.place.item : ''}">${tplWhereToGcmp(r) ? '↩ Πίσω στη σύγκριση' : 'Συνέχεια εκεί →'}</button>` : ''}</div>
+      <div style="font-size:11.5px;color:var(--cyan-soft);margin-bottom:6px;">🕘 ${escHtml(when(r.created_at))}${r.place && r.place.day!=null ? ` · ημέρα ${r.place.day+1}${r.place.item!=null ? ', θέση '+(r.place.item+1) : ''}` : ''}${tplWhereToGcmp(r) ? ' · από τη σύγκριση «'+escHtml(r.place.group||'')+'»' : (r.place && r.place.group ? ' · φίλτρο '+escHtml(r.place.group) : '')}</div>
       <div style="font-size:12.5px;line-height:1.55;white-space:pre-line;">${escHtml(r.summary||'')}</div>
     </div>`;
   ov.innerHTML = `<div class="tpl-gcmp-in">
@@ -4505,10 +4508,15 @@ async function tplWhereOpen(){
   </div>`;
   ov.querySelector('#tpl-where-x').addEventListener('click', ()=>{ ov.remove(); document.body.style.overflow = ''; });
   ov.querySelectorAll('[data-tpl-where-go]').forEach(el=>el.addEventListener('click', ()=>{
-    const [id, di, ii] = el.getAttribute('data-tpl-where-go').split('|');
-    const r = rows.find(x=>x.template_id===id); ov.remove(); document.body.style.overflow = '';
+    const [ca, id, di, ii] = el.getAttribute('data-tpl-where-go').split('|');
+    const r = rows.find(x=>x.created_at===ca && x.template_id===id); ov.remove(); document.body.style.overflow = '';
     const t = (state.tplTemplates||[]).find(x=>x.id===id); if(!t){ toast('Το πρόγραμμα δεν βρέθηκε (ίσως διαγράφηκε).'); return; }
     if(state.tab!=='tplbuilder'){ state.tab = 'tplbuilder'; render(); }
+    if(tplWhereToGcmp(r)){   // γύρνα στα συγκεντρωτικά της σύγκρισης, με πορτοκαλί την άσκηση που διόρθωσες
+      const G = r.place.gcmp || { group:r.place.group, near:true, cat:tplCatOf(t), focusId:id };
+      state.tplGcmpLast = { ...G, lastId:id, lastDi: di==='' ? null : +di, lastIi: ii==='' ? null : +ii, scrollTop:0 };
+      tplGcmpBack(); return;
+    }
     state.tplGroupFilter = (r && r.place && r.place.group) || null;
     state.tplGcmp = null; state.tplGcmpLast = null;
     const show = ()=>{
