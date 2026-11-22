@@ -62,7 +62,7 @@ jobs:
           echo "::add-mask::$BACKUP_PASSWORD"
           # πρώτα ένα .tar (κρατάει ακριβώς όλα τα ονόματα αρχείων), μετά κρυπτογραφημένο zip
           mkdir -p /tmp/pack && tar -C /tmp/bk -cf "/tmp/pack/forma-backup-$D.tar" .
-          cd /tmp/pack && 7z a -tzip -mem=AES256 -p"$BACKUP_PASSWORD" "/tmp/forma-backup-$D.zip" "forma-backup-$D.tar" > /tmp/7zlog 2>&1 || { grep -m3 -E "ERROR|E_|WARN" /tmp/7zlog; 7z a -tzip -mem=AES256 -px /tmp/t.zip "forma-backup-$D.tar" >/dev/null 2>&1 && echo "Με δοκιμαστικό κωδικό πετυχαίνει → το πρόβλημα είναι στον κωδικό (μήκος ${#BACKUP_PASSWORD})" || echo "Αποτυγχάνει και με δοκιμαστικό κωδικό"; exit 1; }
+          cd /tmp/pack && 7z a -tzip -mem=AES256 -p"$BACKUP_PASSWORD" "/tmp/forma-backup-$D.zip" "forma-backup-$D.tar" > /tmp/7zlog 2>&1 || { grep -m3 -E "ERROR|E_|WARN" /tmp/7zlog; 7z a -tzip -mem=AES256 -px /tmp/t.zip "forma-backup-$D.tar" >/dev/null 2>&1 && { A=$(printf '%s' "$BACKUP_PASSWORD" | tr -cd 'A-Za-z0-9'); echo "::add-mask::$A"; 7z a -tzip -mem=AES256 -p"$A" /tmp/t2.zip "forma-backup-$D.tar" >/dev/null 2>&1 && echo "Μόνο με γράμματα/αριθμούς πετυχαίνει → φταίει κάποιο σύμβολο" || echo "Αποτυγχάνει και χωρίς σύμβολα"; } || echo "Αποτυγχάνει και με δοκιμαστικό κωδικό"; exit 1; }
           echo "save=yes" >> "$GITHUB_OUTPUT"; echo "name=forma-backup-$D" >> "$GITHUB_OUTPUT"
           ls -la /tmp/forma-backup-$D.zip | awk '{print "Αρχείο:", $5, "bytes"}'
       - name: Φύλαξη (30 ημέρες)
