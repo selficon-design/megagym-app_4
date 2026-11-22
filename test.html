@@ -10484,7 +10484,7 @@ const FAT_METHODS = {
   kanellakis: { label:'Υπολογισμός με μεζούρα', short:'Με μεζούρα', icon:'📏' },
   expert:     { label:'Σωματική ανάλυση από expert του TRANSFORMATION', short:'Expert TRANSFORMATION', icon:'⭐' }
 };
-// Kanellakis et al. 2017 (Obesity), HBCS Model 1 — μόνο μεζούρα και ύψος (χωρίς ηλικία/βάρος)
+// Kanellakis et al. 2017 (Obesity 25:408, PMID 28071868) — εξίσωση 1 «μόνο μεζούρα και ύψος», επιβεβαιωμένη από την περίληψη του άρθρου
 // %λίπους = −0,615 − 10,948×Φύλο(άνδρας=1) + 0,321×Μέση + 0,502×Γοφοί − 0,390×Αντιβράχιο − 19,768×Ύψος(m)
 const KANELLAKIS = { c:-0.615, male:-10.948, waist:0.321, hips:0.502, forearm:-0.390, height:-19.768 };
 function kanellakisFat(male, waist, hips, forearm, heightCm){
