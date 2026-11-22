@@ -3919,7 +3919,7 @@ function renderTplItemCard(it, dayIndex, itemIndex, count){
         <div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">${escHtml(it.exercise)}</div>
         <div style="font-size:11px;color:var(--cyan-soft);margin-top:2px;" class="mono">SET ${it.set} · REP ${escHtml(it.rep)} · ${escHtml(it.rest)} · ${escHtml(it.tempo)} · ${escHtml(failureFull(it))}</div>
         ${(it.equipment||[]).length > tplEquipForExercise(it.exercise, it.equipment).length ? `<div style="font-size:10.5px;color:#ff9f1a;font-weight:700;margin-top:4px;">⚠️ Έχει εξοπλισμό άλλης άσκησης — πάτα «Επεξεργασία» και «Αποθήκευση» για διόρθωση</div>`:''}
-        ${(it.equipment&&it.equipment.length) ? `<div style="font-size:10.5px;color:#ffd23f;margin-top:4px;">⚙ ${it.equipment.map(e=>escHtml(e.name)+(eqHandsOf(it.exercise, e)===2 ? ' <b style="color:#ffb347;">(✋✋ 2 ΧΕΡΙΑ)</b>' : '')).join(' · ')}</div>` : `<div style="font-size:10.5px;color:#ff8080;margin-top:4px;font-style:italic;">Χωρίς επιλεγμένο εξοπλισμό</div>`}
+        ${(it.equipment&&it.equipment.length) ? `<div style="font-size:10.5px;color:#ffd23f;margin-top:4px;">⚙ ${it.equipment.map(e=>escHtml(e.name)+(eqSplitOf(it.exercise, e, it.groupLabel) ? ` <b style="color:#ffb347;">(${splitText(eqSplitOf(it.exercise, e, it.groupLabel))})</b>` : '')).join(' · ')}</div>` : `<div style="font-size:10.5px;color:#ff8080;margin-top:4px;font-style:italic;">Χωρίς επιλεγμένο εξοπλισμό</div>`}
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
         <button class="btn btn-info" style="padding:6px 10px;font-size:11px;" data-tpl-edititem="${dayIndex}:${itemIndex}">Επεξεργασία</button>
@@ -4003,8 +4003,8 @@ function renderTplAddMuscleForm(af){
                 <input type="checkbox" data-tpl-af-eqcheck data-eqidx="${ei}" ${checked?'checked':''}>
                 ${checked && (af.equipment||[]).length>1 ? `<span class="eq-order-n sm">${(af.equipment||[]).findIndex(e=>e.name===eq.name)+1}</span>`:''}${escHtml(eq.name)}
               </label>
-              ${(()=>{ const chosen = (af.equipment||[]).find(e=>e.name===eq.name); const h = eqHandsOf(af.exercise, chosen || eq);
-                 return `<span class="hands-tgl ${chosen?'':'off'} ${h===2?'two':''}" title="Από το Excel (στήλη ΧΕΡΙΑ)">${h===2 ? '✋✋ 2 ΧΕΡΙΑ' : '✋ 1 ΧΕΡΙ'}</span>`; })()}
+              ${(()=>{ const chosen = (af.equipment||[]).find(e=>e.name===eq.name); const sp = eqSplitOf(af.exercise, chosen || eq, af.groupLabel);
+                 return sp ? `<span class="hands-tgl ${chosen?'':'off'} two" title="Από το Excel (στήλη ΧΕΡΙΑ = 1)">${sp==='leg'?'🦵':'✋'} ${splitText(sp)}</span>` : ''; })()}
               <button type="button" class="btn btn-outline" style="padding:4px 9px;font-size:10px;flex-shrink:0;white-space:nowrap;" data-eqpreview-exercise="${escAttr(af.exercise)}" data-eqpreview-name="${escAttr(eq.name)}">👁 PREVIEW</button>
             </div>`;
           }).join('')}
@@ -6103,21 +6103,39 @@ document.addEventListener('click', e=>{
   const b = e.target.closest && e.target.closest('[data-firstset-instr]');
   if(b){ state.firstSetInstrOpen = true; renderModal(); }
 });
-// 2 = η άσκηση γίνεται πρώτα με το ΧΕΡΙ Α και μετά με το ΧΕΡΙ Β (στήλη «ΧΕΡΙΑ» του Excel, ανά εξοπλισμό)
-function workoutHands(ex){
-  const eq = ex && ex.equipment && ex.equipment[0];
-  return eq ? eqHandsOf(ex.exercise, eq) : 1;
+// Στήλη «ΧΕΡΙΑ» του Excel (φύλλο «ΕΞΟΠΛΙΣΜΟΣ ΑΝΑ ΑΣΚΗΣΗ»), ανά εξοπλισμό:
+//   1 = γυμνάζεται ΜΙΑ πλευρά κάθε φορά (εναλλάξ): πρώτα Α, μετά Β, χωρίς διάλειμμα
+//   2 ή κενό = με τα δύο μαζί → δεν γράφεται τίποτα
+// «Χέρι» για στήθος/πλάτη/ώμους/δικέφαλους/τρικέφαλους, «πόδι» για πόδια/γάμπες. Κοιλιακοί/ραχιαίοι: ποτέ.
+function limbOf(group){
+  const g = String(group||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(/ΡΑΧΙΑΙ|ΚΟΙΛΙΑΚ|\bABS\b|BACK MUSCLES|ΑΕΡΟΒΙ|CARDIO/.test(g)) return null;
+  if(/ΠΟΔ|ΓΑΜΠ|LEGS?\b|CALVES|CALF/.test(g)) return 'leg';
+  if(/ΣΤΗΘ|ΠΛΑΤ|ΩΜ|ΔΙΚΕΦΑΛ|ΤΡΙΚΕΦΑΛ|CHEST|SHOULDER|BICEP|TRICEP|BAC/.test(g)) return 'arm';
+  return null;
 }
-// 1 ή 2 χέρια για συγκεκριμένο εξοπλισμό άσκησης: πάντα από το Excel (φύλλο «ΕΞΟΠΛΙΣΜΟΣ ΑΝΑ ΑΣΚΗΣΗ», στήλη ΧΕΡΙΑ: 1 ή 2)
-function eqHandsOf(exercise, eq){
-  if(!eq) return 1;
+function eqHandsRaw(exercise, eq){
+  if(!eq) return null;
   const list = (typeof EQUIPMENT_BY_EXERCISE!=='undefined' && EQUIPMENT_BY_EXERCISE[exercise]) || [];
   const cat = list.find(e=>String(e.name||'').trim()===String(eq.name||'').trim());
-  if(cat) return Number(cat.hands) === 2 ? 2 : 1;      // το Excel μετράει πάντα — και αν αλλάξει αργότερα
-  return Number(eq.hands) === 2 ? 2 : 1;
+  const v = Number(cat ? cat.hands : eq.hands);      // το Excel μετράει πάντα — και αν αλλάξει αργότερα
+  return v===1 || v===2 ? v : null;
 }
-function handsBadgeHtml(n){
-  return n===2 ? `<div class="hands-badge">✋✋ ΜΕ 2 ΧΕΡΙΑ — πρώτα ΧΕΡΙ Α, μετά ΧΕΡΙ Β χωρίς διάλειμμα</div>` : '';
+// 'arm' | 'leg' όταν γυμνάζεται μία πλευρά κάθε φορά, αλλιώς null
+function eqSplitOf(exercise, eq, group){ return eqHandsRaw(exercise, eq)===1 ? limbOf(group) : null; }
+// 2 = λειτουργία «πρώτα Α, μετά Β» στο χρονόμετρο, 1 = κανονικά
+function eqHandsOf(exercise, eq, group){ return eqSplitOf(exercise, eq, group) ? 2 : 1; }
+function workoutHands(ex){
+  const eq = ex && ex.equipment && ex.equipment[0];
+  return eq ? eqHandsOf(ex.exercise, eq, ex.groupLabel) : 1;
+}
+function workoutLimb(ex){ return limbOf(ex && ex.groupLabel) || 'arm'; }
+function limbWord(limb, side){ return (limb==='leg' ? 'ΠΟΔΙ' : 'ΧΕΡΙ') + (side ? ' '+side : ''); }
+function limbNow(side){ return limbWord(timerState.limb, side); }
+function splitText(limb){ return limb==='leg' ? 'κάθε πόδι ξεχωριστά' : 'κάθε χέρι ξεχωριστά'; }
+function handsBadgeHtml(limb){
+  if(!limb) return '';
+  return `<div class="hands-badge">${limb==='leg' ? '🦵 Εκγύμναση κάθε ποδιού ξεχωριστά' : '✋ Εκγύμναση κάθε χεριού ξεχωριστά'} — πρώτα ${limbWord(limb,'Α')}, μετά ${limbWord(limb,'Β')} χωρίς διάλειμμα</div>`;
 }
 // Κύλιση ώστε το σημείο να φαίνεται ακριβώς κάτω από τη σταθερή μπάρα της κορυφής
 function wkTopBarH(){
@@ -6155,7 +6173,7 @@ function openWorkoutMode(ex, returnFn, focus){
   if(timerState.exerciseKey !== key){
     if(timerState.interval) clearInterval(timerState.interval);
     timerState = { exerciseKey:key, max:maxRest, remaining:maxRest, totalSets, nextSet:1, running:false, paused:false, interval:null, lastAdvanceSource:null, skipNextAdvance:false,
-                   hands: workoutHands(ex), hand:'A' };
+                   hands: workoutHands(ex), hand:'A', limb: workoutLimb(ex) };
     workoutCalcField = null;
     workoutCalcValues = { reps:'', kg:'' };
     workoutCalcRevealed = { reps:false, kg:false };
@@ -6163,7 +6181,7 @@ function openWorkoutMode(ex, returnFn, focus){
     isFreshOpen = true;
     wkTimerClear();   // νέα άσκηση: το αποθηκευμένο διάλειμμα της προηγούμενης δεν ισχύει πια
   }
-  timerState.hands = workoutHands(ex); if(timerState.hands!==2) timerState.hand = 'A'; else if(!timerState.hand) timerState.hand = 'A';
+  timerState.hands = workoutHands(ex); timerState.limb = workoutLimb(ex); if(timerState.hands!==2) timerState.hand = 'A'; else if(!timerState.hand) timerState.hand = 'A';
   state.workoutExercise = ex;
   if(returnFn) workoutReturnRender = returnFn;
   if(state.workoutNextCtx && state.workoutNextCtx.src==='client' && auth.status==='client'){
@@ -6637,9 +6655,9 @@ function finishDayFlow(){
 }
 function closeWorkoutPage(force){
   if(!force && timerState.hands===2 && timerState.hand==='B' && document.getElementById('setBox')){
-    state.choiceModal = { icon:'✋', color:'#ffb648', title:'ΔΕΝ ΕΧΕΙ ΓΙΝΕΙ ΤΟ ΧΕΡΙ Β',
-      html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:14px;">Έκανες το ΧΕΡΙ Α στο SET ${timerState.nextSet}, αλλά όχι ακόμα το ΧΕΡΙ Β. Θέλεις σίγουρα να φύγεις;</p>`,
-      yes:{ label:'ΜΕΝΩ — ΚΑΝΩ ΤΟ ΧΕΡΙ Β', fn:null }, no:{ label:'ΦΕΥΓΩ', fn:()=>closeWorkoutPage(true) } };
+    state.choiceModal = { icon:'✋', color:'#ffb648', title:'ΔΕΝ ΕΧΕΙ ΓΙΝΕΙ ΤΟ '+limbNow('Β'),
+      html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:14px;">Έκανες το ${limbNow('Α')} στο SET ${timerState.nextSet}, αλλά όχι ακόμα το ${limbNow('Β')}. Θέλεις σίγουρα να φύγεις;</p>`,
+      yes:{ label:'ΜΕΝΩ — ΚΑΝΩ ΤΟ '+limbNow('Β'), fn:null }, no:{ label:'ΦΕΥΓΩ', fn:()=>closeWorkoutPage(true) } };
     renderModal(); return;
   }
   // Αν τρέχει (ή είναι σε παύση) το διάλειμμα, συνεχίζει στο παρασκήνιο και εμφανίζεται κουμπί επιστροφής
@@ -6748,7 +6766,7 @@ function getSetBoxContent(){
   const live = timerState.running || timerState.paused;
   const doneLine = done >= 1 ? `<div class="set-done-line ${live?'live':''}">ΕΚΤΕΛΕΣΤΗΚΕ ΤΟ <span class="set-emph">SET ${done}</span></div>` : '';
   if(nextSet <= totalSets){
-    const hand = timerState.hands===2 ? `<div class="hand-badge ${timerState.hand==='B'?'b':''}">ΧΕΡΙ ${timerState.hand==='B'?'Β':'Α'}</div>` : '';
+    const hand = timerState.hands===2 ? `<div class="hand-badge ${timerState.hand==='B'?'b':''}">${limbNow(timerState.hand==='B'?'Β':'Α')}</div>` : '';
     const ex = state.workoutExercise || {};
     const fl = ex.failureSets==='fl2' ? `<div class="set-fail-line ${failureAppliesToSet('fl2', nextSet, totalSets)?'on':''}">${failureAppliesToSet('fl2', nextSet, totalSets) ? `ΣΤΟ SET ${nextSet}: ${escHtml(failureLabel(ex.failure))}` : `ΣΤΟ SET ${nextSet}: ΧΩΡΙΣ UNTIL FAILURE`}</div>` : '';
     return { cls:'', html: `${doneLine}ΕΠΟΜΕΝΟ <span class="set-emph">SET ${nextSet}</span> ΑΠΟ <span class="set-emph">${totalSets}</span>${fl}${hand}` };
@@ -6806,7 +6824,7 @@ function startWorkoutTimer(){
      && !timerState.skipNextAdvance && timerState.lastAdvanceSource!=='calc' && timerState.nextSet<=timerState.totalSets){
     timerState.hand = 'B';
     updateWorkoutTimerUI();
-    const st = document.getElementById('timerStatus'); if(st) st.textContent = 'ΧΕΡΙ Α ✓ — Τώρα ΧΕΡΙ Β, χωρίς διάλειμμα. Μόλις τελειώσεις, πάτα START.';
+    const st = document.getElementById('timerStatus'); if(st) st.textContent = limbNow('Α')+' ✓ — Τώρα '+limbNow('Β')+', χωρίς διάλειμμα. Μόλις τελειώσεις, πάτα START.';
     if(navigator.vibrate) navigator.vibrate(120);
     return;
   }
@@ -7091,7 +7109,7 @@ function calculateWorkoutNextWeight(){
 function performWorkoutCalculation(){
   const ex = state.workoutExercise;
   if(timerState.hands===2 && timerState.hand==='B'){
-    showWorkoutCalcError('Δεν έχει γίνει ακόμα το ΧΕΡΙ Β. Κάνε το ΧΕΡΙ Β, πάτα START και μετά γράψε κιλά και επαναλήψεις (μία φορά για το set).');
+    showWorkoutCalcError('Δεν έχει γίνει ακόμα το '+limbNow('Β')+'. Κάνε το '+limbNow('Β')+', πάτα START και μετά γράψε κιλά και επαναλήψεις (μία φορά για το set).');
     return;
   }
   const range = parseRepRangeStr(ex.rep);
@@ -10466,6 +10484,13 @@ const FAT_METHODS = {
   kanellakis: { label:'Υπολογισμός με μεζούρα', short:'Με μεζούρα', icon:'📏' },
   expert:     { label:'Σωματική ανάλυση από expert του TRANSFORMATION', short:'Expert TRANSFORMATION', icon:'⭐' }
 };
+// Kanellakis et al. 2017 (Obesity), HBCS Model 1 — μόνο μεζούρα και ύψος (χωρίς ηλικία/βάρος)
+// %λίπους = −0,615 − 10,948×Φύλο(άνδρας=1) + 0,321×Μέση + 0,502×Γοφοί − 0,390×Αντιβράχιο − 19,768×Ύψος(m)
+const KANELLAKIS = { c:-0.615, male:-10.948, waist:0.321, hips:0.502, forearm:-0.390, height:-19.768 };
+function kanellakisFat(male, waist, hips, forearm, heightCm){
+  const K = KANELLAKIS;
+  return Math.round((K.c + K.male*(male?1:0) + K.waist*waist + K.hips*hips + K.forearm*forearm + K.height*(heightCm/100))*10)/10;
+}
 const FAT_METHOD_RANK = { expert:3, analysis:2, kanellakis:1 };
 function fatLatest(){
   const xs = (cprof.fats||[]).slice().sort((a,b)=>String(b.log_date).localeCompare(String(a.log_date)) || (FAT_METHOD_RANK[b.method]||0)-(FAT_METHOD_RANK[a.method]||0));
@@ -10667,8 +10692,22 @@ function renderClientFat(){
         <button class="btn btn-critical" id="cf-save" ${cprof.saving?'disabled':''}>${cprof.saving?'…':'Καταχώρηση'}</button>
       </div>`;
   else if(m==='kanellakis') form = `
-      <div class="fat-hint">Υπολογισμός κατά προσέγγιση με μεζούρα: μετράς <b>κοιλιά</b>, <b>γοφούς</b> και <b>βραχίονα</b>, και η εφαρμογή βγάζει το ποσοστό λίπους με βάση την ηλικία, το φύλο και το ύψος σου.</div>
-      <div class="fat-soon">🔜 Έρχεται σύντομα</div>`;
+      <div class="fat-hint">Υπολογισμός <b>κατά προσέγγιση</b> με μεζούρα. Μέτρησε σε εκατοστά:
+        <br>• <b>Μέση</b>: στο ύψος του αφαλού, χωρίς να «ρουφάς» την κοιλιά
+        <br>• <b>Γοφοί</b>: στο φαρδύτερο σημείο των γλουτών
+        <br>• <b>Αντιβράχιο</b>: στο φαρδύτερο σημείο, κάτω από τον αγκώνα, με το χέρι χαλαρό
+        <br>Χρησιμοποιούνται επίσης το <b>φύλο</b> και το <b>ύψος</b> από τα στοιχεία σου.</div>
+      ${(()=>{ const pd = cprof.data||{}, okG = CPROF_GENDERS.includes(pd.gender), okH = Number(pd.height_cm) > 50;
+        if(!okG || !okH) return `<div class="fat-soon" style="border-color:#ff9f1a;">⚠️ Συμπλήρωσε πρώτα ${!okG ? 'το <b>φύλο</b>' : ''}${!okG && !okH ? ' και ' : ''}${!okH ? 'το <b>ύψος</b>' : ''} στα προσωπικά στοιχεία.</div>`;
+        const mv = (ed && ed.method==='kanellakis' && ed.measurements) || {};
+        return `<div class="cp-grid" style="margin-bottom:8px;">
+          <div class="field" style="margin:0;"><label>Ημερομηνία</label><input type="date" id="cf-kdate" value="${escAttr(ed ? ed.log_date : todayLocalISO())}" max="${todayLocalISO()}"></div>
+          <div class="field" style="margin:0;"><label>Μέση (cm)</label><input type="text" inputmode="decimal" id="cf-waist" value="${escAttr(mv.waist??'')}" placeholder="π.χ. 88"></div>
+          <div class="field" style="margin:0;"><label>Γοφοί (cm)</label><input type="text" inputmode="decimal" id="cf-hips" value="${escAttr(mv.hips??'')}" placeholder="π.χ. 102"></div>
+          <div class="field" style="margin:0;"><label>Αντιβράχιο (cm)</label><input type="text" inputmode="decimal" id="cf-forearm" value="${escAttr(mv.forearm??'')}" placeholder="π.χ. 27"></div>
+        </div>
+        <div id="cf-kres" class="fat-soon" style="margin-bottom:10px;">Συμπλήρωσε τις 3 μετρήσεις</div>
+        <button class="btn btn-critical" id="cf-ksave" style="width:100%;justify-content:center;" ${cprof.saving?'disabled':''}>${cprof.saving?'…':'Καταχώρηση'}</button>`; })()}`;
   else form = `
       <div class="fat-hint">Η σωματική ανάλυση από <b>expert του TRANSFORMATION</b> γίνεται στο κατάστημα. Μετά τη μέτρηση, το αποτέλεσμα εμφανίζεται εδώ αυτόματα, στη λίστα σου.</div>
       <div class="fat-soon">🏬 Ρώτησε στο κατάστημα για ραντεβού</div>`;
@@ -10686,7 +10725,7 @@ function renderClientFat(){
           const diff = pv==null ? '' : (cur===pv ? '±0' : ((cur>pv?'+':'−') + fmtKg(Math.abs(cur-pv))));
           const own = w.method!=='expert', key = w.log_date+'|'+w.method;
           return `<tr><td>${escHtml(fmtDateGr(w.log_date))}<div class="wl-sd" style="font-size:11px;color:var(--ink-soft);">${FAT_METHODS[w.method]?.icon||''} ${escHtml(FAT_METHODS[w.method]?.short||w.method)}</div></td>
-            <td style="text-align:right;"><span class="wl-box ${cls}" ${own && w.method==='analysis' ? `data-cf-edit="${escAttr(key)}" title="Πάτα για διόρθωση"` : 'style="cursor:default;"'}>${fmtKg(cur)}%</span>${diff?`<div class="wl-diff ${cls}">${diff}</div>`:''}</td>
+            <td style="text-align:right;"><span class="wl-box ${cls}" ${own ? `data-cf-edit="${escAttr(key)}" title="Πάτα για διόρθωση"` : 'style="cursor:default;"'}>${fmtKg(cur)}%</span>${diff?`<div class="wl-diff ${cls}">${diff}</div>`:''}</td>
             <td style="text-align:right;width:34px;">${own ? `<button class="wl-del" data-cf-del="${escAttr(key)}" title="Διαγραφή">${state.cfDelConfirm===key?'✓?':'✕'}</button>` : ''}</td></tr>`; }).join('')}
       </tbody></table>` : `<div class="empty" style="padding:24px 0;"><div class="icon">📏</div><p>Δεν υπάρχουν λιπομετρήσεις ακόμα.</p></div>`}
     </div>`;
@@ -10702,6 +10741,33 @@ function renderClientFat(){
     if(error){ console.error(error); return toast('Δεν διαγράφηκε.'); }
     cprof.fats = cprof.fats.filter(x=>!(x.log_date===dte && x.method===method)); await profileSyncAgeFat(); renderClientFat();
   }));
+  const kCalc = ()=>{
+    const n = id=>{ const x = Number(String($(id)?.value||'').replace(',', '.')); return isFinite(x) && x > 0 ? x : null; };
+    const w = n('cf-waist'), h = n('cf-hips'), f = n('cf-forearm'), pd = cprof.data||{};
+    if(w==null || h==null || f==null) return null;
+    if(w<40 || w>200 || h<50 || h>200 || f<12 || f>60) return { err:'Έλεγξε τις μετρήσεις (σε εκατοστά).' };
+    const pct = kanellakisFat(pd.gender==='ΑΝΔΡΑΣ', w, h, f, Number(pd.height_cm));
+    if(!(pct>=1 && pct<=75)) return { err:'Το αποτέλεσμα βγαίνει εκτός ορίων — έλεγξε τις μετρήσεις.' };
+    return { pct, m:{ waist:w, hips:h, forearm:f, height_cm:Number(pd.height_cm), gender:pd.gender } };
+  };
+  const kShow = ()=>{ const el = $('cf-kres'); if(!el) return; const r = kCalc();
+    el.innerHTML = !r ? 'Συμπλήρωσε τις 3 μετρήσεις' : r.err ? `⚠️ ${escHtml(r.err)}` : `Ποσοστό λίπους κατά προσέγγιση: <b style="font-size:17px;color:var(--cyan);">${fmtKg(r.pct)}%</b>`; };
+  ['cf-waist','cf-hips','cf-forearm'].forEach(id=>$(id)?.addEventListener('input', kShow)); kShow();
+  $('cf-ksave')?.addEventListener('click', async ()=>{
+    const dte = $('cf-kdate').value, r = kCalc();
+    if(!dte) return toast('Διάλεξε ημερομηνία.');
+    if(dte > todayLocalISO()) return toast('Η ημερομηνία δεν μπορεί να είναι στο μέλλον.');
+    if(!r) return toast('Συμπλήρωσε μέση, γοφούς και αντιβράχιο.');
+    if(r.err) return toast(r.err);
+    cprof.saving = true; renderClientFat();
+    if(ed && ed.method==='kanellakis' && ed.log_date !== dte) await sb.from('body_fat_logs').delete().eq('customer_code', auth.customer.code).eq('log_date', ed.log_date).eq('method', 'kanellakis');
+    const { error } = await sb.from('body_fat_logs').upsert({ customer_code: auth.customer.code, log_date: dte, method:'kanellakis', fat_pct: r.pct, measurements: r.m }, { onConflict:'customer_code,log_date,method' });
+    cprof.saving = false;
+    if(error){ console.error(error); renderClientFat(); return toast('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.'); }
+    cprof.fats = (cprof.fats||[]).filter(x=>!(x.method==='kanellakis' && (x.log_date===dte || (ed && ed.method==='kanellakis' && x.log_date===ed.log_date)))).concat([{ log_date: dte, method:'kanellakis', fat_pct: r.pct, measurements: r.m }]);
+    cprof.fatEdit = null; await profileSyncAgeFat(); renderClientFat();
+    toast(`Καταχωρήθηκε: ${fmtKg(r.pct)}% λίπος (κατά προσέγγιση).`, 3500);
+  });
   $('cf-save')?.addEventListener('click', async ()=>{
     const dte = $('cf-date').value, pct = Number(String($('cf-pct').value).replace(',', '.'));
     if(!dte) return toast('Διάλεξε ημερομηνία.');
@@ -11268,7 +11334,7 @@ function renderClientExerciseView(item){
           <div class="pad">
             <div class="priority-badge">${ei+1}η ΠΡΟΤΕΡΑΙΟΤΗΤΑ</div>
             <h3 style="font-size:15px;margin-bottom:10px;">${escHtml(eq.name)}</h3>
-            ${handsBadgeHtml(eqHandsOf(item.exercise, eq))}
+            ${handsBadgeHtml(eqSplitOf(item.exercise, eq, item.groupLabel))}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
               <button class="btn eq-action-btn" ${eq.exercisePhotoUrl?`data-clientlib-eqphoto="${escAttr(eq.exercisePhotoUrl)}"`:'disabled'}>ΑΣΚΗΣΗ</button>
               <button class="btn eq-action-btn" ${eq.videoUrl?`data-clientlib-eqvideo="${escAttr(eq.videoUrl)}"`:'disabled'}>VIDEO</button>
@@ -11904,7 +11970,7 @@ function renderTplLibExerciseView(){
           <div class="pad">
             <div class="priority-badge">${ei+1}η ΠΡΟΤΕΡΑΙΟΤΗΤΑ</div>
             <h3 style="font-size:15px;margin-bottom:10px;">${escHtml(eq.name)}</h3>
-            ${handsBadgeHtml(eqHandsOf(it.exercise, eq))}
+            ${handsBadgeHtml(eqSplitOf(it.exercise, eq, it.groupLabel))}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
               <button class="btn eq-action-btn" ${eq.exercisePhotoUrl?`data-tpllib-eqphoto="${escAttr(eq.exercisePhotoUrl)}"`:'disabled'}>ΑΣΚΗΣΗ</button>
               <button class="btn eq-action-btn" ${eq.videoUrl?`data-tpllib-eqvideo="${escAttr(eq.videoUrl)}"`:'disabled'}>VIDEO</button>
@@ -12236,7 +12302,7 @@ function parseCatalogWorkbook(XLSX, arrayBuffer, groupDisplay){
   const cE = col('ΑΣΚΗΣΗ'), cN = col('ΕΞΟΠΛΙΣΜΟΣ'), cO = H.findIndex(h=>h.startsWith('ΣΕΙΡΑ ΠΡΟΤΑΣΗΣ')),
         cC = H.findIndex(h=>h.startsWith('ΥΠΟΛΟΓΙΣΤΗΣ ΚΙΛΩΝ')), cG = col('ΓΥΜΝΑΣΤΗΡΙΑ'), cP = col('ΦΩΤΟΓΡΑΦΙΑ ΕΞΟΠΛΙΣΜΟΥ'),
         cXP = col('ΦΩΤΟΓΡΑΦΙΑ ΑΣΚΗΣΗΣ'), cV = col('VIDEO ΑΣΚΗΣΗΣ'), cI = H.findIndex(h=>h.startsWith('ΣΠΟΥΔΑΙΟΤΗΤΑ')),
-        cHands = H.findIndex(h=>h.startsWith('ΧΕΡΙ'));   // 1 = και τα δύο χέρια μαζί, 2 = πρώτα ΧΕΡΙ Α και μετά ΧΕΡΙ Β
+        cHands = H.findIndex(h=>h.startsWith('ΧΕΡΙ'));   // 1 = μία πλευρά κάθε φορά (πρώτα Α, μετά Β), 2 = και οι δύο μαζί
   const textCols = Object.entries(CATALOG_TEXT_COLUMNS).map(([h,k])=>[col(h), k]);
   const allTitles = new Set(Object.values(EXERCISES).flat());
   const byEx = {};
@@ -12252,7 +12318,7 @@ function parseCatalogWorkbook(XLSX, arrayBuffer, groupDisplay){
       gyms: t(cG).replace(/;/g,',').split(',').map(x=>x.trim()).filter(Boolean),
       photoUrl: t(cP).trim(), exercisePhotoUrl: t(cXP).trim(), videoUrl: t(cV).trim()
     };
-    if(cHands >= 0 && String(t(cHands)).trim()==='2') item.hands = 2;
+    if(cHands >= 0){ const hv = String(t(cHands)).trim(); if(hv==='1') item.hands = 1; else if(hv==='2') item.hands = 2; }
     textCols.forEach(([c,k])=>{ item[k] = t(c); });
     (byEx[exn] = byEx[exn] || []).push({ ord: Number(r[cO]) || 99, i, item });
   });
