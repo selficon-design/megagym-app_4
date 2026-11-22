@@ -1,0 +1,73 @@
+# ΦΟΡΜΑ — αυτόματο αντίγραφο ασφαλείας κάθε βράδυ (03:17 ώρα Ελλάδας περίπου).
+# Περιέχει: όλη τη βάση (ρόλοι, δομή, δεδομένα public/auth/storage) + όλα τα αρχεία του Storage (φωτογραφίες)
+#           + τον κώδικα της εφαρμογής.
+# Κρυπτογραφείται σε .zip με AES-256 με τον κωδικό του Secret BACKUP_PASSWORD
+# (ανοίγει με 7-Zip ή WinRAR). Φυλάσσεται 30 ημέρες στο Actions → «Αντίγραφο ασφαλείας» → Artifacts.
+# ΠΟΤΕ δεν ανεβαίνει ανοιχτό αρχείο με στοιχεία πελατών (το repository είναι δημόσιο).
+# Αν δεν υπάρχει ακόμα το BACKUP_PASSWORD, κάνει μόνο δοκιμή (χωρίς να φυλάξει τίποτα) και το λέει.
+name: Αντίγραφο ασφαλείας
+
+on:
+  schedule:
+    - cron: '17 1 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RAW_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      RAW_PASS: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+      PROJECT_REF: exxjwjfjwvkenncyaqvc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+      - name: Προετοιμασία
+        run: |
+          TOKEN=$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]'); PASS=$(printf '%s' "$RAW_PASS" | tr -d '\r\n')
+          echo "::add-mask::$TOKEN"; echo "::add-mask::$PASS"
+          { echo "SUPABASE_ACCESS_TOKEN=$TOKEN"; echo "SUPABASE_DB_PASSWORD=$PASS"; } >> "$GITHUB_ENV"
+          mkdir -p /tmp/bk/database /tmp/bk/storage /tmp/bk/app
+      - name: Βάση δεδομένων
+        run: |
+          supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD" >/dev/null 2>&1 || { echo "::error::Αποτυχία σύνδεσης με τη βάση"; exit 1; }
+          supabase db dump --linked --password "$SUPABASE_DB_PASSWORD" --role-only -f /tmp/bk/database/1_roles.sql >/tmp/log1 2>&1 || { tail -5 /tmp/log1; exit 1; }
+          supabase db dump --linked --password "$SUPABASE_DB_PASSWORD" -f /tmp/bk/database/2_schema.sql >/tmp/log2 2>&1 || { tail -5 /tmp/log2; exit 1; }
+          supabase db dump --linked --password "$SUPABASE_DB_PASSWORD" --data-only --use-copy -s public,auth,storage -f /tmp/bk/database/3_data.sql >/tmp/log3 2>&1 || { tail -5 /tmp/log3; exit 1; }
+          ls -la /tmp/bk/database | awk 'NR>1{print $5, $9}'
+          [ -s /tmp/bk/database/3_data.sql ] || { echo "::error::Κενό αρχείο δεδομένων"; exit 1; }
+      - name: Φωτογραφίες (Storage)
+        run: node .github/scripts/backup-storage.mjs /tmp/bk/storage
+      - name: Κώδικας εφαρμογής
+        run: git archive --format=tar HEAD | tar -x -C /tmp/bk/app
+      - name: Κρυπτογράφηση
+        id: pack
+        run: |
+          D=$(TZ=Europe/Athens date +%Y-%m-%d)
+          cat > /tmp/bk/ΔΙΑΒΑΣΕ_ΜΕ.txt <<TXT
+          ΦΟΡΜΑ — αντίγραφο ασφαλείας $D
+          database/1_roles.sql, 2_schema.sql, 3_data.sql : όλη η βάση (Supabase / Postgres)
+          storage/ : όλες οι φωτογραφίες και τα αρχεία του Supabase Storage
+          app/ : ο κώδικας της εφαρμογής (index.html, test.html κ.λπ.)
+          TXT
+          du -sh /tmp/bk | cut -f1 | sed 's/^/Συνολικό μέγεθος: /'
+          if [ -z "$BACKUP_PASSWORD" ]; then
+            echo "::warning title=Χωρίς κωδικό::Η δοκιμή πέτυχε, αλλά ΔΕΝ φυλάχτηκε αντίγραφο: λείπει το Secret BACKUP_PASSWORD (Settings → Secrets and variables → Actions)."
+            echo "save=no" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "::add-mask::$BACKUP_PASSWORD"
+          cd /tmp/bk && 7z a -tzip -mem=AES256 -p"$BACKUP_PASSWORD" "/tmp/forma-backup-$D.zip" . >/dev/null
+          echo "save=yes" >> "$GITHUB_OUTPUT"; echo "name=forma-backup-$D" >> "$GITHUB_OUTPUT"
+          ls -la /tmp/forma-backup-$D.zip | awk '{print "Αρχείο:", $5, "bytes"}'
+      - name: Φύλαξη (30 ημέρες)
+        if: steps.pack.outputs.save == 'yes'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pack.outputs.name }}
+          path: /tmp/${{ steps.pack.outputs.name }}.zip
+          retention-days: 30
+          compression-level: 0
