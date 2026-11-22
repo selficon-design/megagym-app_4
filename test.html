@@ -601,6 +601,10 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .wl-table{width:100%;border-collapse:collapse;font-size:13.5px;}
 .wl-table th{font-size:10.5px;letter-spacing:.06em;color:var(--cyan-soft);text-align:left;padding:6px 4px;border-bottom:1px solid var(--line-strong);}
 .wl-table td{padding:8px 4px;border-bottom:1px solid rgba(61,216,255,.08);vertical-align:middle;}
+.wl-avg{text-align:center;}
+.wl-avg-t{font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--cyan-soft);}
+.wl-avg-v{font-size:28px;font-weight:900;margin:4px 0 2px;}
+.wl-avg-s{font-size:12px;color:var(--ink-soft);}
 .wl-box{display:inline-block;min-width:92px;text-align:center;padding:6px 10px;border-radius:10px;border:2px solid var(--line-strong);font-weight:800;cursor:pointer;}
 .wl-box.down{border-color:#2bd96b;background:rgba(43,217,107,.18);color:#7dffb0;}
 .wl-box.up{border-color:#ff9f1a;background:rgba(255,159,26,.18);color:#ffc465;}
@@ -10411,6 +10415,16 @@ function renderClientProfile(){
   });
 }
 // Ζυγολόγιο: ημερομηνία αριστερά, βάρος δεξιά. Πράσινο αν είναι λιγότερο από το προηγούμενο ζύγισμα, πορτοκαλί αν είναι περισσότερο.
+// Μέσος όρος βάρους των 4 τελευταίων ημερών (σήμερα + 3 προηγούμενες). null αν δεν υπάρχει ζύγισμα σε αυτές.
+function weightAvg4(){
+  const iso = d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const today = todayLocalISO(), d0 = new Date(today+'T12:00:00'); d0.setDate(d0.getDate()-3);
+  const from = iso(d0);
+  const xs = (cprof.weights||[]).filter(w=>w.log_date>=from && w.log_date<=today).map(w=>Number(w.weight_kg)).filter(isFinite);
+  if(!xs.length) return null;
+  return { avg: Math.round(xs.reduce((a,b)=>a+b,0)/xs.length*10)/10, n: xs.length, from, to: today };
+}
+function shortDateGr(iso){ const [y,m,d] = String(iso).split('-'); return `${d}/${m}`; }
 function renderClientWeights(){
   const box = document.getElementById('client-content'); if(!box) return;
   const list = (cprof.weights||[]).slice().sort((a,b)=>String(b.log_date).localeCompare(String(a.log_date)));
@@ -10424,6 +10438,11 @@ function renderClientWeights(){
         <button class="btn btn-critical" id="cw-save" ${cprof.saving?'disabled':''}>${cprof.saving?'…':'Καταχώρηση'}</button>
       </div>
     </div>
+    ${(()=>{ const a = weightAvg4(); return a ? `<div class="panel pad wl-avg" style="margin-bottom:14px;">
+      <div class="wl-avg-t">ΜΕΣΟΣ ΟΡΟΣ ΒΑΡΟΥΣ</div>
+      <div class="wl-avg-v">${fmtKg(a.avg)} kg</div>
+      <div class="wl-avg-s">${a.n===1 ? 'Από 1 ζύγισμα' : `Από ${a.n} ζυγίσματα`} των 4 τελευταίων ημερών (${shortDateGr(a.from)} – ${shortDateGr(a.to)})</div>
+    </div>` : ''; })()}
     <div class="panel pad">
       ${list.length ? `<table class="wl-table"><thead><tr><th>Ημερομηνία</th><th style="text-align:right;">Βάρος</th><th></th></tr></thead><tbody>
         ${list.map((w,i)=>{ const prev = list[i+1]; const cur = Number(w.weight_kg), pv = prev ? Number(prev.weight_kg) : null;
