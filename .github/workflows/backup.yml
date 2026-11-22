@@ -1,7 +1,7 @@
 # ΦΟΡΜΑ — αυτόματο αντίγραφο ασφαλείας κάθε βράδυ (03:17 ώρα Ελλάδας περίπου).
 # Περιέχει: όλη τη βάση (ρόλοι, δομή, δεδομένα public/auth/storage) + όλα τα αρχεία του Storage (φωτογραφίες)
 #           + τον κώδικα της εφαρμογής.
-# Κρυπτογραφείται σε .zip με AES-256 με τον κωδικό του Secret BACKUP_PASSWORD
+# Κρυπτογραφείται σε .zip με AES-256 (μέσα έχει ένα .tar με όλα) με τον κωδικό του Secret BACKUP_PASSWORD
 # (ανοίγει με 7-Zip ή WinRAR). Φυλάσσεται 30 ημέρες στο Actions → «Αντίγραφο ασφαλείας» → Artifacts.
 # ΠΟΤΕ δεν ανεβαίνει ανοιχτό αρχείο με στοιχεία πελατών (το repository είναι δημόσιο).
 # Αν δεν υπάρχει ακόμα το BACKUP_PASSWORD, κάνει μόνο δοκιμή (χωρίς να φυλάξει τίποτα) και το λέει.
@@ -60,14 +60,9 @@ jobs:
             echo "save=no" >> "$GITHUB_OUTPUT"; exit 0
           fi
           echo "::add-mask::$BACKUP_PASSWORD"
-          7z | head -3 | tail -2
-          mkdir -p /tmp/z && echo hi > /tmp/z/a.txt && cd /tmp/z
-          for v in "-mem=AES256" "-mem=AES128" "-mem=ZipCrypto" "" ; do rm -f /tmp/z.zip; if 7z a -tzip $v -px /tmp/z.zip a.txt >/tmp/zl 2>&1; then echo "VARIANT OK [$v]"; else echo "VARIANT FAIL [$v] $(grep -m1 E_ /tmp/zl)"; fi; done
-          rm -f /tmp/z.zip; 7z a /tmp/z.7z -px -mhe=on a.txt >/dev/null 2>&1 && echo "VARIANT OK [7z format]" || echo "VARIANT FAIL [7z format]"
-          cd /tmp/bk
-          printf '%s' "$BACKUP_PASSWORD" | LC_ALL=C grep -q '[^ -~]' && echo "Ο κωδικός έχει μη λατινικούς χαρακτήρες ή αλλαγή γραμμής" || echo "Ο κωδικός είναι απλοί λατινικοί χαρακτήρες"
-          printf '%s' "$BACKUP_PASSWORD" | grep -q '^-' && echo "Ο κωδικός ξεκινάει με -" || true
-          cd /tmp/bk && LC_ALL=C.UTF-8 LANG=C.UTF-8 7z a -tzip -mem=AES256 -p"$BACKUP_PASSWORD" "/tmp/forma-backup-$D.zip" . >/dev/null
+          # πρώτα ένα .tar (κρατάει ακριβώς όλα τα ονόματα αρχείων), μετά κρυπτογραφημένο zip
+          mkdir -p /tmp/pack && tar -C /tmp/bk -cf "/tmp/pack/forma-backup-$D.tar" .
+          cd /tmp/pack && 7z a -tzip -mem=AES256 -p"$BACKUP_PASSWORD" "/tmp/forma-backup-$D.zip" "forma-backup-$D.tar" > /tmp/7zlog 2>&1 || { grep -m3 -E "ERROR|E_|WARN" /tmp/7zlog; 7z a -tzip -mem=AES256 -px /tmp/t.zip "forma-backup-$D.tar" >/dev/null 2>&1 && echo "Με δοκιμαστικό κωδικό πετυχαίνει → το πρόβλημα είναι στον κωδικό (μήκος ${#BACKUP_PASSWORD})" || echo "Αποτυγχάνει και με δοκιμαστικό κωδικό"; exit 1; }
           echo "save=yes" >> "$GITHUB_OUTPUT"; echo "name=forma-backup-$D" >> "$GITHUB_OUTPUT"
           ls -la /tmp/forma-backup-$D.zip | awk '{print "Αρχείο:", $5, "bytes"}'
       - name: Φύλαξη (30 ημέρες)
