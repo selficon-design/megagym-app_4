@@ -48,7 +48,7 @@ jobs:
         id: pack
         run: |
           D=$(TZ=Europe/Athens date +%Y-%m-%d)
-          cat > /tmp/bk/ΔΙΑΒΑΣΕ_ΜΕ.txt <<TXT
+          cat > /tmp/bk/README.txt <<TXT
           ΦΟΡΜΑ — αντίγραφο ασφαλείας $D
           database/1_roles.sql, 2_schema.sql, 3_data.sql : όλη η βάση (Supabase / Postgres)
           storage/ : όλες οι φωτογραφίες και τα αρχεία του Supabase Storage
@@ -60,7 +60,7 @@ jobs:
             echo "save=no" >> "$GITHUB_OUTPUT"; exit 0
           fi
           echo "::add-mask::$BACKUP_PASSWORD"
-          cd /tmp/bk && 7z a -tzip -mem=AES256 -p"$BACKUP_PASSWORD" "/tmp/forma-backup-$D.zip" . >/dev/null
+          cd /tmp/bk && LC_ALL=C.UTF-8 LANG=C.UTF-8 7z a -tzip -mem=AES256 -p"$BACKUP_PASSWORD" "/tmp/forma-backup-$D.zip" . >/dev/null
           echo "save=yes" >> "$GITHUB_OUTPUT"; echo "name=forma-backup-$D" >> "$GITHUB_OUTPUT"
           ls -la /tmp/forma-backup-$D.zip | awk '{print "Αρχείο:", $5, "bytes"}'
       - name: Φύλαξη (30 ημέρες)
