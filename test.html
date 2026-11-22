@@ -605,6 +605,11 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .wl-avg-t{font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--cyan-soft);}
 .wl-avg-v{font-size:28px;font-weight:900;margin:4px 0 2px;}
 .wl-avg-s{font-size:12px;color:var(--ink-soft);}
+.wl-st{padding:9px 0;border-top:1px solid var(--line);}
+.wl-st-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.wl-st-l{font-weight:800;font-size:14px;}
+.wl-st-s{font-size:11.5px;color:var(--ink-soft);margin-top:3px;}
+.wl-st.na .wl-st-l{color:var(--ink-soft);font-weight:600;}
 .wl-box{display:inline-block;min-width:92px;text-align:center;padding:6px 10px;border-radius:10px;border:2px solid var(--line-strong);font-weight:800;cursor:pointer;}
 .wl-box.down{border-color:#2bd96b;background:rgba(43,217,107,.18);color:#7dffb0;}
 .wl-box.up{border-color:#ff9f1a;background:rgba(255,159,26,.18);color:#ffc465;}
@@ -10300,6 +10305,7 @@ async function cprofLoad(){
   cprof.data = p.data || { customer_code: code };
   cprof.weights = w.data || [];
   cprof.loadedFor = code;
+  if(!p.error && !w.error) await weightSyncProfile();
 }
 async function cprofSave(patch){
   const code = auth.customer && auth.customer.code; if(!code) return false;
@@ -10368,7 +10374,7 @@ function renderClientProfile(){
         <div class="field"><label>Nickname</label><input type="text" id="cp-nick" maxlength="40" value="${v('nickname')}" placeholder="πώς θέλεις να σε λέμε"></div>
         <div class="field"><label>Ηλικία</label><input type="text" inputmode="numeric" id="cp-age" value="${v('age')}"></div>
         <div class="field"><label>Ύψος (cm)</label><input type="text" inputmode="decimal" id="cp-height" value="${v('height_cm')}"></div>
-        <div class="field"><label>Βάρος (kg)</label><input type="text" inputmode="decimal" id="cp-weight" value="${v('weight_kg', lastW ? lastW.weight_kg : '')}"></div>
+        <div class="field"><label>Βάρος (kg)</label><input type="text" inputmode="decimal" id="cp-weight" value="${v('weight_kg', lastW ? lastW.weight_kg : '')}"><div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.4;">Μέσος όρος των 4 τελευταίων ημερών από το ζυγολόγιο. Αν το αλλάξεις, καταχωρείται ως σημερινό ζύγισμα.</div></div>
         <div class="field"><label>Ποσοστό λίπους (%)</label><input type="text" inputmode="decimal" id="cp-fat" value="${v('body_fat_pct')}"></div>
         <div class="field"><label>Φύλο</label><div class="chip-row">${CPROF_GENDERS.map(g=>`<button type="button" class="kcal-btn ${d.gender===g?'active':''}" data-cp-gender="${g}">${g}</button>`).join('')}</div></div>
         <div class="field" style="grid-column:1 / -1;"><label>Στόχος</label>
@@ -10409,22 +10415,63 @@ function renderClientProfile(){
     if(bad('body_fat_pct',1,75)) return toast('Το ποσοστό λίπους δεν φαίνεται σωστό.');
     if(patch.age!=null) patch.age = Math.round(patch.age);
     cprof.saving = true; renderClientProfile();
+    let wNote = '';
+    if(patch.weight_kg!=null && Math.round(patch.weight_kg*10)/10 !== Number(d.weight_kg)){   // νέο βάρος → σημερινό ζύγισμα, και στα στοιχεία μπαίνει ο μ.ό. 4 ημερών
+      const w = Math.round(patch.weight_kg*10)/10, dte = todayLocalISO();
+      const { error } = await sb.from('weight_logs').upsert({ customer_code: auth.customer.code, log_date: dte, weight_kg: w }, { onConflict:'customer_code,log_date' });
+      if(!error){
+        cprof.weights = (cprof.weights||[]).filter(x=>x.log_date!==dte).concat([{ log_date: dte, weight_kg: w }]).sort((a,b)=>String(b.log_date).localeCompare(String(a.log_date)));
+        const a = weightAvg4(); if(a){ patch.weight_kg = a.avg; if(a.n>1) wNote = ` Βάρος: μέσος όρος ${a.n} ζυγισμάτων = ${fmtKg(a.avg)} kg.`; }
+      } else console.error(error);
+    }
     const ok = await cprofSave(patch);
     cprof.saving = false; renderClientProfile();
-    toast(ok ? 'Τα στοιχεία σου αποθηκεύτηκαν!' : 'Δεν αποθηκεύτηκαν. Δοκίμασε ξανά.');
+    toast(ok ? 'Τα στοιχεία σου αποθηκεύτηκαν!'+wNote : 'Δεν αποθηκεύτηκαν. Δοκίμασε ξανά.', wNote ? 4500 : undefined);
   });
 }
 // Ζυγολόγιο: ημερομηνία αριστερά, βάρος δεξιά. Πράσινο αν είναι λιγότερο από το προηγούμενο ζύγισμα, πορτοκαλί αν είναι περισσότερο.
 // Μέσος όρος βάρους των 4 τελευταίων ημερών (σήμερα + 3 προηγούμενες). null αν δεν υπάρχει ζύγισμα σε αυτές.
-function weightAvg4(){
-  const iso = d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  const today = todayLocalISO(), d0 = new Date(today+'T12:00:00'); d0.setDate(d0.getDate()-3);
-  const from = iso(d0);
-  const xs = (cprof.weights||[]).filter(w=>w.log_date>=from && w.log_date<=today).map(w=>Number(w.weight_kg)).filter(isFinite);
+function isoOf(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function isoAddDays(iso, n){ const d = new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n); return isoOf(d); }
+function isoAddMonths(iso, n){ const [y,m,dd] = iso.split('-').map(Number); const last = new Date(y, m-1+n+1, 0).getDate(); return isoOf(new Date(y, m-1+n, Math.min(dd, last), 12)); }
+// Μέσος όρος των ζυγισμάτων στις 4 ημερολογιακές ημέρες που τελειώνουν στο «to» (to-3 … to). null αν δεν υπάρχει κανένα.
+function weightAvgWindow(to){
+  const from = isoAddDays(to, -3);
+  const xs = (cprof.weights||[]).filter(w=>w.log_date>=from && w.log_date<=to).map(w=>Number(w.weight_kg)).filter(isFinite);
   if(!xs.length) return null;
-  return { avg: Math.round(xs.reduce((a,b)=>a+b,0)/xs.length*10)/10, n: xs.length, from, to: today };
+  return { avg: Math.round(xs.reduce((a,b)=>a+b,0)/xs.length*10)/10, n: xs.length, from, to };
 }
-function shortDateGr(iso){ const [y,m,d] = String(iso).split('-'); return `${d}/${m}`; }
+function weightAvg4(){ return weightAvgWindow(todayLocalISO()); }
+// Το «Βάρος» στα προσωπικά στοιχεία = πάντα ο μέσος όρος των 4 τελευταίων ημερών (όταν υπάρχει ζύγισμα σε αυτές)
+async function weightSyncProfile(){
+  const a = weightAvg4(); if(!a || !cprof.data) return;
+  if(Number(cprof.data.weight_kg) !== a.avg) await cprofSave({ weight_kg: a.avg });
+}
+// Στατιστικά αλλαγής βάρους: εβδομάδα = πρώτο → τελευταίο ζύγισμα των 7 ημερών· μεγαλύτερες περίοδοι = μ.ό. 4 ημερών στην αρχή → μ.ό. 4 τελευταίων ημερών
+function weightStats(){
+  const today = todayLocalISO(), rows = [];
+  const wk = (cprof.weights||[]).filter(w=>w.log_date>=isoAddDays(today,-6) && w.log_date<=today).slice().sort((a,b)=>String(a.log_date).localeCompare(String(b.log_date)));
+  rows.push(wk.length>=2 ? { label:'Τελευταία εβδομάδα', fromTxt: shortDateGr(wk[0].log_date), toTxt: shortDateGr(wk[wk.length-1].log_date), a:Number(wk[0].weight_kg), b:Number(wk[wk.length-1].weight_kg) } : { label:'Τελευταία εβδομάδα' });
+  const end = weightAvgWindow(today);
+  [['15ήμερο', t=>isoAddDays(t,-15)], ['Μήνας', t=>isoAddMonths(t,-1)], ['Δίμηνο', t=>isoAddMonths(t,-2)], ['Τρίμηνο', t=>isoAddMonths(t,-3)], ['Εξάμηνο', t=>isoAddMonths(t,-6)], ['Χρόνος', t=>isoAddMonths(t,-12)]].forEach(([label, back])=>{
+    const st = weightAvgWindow(back(today));
+    rows.push(st && end ? { label, fromTxt: `μ.ό. ${shortDateGr(st.from)}–${shortDateGr(st.to)}`, toTxt: `μ.ό. ${shortDateGr(end.from)}–${shortDateGr(end.to)}`, a: st.avg, b: end.avg } : { label });
+  });
+  return rows;
+}
+function weightStatsHtml(){
+  const rows = weightStats();
+  if(!rows.some(r=>r.a!=null)) return '';
+  return `<div class="panel pad" style="margin-bottom:14px;">
+    <div class="wl-avg-t" style="text-align:center;margin-bottom:8px;">ΑΛΛΑΓΗ ΒΑΡΟΥΣ</div>
+    ${rows.map(r=>{
+      if(r.a==null) return `<div class="wl-st na"><div class="wl-st-l">${r.label}</div><div class="wl-st-s">δεν υπάρχουν αρκετά ζυγίσματα</div></div>`;
+      const d = Math.round((r.b-r.a)*10)/10, cls = d<0 ? 'down' : d>0 ? 'up' : 'same';
+      return `<div class="wl-st"><div class="wl-st-top"><div class="wl-st-l">${r.label}</div><span class="wl-box ${cls}" style="min-width:76px;cursor:default;">${d===0 ? '±0' : (d>0?'+':'−')+fmtKg(Math.abs(d))} kg</span></div>
+        <div class="wl-st-s"><b>${fmtKg(r.a)}</b> → <b>${fmtKg(r.b)}</b> kg · ${escHtml(r.fromTxt)} → ${escHtml(r.toTxt)}</div></div>`; }).join('')}
+    </div>`;
+}
+function shortDateGr(iso){ const [y,m,d] = String(iso).split('-'); return y===todayLocalISO().slice(0,4) ? `${d}/${m}` : `${d}/${m}/${y.slice(2)}`; }
 function renderClientWeights(){
   const box = document.getElementById('client-content'); if(!box) return;
   const list = (cprof.weights||[]).slice().sort((a,b)=>String(b.log_date).localeCompare(String(a.log_date)));
@@ -10443,6 +10490,7 @@ function renderClientWeights(){
       <div class="wl-avg-v">${fmtKg(a.avg)} kg</div>
       <div class="wl-avg-s">${a.n===1 ? 'Από 1 ζύγισμα' : `Από ${a.n} ζυγίσματα`} των 4 τελευταίων ημερών (${shortDateGr(a.from)} – ${shortDateGr(a.to)})</div>
     </div>` : ''; })()}
+    ${weightStatsHtml()}
     <div class="panel pad">
       ${list.length ? `<table class="wl-table"><thead><tr><th>Ημερομηνία</th><th style="text-align:right;">Βάρος</th><th></th></tr></thead><tbody>
         ${list.map((w,i)=>{ const prev = list[i+1]; const cur = Number(w.weight_kg), pv = prev ? Number(prev.weight_kg) : null;
@@ -10462,7 +10510,7 @@ function renderClientWeights(){
     state.cwDelConfirm = null;
     const { error } = await sb.from('weight_logs').delete().eq('customer_code', auth.customer.code).eq('log_date', dte);
     if(error){ console.error(error); return toast('Δεν διαγράφηκε.'); }
-    cprof.weights = cprof.weights.filter(x=>x.log_date!==dte); renderClientWeights();
+    cprof.weights = cprof.weights.filter(x=>x.log_date!==dte); await weightSyncProfile(); renderClientWeights();
   }));
   $('cw-save').addEventListener('click', async ()=>{
     const dte = $('cw-date').value, kg = Number(String($('cw-kg').value).replace(',', '.'));
@@ -10475,7 +10523,7 @@ function renderClientWeights(){
     cprof.saving = false;
     if(error){ console.error(error); renderClientWeights(); return toast('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.'); }
     cprof.weights = (cprof.weights||[]).filter(x=>x.log_date!==dte).concat([{ log_date: dte, weight_kg: w }]).sort((a,b)=>String(b.log_date).localeCompare(String(a.log_date)));
-    if(cprof.weights[0].log_date === dte) cprofSave({ weight_kg: w });   // το πιο πρόσφατο ζύγισμα = το βάρος στα στοιχεία
+    await weightSyncProfile();   // το βάρος στα στοιχεία = μ.ό. 4 τελευταίων ημερών
     const i = cprof.weights.findIndex(x=>x.log_date===dte), prev = cprof.weights[i+1];
     cprof.editDate = null; renderClientWeights();
     toast(prev ? (w < prev.weight_kg ? '🟢 Μπράβο! Λιγότερο από το προηγούμενο ζύγισμα.' : (w > prev.weight_kg ? '🟠 Λίγο περισσότερο από το προηγούμενο ζύγισμα.' : 'Ίδιο με το προηγούμενο ζύγισμα.')) : 'Το πρώτο σου ζύγισμα καταχωρήθηκε!');
