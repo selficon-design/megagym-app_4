@@ -6041,7 +6041,7 @@ function renderTrainerExercisePreviewPage(){
         <div class="calc-field-box"><label>REP</label><div class="val">${escHtml(String(item.rep))}</div></div>
         <div class="calc-field-box"><label>Διάλειμμα</label><div class="val">${escHtml(String(item.rest))}</div></div>
         ${tempoBoxHtml(item.tempo)}
-        <div class="calc-field-box"><label>Ένταση</label><div class="val" style="font-size:15px;">${escHtml(failureLabel(item.failure))}</div>${item.failureSets==='fl2' ? '<div class="fsets-note">στο 1ο και στα 2 τελευταία set</div>' : ''}</div>
+        <div class="calc-field-box"><label>Ένταση</label><div class="val" style="font-size:15px;">${escHtml(failureLabel(item.failure))}</div>${item.failureSets==='fl2' ? '<div class="fsets-note">στο 1ο και στα 2 τελευταία set</div>' : ''}${medCap() ? '<div class="med-note" style="margin:4px 0 0;">🩺 Λόγω ιατρικού ιστορικού (καρδιά / υψηλή πίεση στα στοιχεία σου): όλες οι ασκήσεις UNTIL FAILURE -3 και tempo 1-2-1</div>' : ''}</div>
       </div>
     </div>
     ${(item.equipment&&item.equipment.length) ? `
@@ -11045,7 +11045,7 @@ function renderClientExerciseView(item){
         <div class="calc-field-box"><label>REP</label><div class="val">${escHtml(String(item.rep))}</div></div>
         <div class="calc-field-box"><label>Διάλειμμα</label><div class="val">${escHtml(String(item.rest))}</div></div>
         ${tempoBoxHtml(item.tempo)}
-        <div class="calc-field-box"><label>Ένταση</label><div class="val" style="font-size:15px;">${escHtml(failureLabel(item.failure))}</div>${item.failureSets==='fl2' ? '<div class="fsets-note">στο 1ο και στα 2 τελευταία set</div>' : ''}</div>
+        <div class="calc-field-box"><label>Ένταση</label><div class="val" style="font-size:15px;">${escHtml(failureLabel(item.failure))}</div>${item.failureSets==='fl2' ? '<div class="fsets-note">στο 1ο και στα 2 τελευταία set</div>' : ''}${medCap() ? '<div class="med-note" style="margin:4px 0 0;">🩺 Λόγω ιατρικού ιστορικού (καρδιά / υψηλή πίεση στα στοιχεία σου): όλες οι ασκήσεις UNTIL FAILURE -3 και tempo 1-2-1</div>' : ''}</div>
       </div>
       <div class="info-card"><div class="lbl">Τι σημαίνει η Ένταση (UNTIL FAILURE)</div><div class="txt">${escHtml(FAILURE_EXPLANATION)}</div></div>
       <button class="btn btn-critical" style="width:100%;justify-content:center;" data-firstset-instr="1">ΟΔΗΓΙΕΣ ΕΚΤΕΛΕΣΗΣ ΠΡΩΤΟΥ SET</button>
@@ -11682,7 +11682,7 @@ function renderTplLibExerciseView(){
         ${tempoBoxHtml(it.tempo)}
         <div class="calc-field-box"><label>Διάλειμμα</label><div class="val">${escHtml(it.rest)}</div></div>
       </div>
-      <div class="calc-field-box" style="margin-bottom:14px;"><label>Ένταση</label>${it.failureSets==='fl2' ? '<div class="fsets-note">στο 1ο και στα 2 τελευταία set</div>' : ''}<div class="val" style="font-size:15px;">${escHtml(failureLabel(it.failure))}</div></div>
+      <div class="calc-field-box" style="margin-bottom:14px;"><label>Ένταση</label>${it.failureSets==='fl2' ? '<div class="fsets-note">στο 1ο και στα 2 τελευταία set</div>' : ''}<div class="val" style="font-size:15px;">${escHtml(failureLabel(it.failure))}</div>${medCap() ? '<div class="med-note" style="margin:4px 0 0;">🩺 Λόγω ιατρικού ιστορικού (καρδιά / υψηλή πίεση στα στοιχεία σου): όλες οι ασκήσεις UNTIL FAILURE -3 και tempo 1-2-1</div>' : ''}</div>
       <div class="info-card"><div class="lbl">Τι σημαίνει η Ένταση (UNTIL FAILURE)</div><div class="txt">${escHtml(FAILURE_EXPLANATION)}</div></div>
       <button class="btn btn-critical" style="width:100%;justify-content:center;margin-top:6px;" data-firstset-instr="1">ΟΔΗΓΙΕΣ ΕΚΤΕΛΕΣΗΣ ΠΡΩΤΟΥ SET</button>
       ${!(it.equipment||[]).length ? `<button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:8px;" id="tpllib-start-exercise">▶ Έναρξη Προπόνησης</button>` : ''}
