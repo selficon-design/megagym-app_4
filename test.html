@@ -727,6 +727,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .tpl-draft-box{border-color:#ffb347 !important;margin-bottom:14px;}
 .tpl-eqcheck{margin:12px 0;padding:12px 14px;border:1.5px solid #ffb347;border-radius:12px;background:rgba(255,179,71,.06);}
 .tpl-eqrow{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line);}
+#tpl-gcmp .tpl-gcmp-tag{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:6px;background:rgba(59,216,255,.14);color:var(--cyan-soft);margin-right:4px;vertical-align:1px;}
 #tpl-gcmp{position:fixed;inset:0;z-index:9500;background:rgba(2,8,14,.97);overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .tpl-gcmp-in{max-width:1100px;margin:0 auto;padding:14px 16px 60px;}
 .tpl-gcmp-top{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;background:rgba(2,8,14,.97);}
@@ -3790,7 +3791,7 @@ function tplGroupFilterHtml(b){
 /* Σύγκριση μιας μυϊκής ομάδας σε όλα τα προγράμματα της κατηγορίας (π.χ. ΠΟΔΙΑ σε PRO 1…PRO 6), το ένα κάτω από το άλλο */
 function tplGcmpOpen(){
   const b = state.tplBuilder;
-  state.tplGcmp = { group: state.tplGroupFilter || null, near: true, cat: (b && b.id && tplCatOf((state.tplTemplates||[]).find(t=>t.id===b.id)||{})) || state.tplCatView, focusId: b && b.id };
+  state.tplGcmp = { group: state.tplGroupFilter || null, groups: state.tplGroupFilter ? [state.tplGroupFilter] : [], multi:false, near: true, cat: (b && b.id && tplCatOf((state.tplTemplates||[]).find(t=>t.id===b.id)||{})) || state.tplCatView, focusId: b && b.id };
   tplGcmpRender();
 }
 function tplGcmpClose(keepBack){
@@ -3822,7 +3823,7 @@ function tplGcmpOpenAt(id, di, ii){
 }
 function tplGcmpBack(){
   const L = state.tplGcmpLast; if(!L) return;
-  state.tplGcmp = { group:L.group, near:L.near, cat:L.cat, focusId:L.focusId, lastId:L.lastId, lastDi:L.lastDi, lastIi:L.lastIi, _scrolled:true };
+  state.tplGcmp = { group:L.group, groups:L.groups || (L.group ? [L.group] : []), multi:!!L.multi, near:L.near, cat:L.cat, focusId:L.focusId, lastId:L.lastId, lastDi:L.lastDi, lastIi:L.lastIi, _scrolled:true };
   tplGcmpRender();
   const ov = document.getElementById('tpl-gcmp'); if(!ov) return;
   const target = ov.querySelector('.tpl-gcmp-it.last, .tpl-gcmp-day.last') || (L.lastId && document.getElementById('tpl-gcmp-p-'+L.lastId));
@@ -3835,7 +3836,11 @@ function tplGcmpRender(){
   let list = (state.tplTemplates||[]).filter(t=>tplCatOf(t)===g.cat).sort(tplOrderCmp)
     .map(t=> (b && b.id===t.id) ? { ...t, data:{ ...(t.data||{}), days:b.days }, _live:true } : t);   // το ανοιχτό πρόγραμμα με τις τρέχουσες αλλαγές
   const groups = []; list.forEach(t=>((t.data&&t.data.days)||[]).forEach(d=>(d.items||[]).forEach(it=>{ const x = tplGroupOf(it); if(!groups.includes(x)) groups.push(x); })));
-  if(!g.group || !groups.includes(g.group)) g.group = groups.find(x=>x!=='ΑΕΡΟΒΙΟ') || groups[0] || null;
+  // επιλεγμένες ομάδες: [] = όλες · πολλαπλή επιλογή με το κουμπί «☑ Πολλές μαζί»
+  if(!Array.isArray(g.groups)) g.groups = g.group ? [g.group] : [];
+  g.groups = g.groups.filter(x=>groups.includes(x));
+  g.group = g.groups.length===1 ? g.groups[0] : null;
+  const inSel = x=>!g.groups.length || g.groups.includes(x), showTag = g.groups.length!==1;
   const fi = list.findIndex(t=>t.id===g.focusId);
   if(g.near && fi>=0) list = list.slice(Math.max(0, fi-2), fi+3);
   const eqNames = it=>(it.equipment||[]).map(e=> typeof e==='string' ? e : (e && e.name) || '').filter(Boolean);
@@ -3845,19 +3850,24 @@ function tplGcmpRender(){
       <div><b>Σύγκριση μυϊκής ομάδας</b><div style="font-size:12px;color:var(--ink-soft);">${escHtml([cg, tplShortSub(ctop||'', csub||'')].filter(Boolean).join(' · '))}</div></div>
       <div style="display:flex;gap:8px;align-items:center;"><span style="font-size:11px;color:var(--ink-soft);">Esc = πίσω στο πρόγραμμα</span><button class="btn btn-outline" id="tpl-gcmp-x">✕ Κλείσιμο</button></div>
     </div>
-    <div class="tpl-gf" style="margin:10px 0;">${groups.map(x=>`<button type="button" class="tpl-gf-chip ${g.group===x?'on':''}" data-tpl-gcmp-g="${escAttr(x)}">${escHtml(x)}</button>`).join('')}</div>
+    <div class="tpl-gf" style="margin:10px 0;">
+      <button type="button" class="btn ${g.multi?'btn-primary':'btn-outline'}" id="tpl-gcmp-multi" style="padding:5px 10px;font-size:11.5px;" title="Διάλεξε πολλές μυϊκές ομάδες μαζί">${g.multi ? '☑ Πολλές μαζί: ΝΑΙ' : '☐ Πολλές μαζί'}</button>
+      <button type="button" class="tpl-gf-chip ${!g.groups.length?'on':''}" data-tpl-gcmp-g="">Όλες</button>
+      ${groups.map(x=>`<button type="button" class="tpl-gf-chip ${g.groups.includes(x)?'on':''}" data-tpl-gcmp-g="${escAttr(x)}">${g.multi ? (g.groups.includes(x)?'☑ ':'☐ ') : ''}${escHtml(x)}</button>`).join('')}
+    </div>
     ${fi>=0 ? `<label style="display:flex;gap:8px;align-items:center;font-size:12.5px;margin-bottom:10px;cursor:pointer;"><input type="checkbox" id="tpl-gcmp-near" ${g.near?'checked':''}> Μόνο τα κοντινά (2 πριν και 2 μετά από το «${escHtml((state.tplTemplates.find(t=>t.id===g.focusId)||{}).name||'')}»)</label>` : ''}
     ${list.map(t=>{
       const days = (t.data && t.data.days) || [];
       return `<div class="tpl-gcmp-prog ${t.id===(g.lastId||g.focusId)?'cur':''}" id="tpl-gcmp-p-${t.id}">
         <div class="tpl-gcmp-ph"><span><b>${escHtml(t.name)}</b>${t._live?' <span style="font-size:11px;color:#ffb347;">(ανοιχτό τώρα)</span>':''}${t.is_published?'':' <span style="font-size:11px;color:var(--ink-soft);">· κρυφό</span>'}</span>
           <button class="btn btn-outline" style="padding:5px 9px;font-size:11px;" data-tpl-gcmp-open="${t.id}">Άνοιγμα →</button></div>
-        ${days.map((d,di)=>{ const its = (d.items||[]).map((it,ii)=>({ ...it, _ii:ii })).filter(it=>tplGroupOf(it)===g.group);
+        ${days.map((d,di)=>{ const its = (d.items||[]).map((it,ii)=>({ ...it, _ii:ii })).filter(it=>inSel(tplGroupOf(it)));
+          const tag = it=> showTag ? `<span class="tpl-gcmp-tag">${escHtml(tplGroupOf(it))}</span> ` : '';
           const lastDay = g.lastId===t.id && g.lastDi===di;
           return `<div class="tpl-gcmp-day ${lastDay && g.lastIi==null ? 'last' : ''}"><div class="tpl-gcmp-dl">${di+1}. ${escHtml(d.label||'')}<button type="button" class="tpl-gcmp-dbtn" data-tpl-gcmp-day="${t.id}|${di}">Άνοιγμα ημέρας →</button></div>
             ${its.length ? its.map(it=> it.type==='cardio'
-              ? `<div class="tpl-gcmp-it ${lastDay && g.lastIi===it._ii ? 'last' : ''}">${escHtml(it.equipment||'Αερόβιο')} · ${escHtml(String(it.minutes||''))}′ ${it.mode==='drill'?'DRILL':''} <button type="button" class="tpl-gcmp-ebtn" data-tpl-gcmp-edit="${t.id}|${di}|${it._ii}">✎ Διόρθωση</button></div>`
-              : `<div class="tpl-gcmp-it ${lastDay && g.lastIi===it._ii ? 'last' : ''}"><div>${escHtml(it.exercise||'—')} <button type="button" class="tpl-gcmp-ebtn" data-tpl-gcmp-edit="${t.id}|${di}|${it._ii}">✎ Διόρθωση</button></div><div class="mono">${it.set}×${escHtml(it.rep||'')} · ${escHtml(it.rest||'')} · ${escHtml(it.tempo||'')} · ${escHtml(failureFull(it))}</div>${eqNames(it).length?`<div class="tpl-gcmp-eq">${escHtml(eqNames(it).join(' · '))}</div>`:''}</div>`).join('')
+              ? `<div class="tpl-gcmp-it ${lastDay && g.lastIi===it._ii ? 'last' : ''}">${tag(it)}${escHtml(it.equipment||'Αερόβιο')} · ${escHtml(String(it.minutes||''))}′ ${it.mode==='drill'?'DRILL':''} <button type="button" class="tpl-gcmp-ebtn" data-tpl-gcmp-edit="${t.id}|${di}|${it._ii}">✎ Διόρθωση</button></div>`
+              : `<div class="tpl-gcmp-it ${lastDay && g.lastIi===it._ii ? 'last' : ''}"><div>${tag(it)}${escHtml(it.exercise||'—')} <button type="button" class="tpl-gcmp-ebtn" data-tpl-gcmp-edit="${t.id}|${di}|${it._ii}">✎ Διόρθωση</button></div><div class="mono">${it.set}×${escHtml(it.rep||'')} · ${escHtml(it.rest||'')} · ${escHtml(it.tempo||'')} · ${escHtml(failureFull(it))}</div>${eqNames(it).length?`<div class="tpl-gcmp-eq">${escHtml(eqNames(it).join(' · '))}</div>`:''}</div>`).join('')
               : `<div class="tpl-gcmp-none">—</div>`}
           </div>`; }).join('')}
       </div>`; }).join('') || '<div class="tpl-empty">Κανένα πρόγραμμα.</div>'}
@@ -3866,7 +3876,13 @@ function tplGcmpRender(){
   if(!ov){ ov = document.createElement('div'); ov.id = 'tpl-gcmp'; document.body.appendChild(ov); }
   ov.innerHTML = html; document.body.style.overflow = 'hidden';
   ov.querySelector('#tpl-gcmp-x').addEventListener('click', ()=>{ tplGcmpClose(false); renderTplFormArea(); });
-  ov.querySelectorAll('[data-tpl-gcmp-g]').forEach(el=>el.addEventListener('click', ()=>{ g.group = el.getAttribute('data-tpl-gcmp-g'); const y = ov.scrollTop; tplGcmpRender(); ov.scrollTop = y; }));
+  ov.querySelectorAll('[data-tpl-gcmp-g]').forEach(el=>el.addEventListener('click', ()=>{
+    const x = el.getAttribute('data-tpl-gcmp-g');
+    if(!x) g.groups = [];
+    else if(g.multi) g.groups = g.groups.includes(x) ? g.groups.filter(y=>y!==x) : [...g.groups, x];
+    else g.groups = (g.groups.length===1 && g.groups[0]===x) ? [] : [x];
+    const y = ov.scrollTop; tplGcmpRender(); ov.scrollTop = y; }));
+  ov.querySelector('#tpl-gcmp-multi')?.addEventListener('click', ()=>{ g.multi = !g.multi; const y = ov.scrollTop; tplGcmpRender(); ov.scrollTop = y; });
   ov.querySelector('#tpl-gcmp-near')?.addEventListener('change', e=>{ g.near = e.target.checked; tplGcmpRender(); });
   ov.querySelectorAll('[data-tpl-gcmp-edit]').forEach(el=>el.addEventListener('click', ()=>{
     const [id, di, ii] = el.getAttribute('data-tpl-gcmp-edit').split('|'); tplGcmpOpenAt(id, +di, +ii);
@@ -4497,7 +4513,7 @@ async function tplLogActivity(b, pid, wasEdit){
     const d = tplDiff(oldB, b);
     const place = { ...(d.place||{}), group: state.tplGroupFilter || null };
     const G = state.tplGcmpLast;   // ήρθες από τη σύγκριση («✎ Διόρθωση» / «Άνοιγμα»): το «Πού έμεινα» γυρίζει εκεί
-    if(G) place.gcmp = { group:G.group, near:G.near, cat:G.cat, focusId:G.focusId };
+    if(G) place.gcmp = { group:G.group, groups:G.groups, multi:G.multi, near:G.near, cat:G.cat, focusId:G.focusId };
     const row = { template_id: pid, program_name: b.name, category: [b.gender, tplShortSub(b.topCategory, b.subCategory||'')].filter(Boolean).join(' · '), summary: d.summary, place };
     try{ localStorage.setItem('forma_tpl_lastwork', JSON.stringify({ ...row, created_at: new Date().toISOString() })); }catch(_){}
     await sb.from('template_activity').insert(row);
