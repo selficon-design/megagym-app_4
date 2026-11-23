@@ -741,7 +741,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .tpl-gcmp-ebtn{margin-left:6px;padding:2px 8px;border-radius:7px;border:1px solid rgba(61,216,255,.55);background:rgba(61,216,255,.08);color:#9fe8ff;font:600 10.5px inherit;font-family:inherit;cursor:pointer;vertical-align:middle;}
 .tpl-gcmp-dbtn{display:block;margin-top:5px;padding:4px 8px;border-radius:7px;border:1px solid rgba(255,179,71,.6);background:rgba(255,179,71,.08);color:#ffcf8a;font:600 10.5px inherit;font-family:inherit;cursor:pointer;}
 .kbd{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:5px;border:1px solid rgba(0,0,0,.35);background:rgba(0,0,0,.18);font-size:10.5px;font-weight:700;}
-.tpl-gcmp-it{font-size:13px;margin-bottom:6px;}
+.tpl-gcmp-its{min-width:0;}
+.tpl-gcmp-it{font-size:13px;margin-bottom:8px;}
 .tpl-gcmp-it .mono{font-size:11.5px;color:var(--ink-soft);}
 .tpl-gcmp-eq{font-size:11px;color:#c9b38a;}
 .tpl-gcmp-none{font-size:12px;color:var(--ink-soft);}
@@ -3865,10 +3866,10 @@ function tplGcmpRender(){
           const tag = it=> showTag ? `<span class="tpl-gcmp-tag">${escHtml(tplGroupOf(it))}</span> ` : '';
           const lastDay = g.lastId===t.id && g.lastDi===di;
           return `<div class="tpl-gcmp-day ${lastDay && g.lastIi==null ? 'last' : ''}"><div class="tpl-gcmp-dl">${di+1}. ${escHtml(d.label||'')}<button type="button" class="tpl-gcmp-dbtn" data-tpl-gcmp-day="${t.id}|${di}">Άνοιγμα ημέρας →</button></div>
-            ${its.length ? its.map(it=> it.type==='cardio'
+            <div class="tpl-gcmp-its">${its.length ? its.map(it=> it.type==='cardio'
               ? `<div class="tpl-gcmp-it ${lastDay && g.lastIi===it._ii ? 'last' : ''}">${tag(it)}${escHtml(it.equipment||'Αερόβιο')} · ${escHtml(String(it.minutes||''))}′ ${it.mode==='drill'?'DRILL':''} <button type="button" class="tpl-gcmp-ebtn" data-tpl-gcmp-edit="${t.id}|${di}|${it._ii}">✎ Διόρθωση</button></div>`
               : `<div class="tpl-gcmp-it ${lastDay && g.lastIi===it._ii ? 'last' : ''}"><div>${tag(it)}${escHtml(it.exercise||'—')} <button type="button" class="tpl-gcmp-ebtn" data-tpl-gcmp-edit="${t.id}|${di}|${it._ii}">✎ Διόρθωση</button></div><div class="mono">${it.set}×${escHtml(it.rep||'')} · ${escHtml(it.rest||'')} · ${escHtml(it.tempo||'')} · ${escHtml(failureFull(it))}</div>${eqNames(it).length?`<div class="tpl-gcmp-eq">${escHtml(eqNames(it).join(' · '))}</div>`:''}</div>`).join('')
-              : `<div class="tpl-gcmp-none">—</div>`}
+              : `<div class="tpl-gcmp-none">—</div>`}</div>
           </div>`; }).join('')}
       </div>`; }).join('') || '<div class="tpl-empty">Κανένα πρόγραμμα.</div>'}
   </div>`;
