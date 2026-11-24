@@ -123,6 +123,19 @@ input,select{font-family:inherit;}
   flex-shrink:0;
 }
 .brand-text{line-height:1.05;flex:1;min-width:0;}
+/* Λογότυπο: φως που περνάει από αριστερά προς τα δεξιά (μέταλλο + λέξη), «διαστημική» λάμψη */
+.brand-logo{position:relative;display:inline-block;line-height:0;border-radius:9px;overflow:hidden;flex-shrink:0;}
+.brand-logo::after{content:'';position:absolute;top:-30%;left:0;width:45%;height:160%;pointer-events:none;
+  background:linear-gradient(100deg, transparent 0%, rgba(255,255,255,0) 20%, rgba(255,255,255,.85) 50%, rgba(160,235,255,.35) 65%, transparent 100%);
+  transform:translateX(-160%) skewX(-18deg);animation:brandSweep 5s cubic-bezier(.45,.05,.35,1) infinite;mix-blend-mode:screen;}
+@keyframes brandSweep{0%{transform:translateX(-160%) skewX(-18deg);}28%{transform:translateX(330%) skewX(-18deg);}100%{transform:translateX(330%) skewX(-18deg);}}
+.mobile-topbar .brand-text .t1, .sidebar .brand-text .t1{
+  background:linear-gradient(100deg,#9fdcf2 0%,#9fdcf2 38%,#ffffff 46%,#ffffff 50%,#5fe0ff 54%,#9fdcf2 62%,#9fdcf2 100%);
+  background-size:300% 100%;background-position:100% 0;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:brandText 5s cubic-bezier(.45,.05,.35,1) infinite, brandGlow 5s ease-in-out infinite;}
+@keyframes brandText{0%,12%{background-position:100% 0;}45%{background-position:0% 0;}100%{background-position:0% 0;}}
+@keyframes brandGlow{0%,100%{text-shadow:0 0 8px rgba(61,216,255,.35);}40%{text-shadow:0 0 16px rgba(61,216,255,.75), 0 0 2px rgba(255,255,255,.6);}}
+@media (prefers-reduced-motion: reduce){ .brand-logo::after, .mobile-topbar .brand-text .t1, .sidebar .brand-text .t1{animation:none;} }
 .brand-text .t1.fit{white-space:nowrap;display:inline-block;}
 .brand-text .t1{font-family:'Orbitron',sans-serif;font-weight:700;font-size:16px;letter-spacing:0.06em;color:#dffaff;text-shadow:0 0 10px rgba(61,216,255,.5);}
 .brand-text .t2{font-size:10px;color:#78ddf7;letter-spacing:0.08em;text-transform:uppercase;margin-top:2px;}
@@ -1464,7 +1477,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 <div class="mobile-topbar hidden" id="mobile-topbar">
   <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
     <div class="brand">
-      <img class="brand-mark" src="icons/icon-192.png" alt="TRANSFORMATION">
+      <span class="brand-logo"><img class="brand-mark" src="icons/icon-192.png" alt="TRANSFORMATION"></span>
       <div class="brand-text"><div class="t1">TRANSFORMATION</div></div>
     </div>
     <button id="mobile-logout" title="Αποσύνδεση" style="width:38px;height:38px;flex-shrink:0;border-radius:10px;border:1px solid rgba(239,45,53,.35);background:rgba(239,45,53,.12);color:#ffb3b3;display:flex;align-items:center;justify-content:center;">
@@ -1477,7 +1490,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 <div id="app" class="hidden">
   <div class="sidebar">
     <div class="brand">
-      <img class="brand-mark" src="icons/icon-192.png" alt="TRANSFORMATION">
+      <span class="brand-logo"><img class="brand-mark" src="icons/icon-192.png" alt="TRANSFORMATION"></span>
       <div class="brand-text">
         <div class="t1">TRANSFORMATION</div>
         <div class="t2">Πρόγραμμα Γυμναστικής</div>
@@ -4927,7 +4940,7 @@ const ICON = {
 function authShell(inner){
   return `<div class="auth-card">
     <div class="auth-logo">
-      <img class="brand-mark" src="icons/icon-192.png" alt="TRANSFORMATION">
+      <span class="brand-logo"><img class="brand-mark" src="icons/icon-192.png" alt="TRANSFORMATION"></span>
       <div class="brand-text"><div class="t1" style="color:var(--ink);">TRANSFORMATION</div><div class="t2" style="color:var(--ink-soft);">Πρόγραμμα Γυμναστικής</div></div>
     </div>
     ${inner}
