@@ -1,0 +1,12 @@
+# Έλεγχος ότι η υπηρεσία ειδοποιήσεων απαντά (χωρίς προσωπικά δεδομένα)
+name: Έλεγχος ειδοποιήσεων
+on: { workflow_dispatch: {} }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          U=https://exxjwjfjwvkenncyaqvc.supabase.co/functions/v1/push-timer
+          echo "KEY: $(curl -s -X POST $U -H 'Content-Type: application/json' -d '{"action":"key"}')"
+          echo "NOAUTH: $(curl -s -o /dev/null -w '%{http_code}' -X POST $U -H 'Content-Type: application/json' -d '{"action":"schedule","delaySec":5}')"
+          echo "OPTIONS: $(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS $U)"
