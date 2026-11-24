@@ -19,9 +19,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <!-- Εικονίδιο / «Προσθήκη στην οθόνη Αφετηρίας» (χωρίς start_url: ανοίγει τη σελίδα από την οποία προστέθηκε) -->
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="icon" type="image/png" href="icons/favicon-64.png">
+<link rel="manifest" href="manifest.webmanifest?v=3">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=3">
+<link rel="icon" type="image/png" href="icons/favicon-64.png?v=3">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="TRANSFORMATION">
@@ -129,9 +129,20 @@ input,select{font-family:inherit;}
 .mobile-topbar .brand-text .t1, .sidebar .brand-text .t1{
   background:linear-gradient(100deg,#9fdcf2 0%,#9fdcf2 32%,#e8fbff 44%,#ffffff 50%,#bff3ff 56%,#9fdcf2 68%,#9fdcf2 100%);
   background-size:220% 100%;background-position:100% 0;-webkit-background-clip:text;background-clip:text;color:transparent;
-  animation:brandWave 7s ease-in-out infinite alternate, brandGlow 7s ease-in-out infinite;}
+  animation:brandWave 7s ease-in-out infinite alternate, brandGlow 14s linear infinite;}
 @keyframes brandWave{0%{background-position:100% 0;}100%{background-position:0% 0;}}
-@keyframes brandGlow{0%,100%{text-shadow:0 0 6px rgba(61,216,255,.30);}50%{text-shadow:0 0 18px rgba(61,216,255,.85), 0 0 34px rgba(61,216,255,.35);}}
+/* 14″ = ένας πλήρης κύκλος του φωτός (δεξιά + αριστερά). Ήπια λάμψη όσο περνάει από τη μέση,
+   και στο τέλος κάθε κύκλου ένα «βουπ»: ανάβει γρήγορα και χαμηλώνει αργά */
+@keyframes brandGlow{
+  0%  {text-shadow:0 0 22px rgba(61,216,255,1), 0 0 46px rgba(61,216,255,.7), 0 0 3px #fff; animation-timing-function:ease-out;}
+  16% {text-shadow:0 0 6px rgba(61,216,255,.30);}
+  25% {text-shadow:0 0 14px rgba(61,216,255,.65), 0 0 26px rgba(61,216,255,.25);}
+  36% {text-shadow:0 0 6px rgba(61,216,255,.30);}
+  64% {text-shadow:0 0 6px rgba(61,216,255,.30);}
+  75% {text-shadow:0 0 14px rgba(61,216,255,.65), 0 0 26px rgba(61,216,255,.25);}
+  92% {text-shadow:0 0 6px rgba(61,216,255,.30); animation-timing-function:ease-in;}
+  100%{text-shadow:0 0 22px rgba(61,216,255,1), 0 0 46px rgba(61,216,255,.7), 0 0 3px #fff;}
+}
 @media (prefers-reduced-motion: reduce){ .mobile-topbar .brand-text .t1, .sidebar .brand-text .t1{animation:none;} }
 .brand-text .t1.fit{white-space:nowrap;display:inline-block;}
 .brand-text .t1{font-family:'Orbitron',sans-serif;font-weight:700;font-size:16px;letter-spacing:0.06em;color:#dffaff;text-shadow:0 0 10px rgba(61,216,255,.5);}
@@ -1474,7 +1485,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 <div class="mobile-topbar hidden" id="mobile-topbar">
   <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
     <div class="brand">
-      <span class="brand-logo"><img class="brand-mark" src="icons/icon-192.png" alt="TRANSFORMATION"></span>
+      <span class="brand-logo"><img class="brand-mark" src="icons/icon-192.png?v=3" alt="TRANSFORMATION"></span>
       <div class="brand-text"><div class="t1">TRANSFORMATION</div></div>
     </div>
     <button id="mobile-logout" title="Αποσύνδεση" style="width:38px;height:38px;flex-shrink:0;border-radius:10px;border:1px solid rgba(239,45,53,.35);background:rgba(239,45,53,.12);color:#ffb3b3;display:flex;align-items:center;justify-content:center;">
@@ -1487,7 +1498,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 <div id="app" class="hidden">
   <div class="sidebar">
     <div class="brand">
-      <span class="brand-logo"><img class="brand-mark" src="icons/icon-192.png" alt="TRANSFORMATION"></span>
+      <span class="brand-logo"><img class="brand-mark" src="icons/icon-192.png?v=3" alt="TRANSFORMATION"></span>
       <div class="brand-text">
         <div class="t1">TRANSFORMATION</div>
         <div class="t2">Πρόγραμμα Γυμναστικής</div>
@@ -4937,7 +4948,7 @@ const ICON = {
 function authShell(inner){
   return `<div class="auth-card">
     <div class="auth-logo">
-      <span class="brand-logo"><img class="brand-mark" src="icons/icon-192.png" alt="TRANSFORMATION"></span>
+      <span class="brand-logo"><img class="brand-mark" src="icons/icon-192.png?v=3" alt="TRANSFORMATION"></span>
       <div class="brand-text"><div class="t1" style="color:var(--ink);">TRANSFORMATION</div><div class="t2" style="color:var(--ink-soft);">Πρόγραμμα Γυμναστικής</div></div>
     </div>
     ${inner}
