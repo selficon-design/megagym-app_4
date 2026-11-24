@@ -27,7 +27,7 @@
 <meta name="apple-mobile-web-app-title" content="TRANSFORMATION">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#000000">
-<title>ΦΟΡΜΑ — Πρόγραμμα Γυμναστικής</title>
+<title>TRANSFORMATION — Πρόγραμμα Γυμναστικής</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -110,15 +110,12 @@ input,select{font-family:inherit;}
 }
 .brand{display:flex;align-items:center;gap:10px;margin-bottom:34px;padding-left:2px;}
 .brand-mark{
-  width:34px;height:34px;border-radius:50%;
-  background:conic-gradient(from 220deg, var(--accent), var(--accent-dark), var(--accent));
-  display:flex;align-items:center;justify-content:center;
-  font-family:'Orbitron',sans-serif;font-weight:700;font-size:15px;color:#1a1200;
-  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.25), 0 0 14px rgba(255,159,26,.4);
+  width:36px;height:36px;border-radius:9px;display:block;object-fit:cover;background:#000;
+  box-shadow:0 0 0 1px rgba(255,255,255,.18), 0 0 12px rgba(61,216,255,.25);
   flex-shrink:0;
 }
 .brand-text{line-height:1.05;}
-.brand-text .t1{font-family:'Orbitron',sans-serif;font-weight:700;font-size:18px;letter-spacing:0.08em;color:#dffaff;text-shadow:0 0 10px rgba(61,216,255,.5);}
+.brand-text .t1{font-family:'Orbitron',sans-serif;font-weight:700;font-size:16px;letter-spacing:0.06em;color:#dffaff;text-shadow:0 0 10px rgba(61,216,255,.5);}
 .brand-text .t2{font-size:10px;color:#78ddf7;letter-spacing:0.08em;text-transform:uppercase;margin-top:2px;}
 
 .navlist{display:flex;flex-direction:column;gap:4px;}
@@ -1457,8 +1454,8 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 <div class="mobile-topbar hidden" id="mobile-topbar">
   <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
     <div class="brand">
-      <div class="brand-mark">Φ</div>
-      <div class="brand-text"><div class="t1">ΦΟΡΜΑ</div></div>
+      <img class="brand-mark" src="icons/icon-192.png" alt="TRANSFORMATION">
+      <div class="brand-text"><div class="t1">TRANSFORMATION</div></div>
     </div>
     <button id="mobile-logout" title="Αποσύνδεση" style="width:38px;height:38px;flex-shrink:0;border-radius:10px;border:1px solid rgba(239,45,53,.35);background:rgba(239,45,53,.12);color:#ffb3b3;display:flex;align-items:center;justify-content:center;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
@@ -1470,9 +1467,9 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 <div id="app" class="hidden">
   <div class="sidebar">
     <div class="brand">
-      <div class="brand-mark">Φ</div>
+      <img class="brand-mark" src="icons/icon-192.png" alt="TRANSFORMATION">
       <div class="brand-text">
-        <div class="t1">ΦΟΡΜΑ</div>
+        <div class="t1">TRANSFORMATION</div>
         <div class="t2">Πρόγραμμα Γυμναστικής</div>
       </div>
     </div>
@@ -4920,8 +4917,8 @@ const ICON = {
 function authShell(inner){
   return `<div class="auth-card">
     <div class="auth-logo">
-      <div class="brand-mark">Φ</div>
-      <div class="brand-text"><div class="t1" style="color:var(--ink);">ΦΟΡΜΑ</div><div class="t2" style="color:var(--ink-soft);">Πρόγραμμα Γυμναστικής</div></div>
+      <img class="brand-mark" src="icons/icon-192.png" alt="TRANSFORMATION">
+      <div class="brand-text"><div class="t1" style="color:var(--ink);">TRANSFORMATION</div><div class="t2" style="color:var(--ink-soft);">Πρόγραμμα Γυμναστικής</div></div>
     </div>
     ${inner}
   </div>`;
@@ -5945,7 +5942,7 @@ function buildPrintHtml(record, client){
   return `
     <div class="pp-header">
       <div>
-        <h1>ΦΟΡΜΑ — ${escHtml(categoryLabel)}</h1>
+        <h1>TRANSFORMATION — ${escHtml(categoryLabel)}</h1>
         <div style="font-size:11px;color:#3A3F45;margin-top:4px;">Ημερομηνία δημιουργίας: ${dateStr}</div>
       </div>
       ${client ? `<div class="pp-client">
