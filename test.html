@@ -638,6 +638,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .wl-table{width:100%;border-collapse:collapse;font-size:13.5px;}
 .wl-table th{font-size:10.5px;letter-spacing:.06em;color:var(--cyan-soft);text-align:left;padding:6px 4px;border-bottom:1px solid var(--line-strong);}
 .wl-table td{padding:8px 4px;border-bottom:1px solid rgba(61,216,255,.08);vertical-align:middle;}
+.ord-o{text-transform:none;font-size:.8em;}
 .pw-table tr.pw-cur td{background:rgba(255,210,63,.12);color:#ffd23f;font-weight:700;}
 .wk-kghint{margin:0 0 10px;padding:10px 12px;border-radius:12px;border:1.5px solid rgba(59,216,255,.45);background:rgba(59,216,255,.08);}
 .wk-kghint-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
@@ -3222,7 +3223,7 @@ async function renderPreviousWorkoutsModal(root){
       const needed = e ? neededOf(e, curSet) : null;
       return `<tr><td>${escHtml(day.dateObj.toLocaleDateString('el-GR'))}</td><td>${e ? escHtml(String(e.reps)) : '—'}</td><td>${e ? escHtml(String(e.kg))+' kg' : '—'}</td><td>${needed!==null?formatCalcNum(needed)+' kg':'—'}</td></tr>`;
     }).join('');
-    area.innerHTML = `<div class="dc-day-label" style="margin-bottom:10px;text-align:center;">${curSet}ο SET — τι είχες κάνει στο ${curSet}ο set</div>
+    area.innerHTML = `<div class="dc-day-label" style="margin-bottom:10px;text-align:center;">${curSet}<span class="ord-o">ο</span> SET — τι είχες κάνει στο ${curSet}<span class="ord-o">ο</span> set</div>
       <div class="pw-day-block"><table class="pw-table"><thead><tr><th>ΗΜΕΡΟΜΗΝΙΑ</th><th>ΕΠΑΝΑΛΗΨΕΙΣ</th><th>ΚΙΛΑ</th><th>ΠΟΣΑ ΕΠΡΕΠΕ</th></tr></thead><tbody>${rows}</tbody></table></div>${toggle}`;
     document.getElementById('pw-toggle')?.addEventListener('click', ()=>{ state.pwAll = true; renderModal(); });
     return;
