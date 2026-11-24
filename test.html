@@ -17,7 +17,7 @@
 <html lang="el">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <!-- Εικονίδιο / «Προσθήκη στην οθόνη Αφετηρίας» (χωρίς start_url: ανοίγει τη σελίδα από την οποία προστέθηκε) -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -95,6 +95,14 @@ h1,h2,h3,.display{
 .mono{font-family:'JetBrains Mono',monospace;}
 button{font-family:inherit;cursor:pointer;}
 input,select{font-family:inherit;}
+/* Κινητά: σαν κανονική εφαρμογή — χωρίς αυτόματο ζουμ στα πεδία (το iOS κάνει ζουμ όταν τα γράμματα είναι <16px),
+   χωρίς πλάγιο «παίξιμο», χωρίς «λάστιχο» στο scroll και χωρίς μπάρα κύλισης */
+@media (hover:none) and (pointer:coarse){
+  input, select, textarea{font-size:16px !important;}
+  html, body{overflow-x:hidden; overscroll-behavior:none; touch-action:pan-x pan-y; scrollbar-width:none; -webkit-text-size-adjust:100%;}
+  html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar{width:0 !important;height:0 !important;display:none;}
+  * { scrollbar-width:none; }
+}
 ::selection{background:var(--accent-soft);}
 
 /* ============ LAYOUT ============ */
