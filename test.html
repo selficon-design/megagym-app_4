@@ -99,7 +99,7 @@ input,select{font-family:inherit;}
    χωρίς πλάγιο «παίξιμο» και χωρίς μπάρα κύλισης (η φυσική αναπήδηση του iPhone στην αρχή/τέλος μένει) */
 @media (hover:none) and (pointer:coarse){
   input, select, textarea{font-size:16px !important;}
-  html, body{overflow-x:hidden; touch-action:pan-x pan-y; scrollbar-width:none; -webkit-text-size-adjust:100%;}
+  html, body{overflow-x:clip; scrollbar-width:none; -webkit-text-size-adjust:100%;}
   html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar{width:0 !important;height:0 !important;display:none;}
   * { scrollbar-width:none; }
 }
