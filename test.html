@@ -133,13 +133,13 @@ input,select{font-family:inherit;}
     linear-gradient(180deg, #ffffff 0%, #e4e8ec 26%, #a3a9b1 50%, #eef1f4 68%, #b4bac2 86%, #8d939b 100%);
   background-size:250% 100%, 100% 100%;background-repeat:no-repeat;background-position:100% 0, 0 0;
   -webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;
-  animation:brandSheen 3.6s ease-in-out infinite, brandPulse 1s ease-in-out infinite alternate;}
+  animation:brandSheen 3.6s ease-in-out infinite, brandPulse 2.5s ease-in-out infinite alternate;}
 /* λάμψη: περνάει λοξά από αριστερά προς τα δεξιά */
 @keyframes brandSheen{0%{background-position:100% 0, 0 0;}70%,100%{background-position:0% 0, 0 0;}}
-/* «ανάβει» σε 1″ και «σβήνει» σε 1″ (μικρό σκοτείνιασμα ↔ ασημί glow) */
+/* «ανάβει» σε 2,5″ και «σβήνει» σε 2,5″: το glow περνάει από απαλό λευκό σε ηλεκτρικό μπλε (τα γράμματα μένουν ασημί) */
 @keyframes brandPulse{
-  from{filter:brightness(.82) drop-shadow(0 0 1px rgba(255,255,255,.15));}
-  to  {filter:brightness(1.18) drop-shadow(0 0 6px rgba(255,255,255,.75)) drop-shadow(0 0 14px rgba(200,215,230,.35));}
+  from{filter:brightness(.85) drop-shadow(0 0 2px rgba(255,255,255,.35));}
+  to  {filter:brightness(1.15) drop-shadow(0 0 5px rgba(61,216,255,.95)) drop-shadow(0 0 16px rgba(30,140,255,.6));}
 }
 @media (prefers-reduced-motion: reduce){ .mobile-topbar .brand-text .t1, .sidebar .brand-text .t1{animation:none;} }
 .brand-text .t1.fit{white-space:nowrap;display:inline-block;}
