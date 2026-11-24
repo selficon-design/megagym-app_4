@@ -160,7 +160,7 @@ input,select{font-family:inherit;}
     display:flex;flex-direction:column;gap:10px;
     background:linear-gradient(145deg, rgba(12,31,48,.95), rgba(5,13,22,.98));
     border-bottom:1px solid rgba(61,216,255,.25);
-    color:#fff;padding:14px 18px;position:sticky;top:0;z-index:40;
+    color:#fff;padding:14px 18px;position:relative;z-index:40;
   }
   .mobile-topbar .brand{margin-bottom:0;flex:1;min-width:0;margin-right:12px;gap:12px;}
   .mobile-topbar .brand-mark{width:42px;height:42px;}
@@ -13274,17 +13274,20 @@ function tplQuickSave(){
   function fit(el){
     const box = el.parentElement; if(!box || !box.offsetParent) return;
     const W = box.clientWidth; if(W < 20) return;
-    el.classList.add('fit'); el.style.fontSize = '100px';
-    const w = el.scrollWidth || 1;
-    let fs = Math.floor(100 * W / w * 0.98);
+    el.classList.add('fit');
+    // μέτρηση χωρίς να αλλάζει προσωρινά το μέγεθος (αλλιώς «τρεμοπαίζει»)
+    const cur = parseFloat(getComputedStyle(el).fontSize) || 16, w = el.scrollWidth || 1;
+    let fs = Math.floor(cur * W / w * 0.98 * 2) / 2;
     fs = Math.max(12, Math.min(fs, 40));
-    el.style.fontSize = fs + 'px';
+    if(Math.abs(fs - cur) >= 0.5) el.style.fontSize = fs + 'px';
   }
   function fitAll(){ document.querySelectorAll('.brand-text .t1').forEach(fit); }
   window.fitBrandText = fitAll;
   window.addEventListener('resize', fitAll);
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(fitAll);
-  new MutationObserver(()=>{ clearTimeout(window.__fbt); window.__fbt = setTimeout(fitAll, 30); }).observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['class'] });
+  // ξαναμέτρηση μόνο όταν εμφανιστεί/αλλάξει η πάνω γραμμή ή το πλαϊνό (όχι σε κάθε αλλαγή της σελίδας)
+  ['mobile-topbar','app','auth-root'].forEach(id=>{ const n = document.getElementById(id); if(n) new MutationObserver(()=>{ clearTimeout(window.__fbt); window.__fbt = setTimeout(fitAll, 50); }).observe(n, { attributes:true, attributeFilter:['class'] }); });
+  const ar = document.getElementById('auth-root'); if(ar) new MutationObserver(()=>{ clearTimeout(window.__fbt); window.__fbt = setTimeout(fitAll, 50); }).observe(ar, { childList:true });
   fitAll();
 })();
 </script>
