@@ -127,21 +127,19 @@ input,select{font-family:inherit;}
    και η μπλε λάμψη δυναμώνει όσο περνάει */
 .brand-logo{position:relative;display:inline-block;line-height:0;border-radius:9px;overflow:hidden;flex-shrink:0;}
 .mobile-topbar .brand-text .t1, .sidebar .brand-text .t1{
-  background:linear-gradient(120deg,#9fdcf2 0%,#9fdcf2 36%,#e8fbff 45%,#ffffff 50%,#bff3ff 55%,#9fdcf2 64%,#9fdcf2 100%);
-  background-size:220% 100%;background-position:100% 0;-webkit-background-clip:text;background-clip:text;color:transparent;
-  animation:brandWave 7s ease-in-out infinite alternate, brandGlow 14s linear infinite;}
-@keyframes brandWave{0%{background-position:100% 0;}100%{background-position:0% 0;}}
-/* 14″ = ένας πλήρης κύκλος του φωτός (δεξιά + αριστερά). Ήπια λάμψη όσο περνάει από τη μέση,
-   και στο τέλος κάθε κύκλου ένα «βουπ»: ανάβει γρήγορα και χαμηλώνει αργά */
-@keyframes brandGlow{
-  0%  {text-shadow:0 0 22px rgba(61,216,255,1), 0 0 46px rgba(61,216,255,.7), 0 0 3px #fff; animation-timing-function:ease-out;}
-  16% {text-shadow:0 0 6px rgba(61,216,255,.30);}
-  25% {text-shadow:0 0 14px rgba(61,216,255,.65), 0 0 26px rgba(61,216,255,.25);}
-  36% {text-shadow:0 0 6px rgba(61,216,255,.30);}
-  64% {text-shadow:0 0 6px rgba(61,216,255,.30);}
-  75% {text-shadow:0 0 14px rgba(61,216,255,.65), 0 0 26px rgba(61,216,255,.25);}
-  92% {text-shadow:0 0 6px rgba(61,216,255,.30); animation-timing-function:ease-in;}
-  100%{text-shadow:0 0 22px rgba(61,216,255,1), 0 0 46px rgba(61,216,255,.7), 0 0 3px #fff;}
+  /* ασημί μεταλλικό (ίδιο ύφος με το τετράγωνο λογότυπο) + λοξή λάμψη από αριστερά προς τα δεξιά */
+  background-image:
+    linear-gradient(115deg, rgba(255,255,255,0) 42%, rgba(255,255,255,.95) 50%, rgba(255,255,255,0) 58%),
+    linear-gradient(180deg, #ffffff 0%, #e4e8ec 26%, #a3a9b1 50%, #eef1f4 68%, #b4bac2 86%, #8d939b 100%);
+  background-size:250% 100%, 100% 100%;background-repeat:no-repeat;background-position:100% 0, 0 0;
+  -webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;
+  animation:brandSheen 3.6s ease-in-out infinite, brandPulse 1s ease-in-out infinite alternate;}
+/* λάμψη: περνάει λοξά από αριστερά προς τα δεξιά */
+@keyframes brandSheen{0%{background-position:100% 0, 0 0;}70%,100%{background-position:0% 0, 0 0;}}
+/* «ανάβει» σε 1″ και «σβήνει» σε 1″ (μικρό σκοτείνιασμα ↔ ασημί glow) */
+@keyframes brandPulse{
+  from{filter:brightness(.82) drop-shadow(0 0 1px rgba(255,255,255,.15));}
+  to  {filter:brightness(1.18) drop-shadow(0 0 6px rgba(255,255,255,.75)) drop-shadow(0 0 14px rgba(200,215,230,.35));}
 }
 @media (prefers-reduced-motion: reduce){ .mobile-topbar .brand-text .t1, .sidebar .brand-text .t1{animation:none;} }
 .brand-text .t1.fit{white-space:nowrap;display:inline-block;}
