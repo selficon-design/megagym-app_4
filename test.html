@@ -122,7 +122,8 @@ input,select{font-family:inherit;}
   box-shadow:0 0 0 1px rgba(255,255,255,.18), 0 0 12px rgba(61,216,255,.25);
   flex-shrink:0;
 }
-.brand-text{line-height:1.05;}
+.brand-text{line-height:1.05;flex:1;min-width:0;}
+.brand-text .t1.fit{white-space:nowrap;display:inline-block;}
 .brand-text .t1{font-family:'Orbitron',sans-serif;font-weight:700;font-size:16px;letter-spacing:0.06em;color:#dffaff;text-shadow:0 0 10px rgba(61,216,255,.5);}
 .brand-text .t2{font-size:10px;color:#78ddf7;letter-spacing:0.08em;text-transform:uppercase;margin-top:2px;}
 
@@ -161,7 +162,8 @@ input,select{font-family:inherit;}
     border-bottom:1px solid rgba(61,216,255,.25);
     color:#fff;padding:14px 18px;position:sticky;top:0;z-index:40;
   }
-  .mobile-topbar .brand{margin-bottom:0;}
+  .mobile-topbar .brand{margin-bottom:0;flex:1;min-width:0;margin-right:12px;gap:12px;}
+  .mobile-topbar .brand-mark{width:42px;height:42px;}
   .mobile-tabs{
     display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;
     margin:0 -18px;padding:0 18px 2px;
@@ -13265,6 +13267,26 @@ function tplQuickSave(){
   });
 })();
 
+</script>
+<script>
+/* Η λέξη TRANSFORMATION γεμίζει όλο το διαθέσιμο πλάτος δίπλα στο λογότυπο (όσο μεγάλα κι αν γίνουν τα γράμματα) */
+(function(){
+  function fit(el){
+    const box = el.parentElement; if(!box || !box.offsetParent) return;
+    const W = box.clientWidth; if(W < 20) return;
+    el.classList.add('fit'); el.style.fontSize = '100px';
+    const w = el.scrollWidth || 1;
+    let fs = Math.floor(100 * W / w * 0.98);
+    fs = Math.max(12, Math.min(fs, 40));
+    el.style.fontSize = fs + 'px';
+  }
+  function fitAll(){ document.querySelectorAll('.brand-text .t1').forEach(fit); }
+  window.fitBrandText = fitAll;
+  window.addEventListener('resize', fitAll);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(fitAll);
+  new MutationObserver(()=>{ clearTimeout(window.__fbt); window.__fbt = setTimeout(fitAll, 30); }).observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['class'] });
+  fitAll();
+})();
 </script>
 </body>
 </html>
