@@ -6848,8 +6848,7 @@ async function wkFirstKgLoad(){
     let kg = null, date = null;
     if(code){
       const days = await loadPreviousWorkoutsForExercise(code, ex.exercise, eq ? eq.name : '');
-      const today = new Date().toDateString();
-      const d = days.find(x=>x.dateObj.toDateString()!==today) || null;      // όχι η σημερινή προπόνηση
+      const d = days[0] || null;      // η πιο πρόσφατη φορά που έγινε η ίδια άσκηση (και αν ήταν σήμερα)
       const e = d && d.entries.find(x=>Number(x.set_number)===1) || (d && d.entries[0]);
       if(e){ const step = (CALC_TYPES[e.calc_type]||CALC_TYPES[DEFAULT_CALC_TYPE]).roundingStep;
         kg = computeNeededWeightForRange(Number(e.kg), Number(e.reps), PREV_WORKOUTS_TARGET_REPS, PREV_WORKOUTS_TARGET_REPS, step); date = d.dateObj; }
