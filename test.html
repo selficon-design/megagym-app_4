@@ -638,6 +638,12 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .wl-table{width:100%;border-collapse:collapse;font-size:13.5px;}
 .wl-table th{font-size:10.5px;letter-spacing:.06em;color:var(--cyan-soft);text-align:left;padding:6px 4px;border-bottom:1px solid var(--line-strong);}
 .wl-table td{padding:8px 4px;border-bottom:1px solid rgba(61,216,255,.08);vertical-align:middle;}
+.wk-kghint{margin:0 0 10px;padding:10px 12px;border-radius:12px;border:1.5px solid rgba(59,216,255,.45);background:rgba(59,216,255,.08);}
+.wk-kghint-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.wk-kghint-t{font-size:12px;font-weight:800;letter-spacing:.04em;line-height:1.3;}
+.wk-kghint-v{font-family:'Orbitron',sans-serif;font-size:19px;font-weight:800;color:#ffd23f;white-space:nowrap;text-shadow:0 0 10px rgba(255,210,63,.45);}
+.wk-kghint-s{font-size:10.5px;color:var(--ink-soft);margin-top:4px;line-height:1.35;}
+.calc-next-lbl{font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--ink-soft);margin-bottom:4px;text-align:center;}
 .wl-avg{text-align:center;}
 .wl-avg-t{font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--cyan-soft);}
 .wl-avg-v{font-size:28px;font-weight:900;margin:4px 0 2px;}
@@ -6829,7 +6835,55 @@ function getSetBoxContent(){
   }
   return { cls:'', html: `${doneLine}ΕΠΙΠΛΕΟΝ <span class="set-emph">SET ${nextSet}</span>` };
 }
+// ── «ΚΙΛΑ ΠΟΥ ΠΡΕΠΕΙ ΝΑ ΒΑΛΕΙΣ ΣΤΟ Nο SET» ──
+// 1ο set: από την τελευταία φορά που έγινε η ίδια άσκηση με τον ίδιο εξοπλισμό → «ΠΟΣΑ ΕΠΡΕΠΕ» του 1ου set (στόχος 20 επαναλήψεις)
+// 2ο set και μετά: ό,τι υπολόγισε ο υπολογιστής κιλών μετά το προηγούμενο set
+function wkFirstKgKey(){ const ex = state.workoutExercise, eq = ex && ex.equipment && ex.equipment[0]; return ex ? ex.exercise+'|'+(eq ? eq.name : '') : ''; }
+async function wkFirstKgLoad(){
+  const key = wkFirstKgKey(); if(!key || (state.wkFirstKg && state.wkFirstKg.key===key && !state.wkFirstKg.loading)) return;
+  state.wkFirstKg = { key, loading:true };
+  try{
+    const ex = state.workoutExercise, eq = ex.equipment && ex.equipment[0];
+    const code = (state.workoutLogContext && state.workoutLogContext.customerCode) || getCurrentLogCustomerCode();
+    let kg = null, date = null;
+    if(code){
+      const days = await loadPreviousWorkoutsForExercise(code, ex.exercise, eq ? eq.name : '');
+      const today = new Date().toDateString();
+      const d = days.find(x=>x.dateObj.toDateString()!==today) || null;      // όχι η σημερινή προπόνηση
+      const e = d && d.entries.find(x=>Number(x.set_number)===1) || (d && d.entries[0]);
+      if(e){ const step = (CALC_TYPES[e.calc_type]||CALC_TYPES[DEFAULT_CALC_TYPE]).roundingStep;
+        kg = computeNeededWeightForRange(Number(e.kg), Number(e.reps), PREV_WORKOUTS_TARGET_REPS, PREV_WORKOUTS_TARGET_REPS, step); date = d.dateObj; }
+    }
+    if(wkFirstKgKey()!==key) return;
+    state.wkFirstKg = { key, kg, date };
+  }catch(e){ console.error(e); state.wkFirstKg = { key, kg:null }; }
+  wkKgHintUpdate(true);
+}
+function wkKgHintInner(){
+  const n = timerState.nextSet || 1;
+  if(timerState.totalSets && n > timerState.totalSets) return '';
+  let val = '—', sub = '';
+  if(n === 1){
+    const F = state.wkFirstKg;
+    if(!F || F.key!==wkFirstKgKey() || F.loading){ val = '…'; if(!F || F.key!==wkFirstKgKey()) setTimeout(wkFirstKgLoad, 0); }
+    else if(F.kg!=null){ val = formatCalcNum(F.kg)+' kg'; sub = `από την προπόνηση της ${F.date.toLocaleDateString('el-GR')}`; }
+    else sub = 'Πρώτη φορά σε αυτή την άσκηση — δες «Υπολογισμός κιλών πρώτου set».';
+  } else {
+    const C = timerState.calcKg;
+    if(C && C.set===n){ val = formatCalcNum(C.kg)+' kg'; sub = 'από τον υπολογιστή κιλών'; }
+    else sub = 'Θα το βγάλει ο υπολογιστής κιλών μόλις βάλεις επαναλήψεις και κιλά του προηγούμενου set.';
+  }
+  return `<div class="wk-kghint-row"><div class="wk-kghint-t">ΚΙΛΑ ΠΟΥ ΠΡΕΠΕΙ ΝΑ ΒΑΛΕΙΣ ΣΤΟ ${n}ο SET</div><div class="wk-kghint-v">${val}</div></div>${sub ? `<div class="wk-kghint-s">${escHtml(sub)}</div>` : ''}`;
+}
+function wkKgHintUpdate(force){
+  const el = document.getElementById('wkKgHint'); if(!el) return;
+  const sig = (timerState.nextSet||1)+'|'+JSON.stringify(timerState.calcKg||null)+'|'+JSON.stringify(state.wkFirstKg||null);
+  if(!force && el.dataset.sig===sig) return;
+  el.dataset.sig = sig; const h = wkKgHintInner(); el.innerHTML = h; el.style.display = h ? '' : 'none';
+}
+function wkCalcNextLbl(){ const C = timerState.calcKg; return C && C.set ? `ΚΙΛΑ ΠΟΥ ΠΡΕΠΕΙ ΝΑ ΒΑΛΕΙΣ ΣΤΟ ${C.set}ο SET` : 'ΚΙΛΑ ΠΟΥ ΠΡΕΠΕΙ ΝΑ ΒΑΛΕΙΣ ΣΤΟ ΕΠΟΜΕΝΟ SET'; }
 function updateWorkoutTimerUI(){
+  wkKgHintUpdate();
   const numberEl=document.getElementById('timerNumber');
   const ringEl=document.getElementById('timerRing');
   if(numberEl){ numberEl.textContent=timerState.remaining; numberEl.classList.remove('warning','finished'); }
@@ -6932,7 +6986,7 @@ function wkTimerSave(){
       date: athensDateStr(), savedAt: Date.now(), ex: state.workoutExercise, nextCtx: state.workoutNextCtx || null, logCtx: state.workoutLogContext || null,
       preview: state.wkPreview || null,
       t: { exerciseKey:t.exerciseKey, max:t.max, remaining:t.remaining, totalSets:t.totalSets, nextSet:t.nextSet, running:!!t.running, paused:!!t.paused, endAt:t.endAt||null,
-           lastAdvanceSource:t.lastAdvanceSource||null, skipNextAdvance:!!t.skipNextAdvance, hands:t.hands||1, hand:t.hand||'A', recordedSets:t.recordedSets }
+           lastAdvanceSource:t.lastAdvanceSource||null, skipNextAdvance:!!t.skipNextAdvance, hands:t.hands||1, hand:t.hand||'A', recordedSets:t.recordedSets, calcKg:t.calcKg||null }
     }));
   }catch(_){}
 }
@@ -6952,7 +7006,7 @@ function wkTimerRestore(){
   state.skipDoneTodayCheck = true;
   openWorkoutMode(d.ex, rebuildClientDashboardShell, 'timer');
   state.skipDoneTodayCheck = false;
-  Object.assign(timerState, { max:t.max, totalSets:t.totalSets, nextSet:t.nextSet, lastAdvanceSource:t.lastAdvanceSource, skipNextAdvance:t.skipNextAdvance, hands:t.hands, hand:t.hand });
+  Object.assign(timerState, { max:t.max, totalSets:t.totalSets, nextSet:t.nextSet, lastAdvanceSource:t.lastAdvanceSource, skipNextAdvance:t.skipNextAdvance, hands:t.hands, hand:t.hand, calcKg:t.calcKg||null });
   if(t.recordedSets != null) timerState.recordedSets = t.recordedSets;
   if(t.running && t.endAt && t.endAt > now){
     timerState.endAt = t.endAt; timerState.running = true; timerState.paused = false;
@@ -7243,6 +7297,8 @@ function performWorkoutCalculation(){
     timerState.nextSet+=1;
     timerState.lastAdvanceSource = 'calc';
   }
+  timerState.calcKg = { set: timerState.nextSet, kg: nextWeight };   // «κιλά που πρέπει να βάλεις» στο επόμενο set
+  { const l = document.getElementById('calcNextLbl'); if(l) l.textContent = wkCalcNextLbl(); }
   updateWorkoutTimerUI();
 
   // Καθαρισμός reps/κιλών μετά τον υπολογισμό, ώστε ένα κατά λάθος διπλό
@@ -7309,6 +7365,7 @@ function renderWorkoutPage(){
 
     <div class="panel pad">
       <button class="btn eq-action-btn" style="width:100%;min-height:52px;font-size:13px;margin-bottom:10px;" id="firstSetInfoBtn">ΥΠΟΛΟΓΙΣΜΟΣ ΚΙΛΩΝ ΠΡΩΤΟΥ SET · FIRST SET WEIGHT CALCULATION</button>
+      <div class="wk-kghint" id="wkKgHint">${wkKgHintInner()}</div>
       <button class="btn eq-action-btn" style="width:100%;min-height:52px;font-size:13px;" id="prevWorkoutsBtn">ΠΡΟΗΓΟΥΜΕΝΕΣ ΠΡΟΠΟΝΗΣΕΙΣ · PREVIOUS WORKOUTS</button>
     </div>
 
@@ -7356,7 +7413,7 @@ function renderWorkoutPage(){
       <div style="text-align:center;font-size:10.5px;color:var(--ink-soft);font-style:italic;margin:5px 0 16px;">Calculate next set's weight</div>
 
       <div class="calc-result-label">Κιλά Επόμενου SET <span style="color:var(--ink-soft);font-weight:400;font-style:italic;">· Next Set's Weight</span></div>
-      <div class="calc-next-weight-box"><div class="calc-next-weight" id="nextWeight">—</div></div>
+      <div class="calc-next-weight-box"><div class="calc-next-lbl" id="calcNextLbl">${wkCalcNextLbl()}</div><div class="calc-next-weight" id="nextWeight">—</div></div>
 
       <div class="calc-result-label">Αύξηση ή Μείωση Κιλών <span style="color:var(--ink-soft);font-weight:400;font-style:italic;">· Weight Increase or Decrease</span></div>
       <div class="calc-change-box" id="changeBox"><div class="calc-change" id="changeResult">—</div></div>
