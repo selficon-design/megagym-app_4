@@ -1,0 +1,42 @@
+# Κλειδιά ειδοποιήσεων (VAPID) για το «Τέλος διαλείμματος».
+# Φτιάχνονται ΜΕΣΑ στο GitHub runner και μπαίνουν ΜΟΝΟ στα Supabase Secrets —
+# το ιδιωτικό κλειδί δεν τυπώνεται και δεν αποθηκεύεται πουθενά αλλού.
+# Αν υπάρχουν ήδη, δεν αλλάζουν (αλλιώς θα χάνονταν οι εγγραφές των κινητών).
+name: Κλειδιά ειδοποιήσεων
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Νέα κλειδιά ακόμα κι αν υπάρχουν (τα κινητά θα πρέπει να ξαναδώσουν άδεια)"
+        type: boolean
+        default: false
+
+jobs:
+  keys:
+    runs-on: ubuntu-latest
+    env:
+      RAW_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: exxjwjfjwvkenncyaqvc
+    steps:
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+      - name: Κλειδιά
+        run: |
+          set -e
+          TOKEN=$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]'); echo "::add-mask::$TOKEN"; export SUPABASE_ACCESS_TOKEN="$TOKEN"
+          if supabase secrets list --project-ref "$PROJECT_REF" 2>/dev/null | grep -q "VAPID_PRIVATE_KEY" && [ "${{ inputs.force }}" != "true" ]; then
+            echo "::notice title=Κλειδιά ειδοποιήσεων::Υπάρχουν ήδη — δεν άλλαξε τίποτα."; exit 0
+          fi
+          cd "$RUNNER_TEMP"
+          openssl ecparam -name prime256v1 -genkey -noout -out k.pem 2>/dev/null
+          b64u(){ base64 -w0 | tr '+/' '-_' | tr -d '='; }
+          PRIV=$(openssl ec -in k.pem -outform DER 2>/dev/null | tail -c +8 | head -c 32 | b64u)
+          PUB=$(openssl ec -in k.pem -pubout -outform DER 2>/dev/null | tail -c 65 | b64u)
+          echo "::add-mask::$PRIV"
+          [ ${#PRIV} -eq 43 ] && [ ${#PUB} -eq 87 ] || { echo "::error::Λάθος μήκος κλειδιών"; exit 1; }
+          supabase secrets set --project-ref "$PROJECT_REF" \
+            "VAPID_PRIVATE_KEY=$PRIV" "VAPID_PUBLIC_KEY=$PUB" "VAPID_SUBJECT=https://selficon-design.github.io/megagym-app_4/" >/dev/null
+          rm -f k.pem
+          echo "::notice title=Κλειδιά ειδοποιήσεων::Μπήκαν στα Supabase Secrets. Δημόσιο κλειδί: $PUB"

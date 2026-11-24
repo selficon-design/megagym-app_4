@@ -6778,7 +6778,7 @@ function wkGateStart(p, openFn){
   renderModal();
   return false;
 }
-function actWkClear(){ try{ localStorage.removeItem(actWkKey()); }catch(_){} wkTimerClear(); state.lastWorkout = null; state.wkBg = null; wkBgTick(); }
+function actWkClear(){ try{ localStorage.removeItem(actWkKey()); }catch(_){} wkTimerClear(); wkPushCancel(); state.lastWorkout = null; state.wkBg = null; wkBgTick(); }
 function actWkReturn(){
   const a = actWkGet(); if(!a) return;
   const lw = state.lastWorkout;
@@ -6934,6 +6934,96 @@ function updateWorkoutTimerUI(){
     else statusEl.textContent = `Χρόνος διαλείμματος: ${timerState.max} sec`;
   }
 }
+/* ── Ειδοποίηση «Τέλος διαλείμματος» όταν η εφαρμογή είναι στο παρασκήνιο / κλειδωμένη οθόνη (Web Push) ──
+   Το κινητό «παγώνει» την εφαρμογή στο παρασκήνιο, οπότε δεν μπορεί να χτυπήσει η ίδια. Στο START ζητάμε από το
+   Supabase (push-timer) να στείλει ειδοποίηση στο τέλος· αν η εφαρμογή είναι ανοιχτή στο τέλος, την ακυρώνουμε. */
+const WKPUSH = { endAt:null };
+function wkPushSupported(){ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+function wkIsIOS(){ return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints > 1); }
+function wkStandalone(){ return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+function wkPushOn(){ try{ return wkPushSupported() && Notification.permission==='granted' && localStorage.getItem('forma_push_on')==='1'; }catch(_){ return false; } }
+function wkPushBtnHtml(){
+  if(auth.status!=='client') return '';
+  if(!wkPushSupported() && !(wkIsIOS() && !wkStandalone())) return '';
+  const on = wkPushOn();
+  return `<button type="button" class="wk-mute-btn ${on?'':'on'}" id="wkPushBtn" title="Ειδοποίηση στο κινητό όταν τελειώνει το διάλειμμα, ακόμα κι αν βγεις από την εφαρμογή">${on ? '📲 ΕΙΔΟΠΟΙΗΣΗ' : '📵 ΕΙΔΟΠΟΙΗΣΗ'}</button>`;
+}
+function wkPushBtnRefresh(){ const b = document.getElementById('wkPushBtn'); if(b){ const on = wkPushOn(); b.classList.toggle('on', !on); b.textContent = on ? '📲 ΕΙΔΟΠΟΙΗΣΗ' : '📵 ΕΙΔΟΠΟΙΗΣΗ'; } }
+function wkPushIosHint(){
+  state.choiceModal = { icon:'', color:'var(--cyan-soft)', title:'ΕΙΔΟΠΟΙΗΣΕΙΣ ΣΤΟ iPHONE',
+    html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:14px;">Για να χτυπάει το κινητό στο τέλος του διαλείμματος <b>ακόμα κι αν βγεις από την εφαρμογή ή κλειδώσει η οθόνη</b>, η εφαρμογή πρέπει να είναι στην <b>οθόνη Αφετηρίας</b>:</p>
+      <p style="font-size:14px;line-height:1.7;color:#eefcff;margin-bottom:6px;">1. Πάτα <b>Κοινοποίηση ⬆️</b> στο Safari<br>2. <b>«Προσθήκη στην οθόνη Αφετηρίας»</b><br>3. Άνοιξε την εφαρμογή από το εικονίδιο και πάτα <b>📵 ΕΙΔΟΠΟΙΗΣΗ</b></p>`,
+    no:null, cancelLabel:'ΕΝΤΑΞΕΙ' };
+  renderModal();
+}
+async function wkPushEnable(){
+  if(!wkPushSupported()){ if(wkIsIOS() && !wkStandalone()) wkPushIosHint(); else toast('Αυτή η συσκευή/browser δεν υποστηρίζει ειδοποιήσεις.'); return false; }
+  let perm = Notification.permission;
+  if(perm === 'default'){ try{ perm = await Notification.requestPermission(); }catch(_){} }
+  if(perm !== 'granted'){
+    toast(perm==='denied' ? 'Οι ειδοποιήσεις είναι μπλοκαρισμένες. Ενεργοποίησέ τες από τις Ρυθμίσεις του κινητού → Ειδοποιήσεις → TRANSFORMATION.' : 'Δεν δόθηκε άδεια για ειδοποιήσεις.', 6000);
+    return false;
+  }
+  try{
+    const reg = await navigator.serviceWorker.register('sw.js'); await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub){
+      const { data } = await sb.functions.invoke('push-timer', { body:{ action:'key' } });
+      if(!data || !data.publicKey){ toast('Οι ειδοποιήσεις δεν είναι ακόμα έτοιμες στον server. Δοκίμασε σε λίγο.'); return false; }
+      const key = Uint8Array.from(atob(data.publicKey.replace(/-/g,'+').replace(/_/g,'/') + '==='.slice((data.publicKey.length+3)%4)), c=>c.charCodeAt(0));
+      sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:key });
+    }
+    const { data: r, error } = await sb.functions.invoke('push-timer', { body:{ action:'subscribe', subscription: sub.toJSON(), userAgent: navigator.userAgent } });
+    if(error || !r || !r.ok) throw error || new Error('subscribe');
+    try{ localStorage.setItem('forma_push_on', '1'); }catch(_){}
+    wkPushBtnRefresh();
+    toast('📲 Οι ειδοποιήσεις ενεργοποιήθηκαν! Στο τέλος κάθε διαλείμματος θα χτυπάει το κινητό, ακόμα κι αν βγεις από την εφαρμογή.', 6000);
+    if(timerState.running && timerState.endAt) wkPushSchedule();
+    return true;
+  }catch(e){ console.error(e); toast('Δεν ενεργοποιήθηκαν οι ειδοποιήσεις. Δοκίμασε ξανά.'); return false; }
+}
+function wkPushBtnClick(){
+  if(!wkPushOn()){ wkPushEnable(); return; }
+  state.choiceModal = { icon:'', color:'var(--cyan-soft)', title:'ΕΙΔΟΠΟΙΗΣΕΙΣ',
+    html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:14px;">Οι ειδοποιήσεις είναι <b>ενεργές</b>: στο τέλος κάθε διαλείμματος χτυπάει το κινητό, ακόμα κι αν είσαι εκτός εφαρμογής ή με κλειδωμένη οθόνη.</p>`,
+    yes:{ label:'ΔΟΚΙΜΗ ΤΩΡΑ', fn:async ()=>{ const { data } = await sb.functions.invoke('push-timer', { body:{ action:'test', url: location.href } }); toast(data && data.ok ? 'Στάλθηκε δοκιμαστική ειδοποίηση.' : 'Δεν στάλθηκε — δοκίμασε να τις απενεργοποιήσεις και να τις ενεργοποιήσεις ξανά.'); } },
+    no:{ label:'ΑΠΕΝΕΡΓΟΠΟΙΗΣΗ', fn:async ()=>{ try{ localStorage.setItem('forma_push_on','0'); }catch(_){} wkPushCancel(); wkPushBtnRefresh();
+      try{ const reg = await navigator.serviceWorker.getRegistration(); const sub = reg && await reg.pushManager.getSubscription(); if(sub){ await sb.functions.invoke('push-timer', { body:{ action:'unsubscribe', endpoint: sub.endpoint } }); await sub.unsubscribe(); } }catch(_){}
+      toast('Οι ειδοποιήσεις απενεργοποιήθηκαν.'); } },
+    cancelLabel:'ΚΛΕΙΣΙΜΟ' };
+  renderModal();
+}
+// Μία φορά: πρόταση να ενεργοποιηθούν (με το πρώτο START — πατημένο κουμπί, όπως θέλει το iPhone)
+function wkPushOffer(){
+  if(auth.status!=='client' || wkPushOn() || state.wkPreview) return;
+  let asked = false; try{ asked = localStorage.getItem('forma_push_asked')==='1'; }catch(_){}
+  if(asked) return;
+  if(!wkPushSupported() && !(wkIsIOS() && !wkStandalone())) return;
+  try{ localStorage.setItem('forma_push_asked','1'); }catch(_){}
+  if(!wkPushSupported()){ wkPushIosHint(); return; }
+  if(Notification.permission==='denied') return;
+  state.choiceModal = { icon:'', color:'var(--cyan-soft)', title:'ΝΑ ΧΤΥΠΑΕΙ ΤΟ ΚΙΝΗΤΟ;',
+    html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:14px;">Θέλεις να σε ειδοποιεί το κινητό όταν τελειώνει το διάλειμμα, <b>ακόμα κι αν βγεις από την εφαρμογή ή κλειδώσει η οθόνη</b>;</p>`,
+    yes:{ label:'ΝΑΙ', fn:()=>{ wkPushEnable(); } }, no:{ label:'ΟΧΙ ΤΩΡΑ', fn:()=>{} } };
+  renderModal();
+}
+function wkPushSchedule(){
+  if(!wkPushOn() || auth.status!=='client' || state.wkPreview || !timerState.running || !timerState.endAt) return;
+  const secs = Math.max(1, Math.round((timerState.endAt - Date.now())/1000));
+  const ex = state.workoutExercise, n = timerState.nextSet, tot = timerState.totalSets;
+  WKPUSH.endAt = timerState.endAt;
+  sb.functions.invoke('push-timer', { body:{ action:'schedule', tag:'rest', delaySec: secs,
+    title:'⏱ Τέλος διαλείμματος',
+    body: (n <= tot ? `Πάμε στο SET ${n} από ${tot}` : 'Ολοκληρώθηκαν όλα τα SET') + (ex && ex.exercise ? ` · ${ex.exercise}` : ''),
+    url: location.href } }).catch(e=>console.error(e));
+}
+function wkPushCancel(){
+  if(!WKPUSH.endAt) return;
+  WKPUSH.endAt = null;
+  sb.functions.invoke('push-timer', { body:{ action:'cancel', tag:'rest' } }).catch(()=>{});
+}
+// Εγγραφή του service worker (για τις ειδοποιήσεις)· δεν κρατάει τίποτα στη μνήμη
+if('serviceWorker' in navigator){ window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
 function startWorkoutTimer(){
   if(timerState.running) return;
   if(timerState.remaining===0){
@@ -6968,6 +7058,8 @@ function startWorkoutTimer(){
   updateWorkoutTimerUI();
   wkTimerRun();
   wkTimerSave();
+  wkPushSchedule();
+  wkPushOffer();
 }
 /* Το χρονόμετρο μετράει με βάση την ώρα λήξης (endAt), ώστε να μένει σωστό ακόμα κι αν το κινητό
    «παγώσει» την εφαρμογή στο παρασκήνιο ή κλείσει και ξανανοίξει. */
@@ -6978,6 +7070,8 @@ function wkTimerRun(){
 }
 function wkTimerTick(){
   if(!timerState.running || !timerState.endAt) return;
+  // η εφαρμογή είναι ανοιχτή μπροστά σου στο τέλος: χτυπάει η ίδια — ακύρωση της ειδοποίησης για να μην έρθει διπλή
+  if(WKPUSH.endAt && !document.hidden && WKPUSH.endAt - Date.now() <= 3500) wkPushCancel();
   const left = Math.max(0, Math.ceil((timerState.endAt - Date.now())/1000));
   if(left !== timerState.remaining) pulseTimerRingGlow();
   timerState.remaining = left;
@@ -7027,6 +7121,7 @@ function wkTimerRestore(){
   if(t.running && t.endAt && t.endAt > now){
     timerState.endAt = t.endAt; timerState.running = true; timerState.paused = false;
     timerState.remaining = Math.max(1, Math.ceil((t.endAt - now)/1000));
+    if(wkPushOn()) WKPUSH.endAt = t.endAt;      // η ειδοποίηση είναι ήδη προγραμματισμένη στον server
     wkTimerRun();
     toast('Το διάλειμμα συνεχίζεται.');
   } else if(reshow){
@@ -7128,6 +7223,7 @@ function stopWorkoutTimer(){
   stopTimerDecimalTicker();
   updateWorkoutTimerUI();
   wkTimerSave();
+  wkPushCancel();
 }
 function resetWorkoutTimer(){
   if(timerState.interval) clearInterval(timerState.interval);
@@ -7138,6 +7234,7 @@ function resetWorkoutTimer(){
   stopTimerDecimalTicker();
   updateWorkoutTimerUI();
   wkTimerSave();
+  wkPushCancel();
 }
 
 function selectWorkoutCalcField(field){
@@ -7364,6 +7461,7 @@ function renderWorkoutPage(){
         <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
           <button class="btn btn-outline" id="timerInstructionsBtn" style="border:2px solid var(--cyan);display:inline-flex;">Οδηγίες / Instructions</button>
           <button type="button" class="wk-mute-btn ${wkMuted()?'on':''}" id="wkMuteBtn" title="Ήχος στο τέλος του διαλείμματος">${wkMuted() ? '🔇 MUTE' : '🔔 ΗΧΟΣ'}</button>
+          ${wkPushBtnHtml()}
         </div>
         <div id="setBox" class="timer-set-box ${setBoxContent.cls}">${setBoxContent.html}</div>
         <div id="timerRing" class="timer-ring" style="--progress:${progress}">
@@ -7462,6 +7560,7 @@ function bindWorkoutPageEvents(){
     toast(m ? '🔇 Χωρίς ήχο στο τέλος του διαλείμματος.' : '🔔 Ο ήχος ενεργοποιήθηκε.');
     if(!m) wkSoundUnlock();
   });
+  document.getElementById('wkPushBtn')?.addEventListener('click', wkPushBtnClick);
   document.getElementById('stopBtn')?.addEventListener('click', stopWorkoutTimer);
   document.getElementById('resetTimerBtn')?.addEventListener('click', resetWorkoutTimer);
   document.getElementById('repsButton')?.addEventListener('click', ()=>selectWorkoutCalcField('reps'));
