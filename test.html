@@ -638,6 +638,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .wl-table{width:100%;border-collapse:collapse;font-size:13.5px;}
 .wl-table th{font-size:10.5px;letter-spacing:.06em;color:var(--cyan-soft);text-align:left;padding:6px 4px;border-bottom:1px solid var(--line-strong);}
 .wl-table td{padding:8px 4px;border-bottom:1px solid rgba(61,216,255,.08);vertical-align:middle;}
+.pw-table tr.pw-cur td{background:rgba(255,210,63,.12);color:#ffd23f;font-weight:700;}
 .wk-kghint{margin:0 0 10px;padding:10px 12px;border-radius:12px;border:1.5px solid rgba(59,216,255,.45);background:rgba(59,216,255,.08);}
 .wk-kghint-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
 .wk-kghint-t{font-size:12px;font-weight:800;letter-spacing:.04em;line-height:1.3;}
@@ -3183,7 +3184,7 @@ async function renderPreviousWorkoutsModal(root){
         <div style="display:flex;justify-content:flex-end;margin-bottom:-6px;">
           <button id="prevworkouts-close-x" style="background:none;border:none;color:var(--ink-soft);font-size:20px;cursor:pointer;line-height:1;padding:4px;">✕</button>
         </div>
-        <div class="dc-hero-title" style="font-size:16px;">ΠΡΟΗΓΟΥΜΕΝΕΣ ΠΡΟΠΟΝΗΣΕΙΣ</div>
+        <div class="dc-hero-title" style="font-size:16px;">ΠΡΟΗΓΟΥΜΕΝΕΣ ΠΡΟΠΟΝΗΣΕΙΣ ΣΤΗΝ ΙΔΙΑ ΑΣΚΗΣΗ</div>
         <div style="text-align:center;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:12px;color:var(--ink-soft);margin-bottom:10px;letter-spacing:.05em;">PREVIOUS WORKOUTS</div>
         <p style="font-size:12px;color:#eefcff;text-align:center;font-weight:700;margin:0;text-transform:uppercase;">${escHtml(exerciseName)}</p>
         ${equipmentName ? `<p style="font-size:11px;color:#ffd23f;text-align:center;font-weight:700;margin:2px 0 6px;text-shadow:0 0 8px rgba(255,210,63,.5);">⚙ ${escHtml(equipmentName)}</p>` : ''}
@@ -3208,16 +3209,32 @@ async function renderPreviousWorkoutsModal(root){
     area.innerHTML = `<div style="text-align:center;color:var(--ink-soft);padding:20px 0;">Καμία προηγούμενη καταγραφή σε αυτή την άσκηση με τον ίδιο εξοπλισμό.<br><span style="font-size:11px;font-style:italic;">No previous records for this exercise with the same equipment.</span></div>`;
     return;
   }
-  area.innerHTML = days.map(day=>{
+  // Δείχνει το set στο οποίο βρίσκεσαι τώρα (1ο, 2ο, 3ο…) σε όλες τις προηγούμενες προπονήσεις· «Όλα τα set» για ολόκληρο το ιστορικό
+  const curSet = timerState.nextSet || 1, inRange = !timerState.totalSets || curSet <= timerState.totalSets;
+  const showOne = inRange && !state.pwAll;
+  const neededOf = (e, setNo)=>{ const st = (CALC_TYPES[e.calc_type]||CALC_TYPES[DEFAULT_CALC_TYPE]).roundingStep;
+    return setNo===1 ? computeNeededWeightForRange(Number(e.kg), Number(e.reps), PREV_WORKOUTS_TARGET_REPS, PREV_WORKOUTS_TARGET_REPS, st)
+                     : computeNeededWeightForRange(Number(e.kg), Number(e.reps), range.min, range.max, st); };
+  const toggle = inRange ? `<button class="btn btn-outline" id="pw-toggle" style="width:100%;justify-content:center;margin-bottom:12px;">${showOne ? 'Δες όλα τα set' : `Δες μόνο το ${curSet}ο SET`}</button>` : '';
+  if(showOne){
+    const rows = days.map(day=>{
+      const e = day.entries.find(x=>Number(x.set_number)===curSet) || day.entries[curSet-1];
+      const needed = e ? neededOf(e, curSet) : null;
+      return `<tr><td>${escHtml(day.dateObj.toLocaleDateString('el-GR'))}</td><td>${e ? escHtml(String(e.reps)) : '—'}</td><td>${e ? escHtml(String(e.kg))+' kg' : '—'}</td><td>${needed!==null?formatCalcNum(needed)+' kg':'—'}</td></tr>`;
+    }).join('');
+    area.innerHTML = `<div class="dc-day-label" style="margin-bottom:10px;text-align:center;">${curSet}ο SET — τι είχες κάνει στο ${curSet}ο set</div>
+      <div class="pw-day-block"><table class="pw-table"><thead><tr><th>ΗΜΕΡΟΜΗΝΙΑ</th><th>ΕΠΑΝΑΛΗΨΕΙΣ</th><th>ΚΙΛΑ</th><th>ΠΟΣΑ ΕΠΡΕΠΕ</th></tr></thead><tbody>${rows}</tbody></table></div>${toggle}`;
+    document.getElementById('pw-toggle')?.addEventListener('click', ()=>{ state.pwAll = true; renderModal(); });
+    return;
+  }
+  area.innerHTML = toggle + days.map(day=>{
     const dateLabel = day.dateObj.toLocaleDateString('el-GR');
     const rows = day.entries.map((e,i)=>{
-      const roundingStep = (CALC_TYPES[e.calc_type]||CALC_TYPES[DEFAULT_CALC_TYPE]).roundingStep;
-      // 1ο SET: στόχος 20 επαναλήψεις (test σετ). Επόμενα SET: στόχος το εύρος επαναλήψεων του προγράμματος.
-      const needed = i===0
-        ? computeNeededWeightForRange(Number(e.kg), Number(e.reps), PREV_WORKOUTS_TARGET_REPS, PREV_WORKOUTS_TARGET_REPS, roundingStep)
-        : computeNeededWeightForRange(Number(e.kg), Number(e.reps), range.min, range.max, roundingStep);
-      return `<tr>
-        <td>${i+1}ο SET</td>
+      // ο αριθμός του set όπως καταγράφηκε (αλλιώς η σειρά)· 1ο SET: στόχος 20 επαναλήψεις, επόμενα: το εύρος του προγράμματος
+      const setNo = Number(e.set_number) || (i+1);
+      const needed = neededOf(e, setNo);
+      return `<tr class="${showOne===false && inRange && setNo===curSet ? 'pw-cur' : ''}">
+        <td>${setNo}ο SET</td>
         <td>${escHtml(String(e.reps))}</td>
         <td>${escHtml(String(e.kg))} kg</td>
         <td>${needed!==null?formatCalcNum(needed)+' kg':'—'}</td>
@@ -3232,6 +3249,7 @@ async function renderPreviousWorkoutsModal(root){
         </table>
       </div>`;
   }).join('');
+  document.getElementById('pw-toggle')?.addEventListener('click', ()=>{ state.pwAll = false; renderModal(); });
 }
 async function renderProgressChartModal(root){
   const rangeOptions = [
@@ -7365,7 +7383,7 @@ function renderWorkoutPage(){
     <div class="panel pad">
       <button class="btn eq-action-btn" style="width:100%;min-height:52px;font-size:13px;margin-bottom:10px;" id="firstSetInfoBtn">ΥΠΟΛΟΓΙΣΜΟΣ ΚΙΛΩΝ ΠΡΩΤΟΥ SET · FIRST SET WEIGHT CALCULATION</button>
       <div class="wk-kghint" id="wkKgHint">${wkKgHintInner()}</div>
-      <button class="btn eq-action-btn" style="width:100%;min-height:52px;font-size:13px;" id="prevWorkoutsBtn">ΠΡΟΗΓΟΥΜΕΝΕΣ ΠΡΟΠΟΝΗΣΕΙΣ · PREVIOUS WORKOUTS</button>
+      <button class="btn eq-action-btn" style="width:100%;min-height:52px;font-size:13px;" id="prevWorkoutsBtn">ΠΡΟΗΓΟΥΜΕΝΕΣ ΠΡΟΠΟΝΗΣΕΙΣ ΣΤΗΝ ΙΔΙΑ ΑΣΚΗΣΗ · PREVIOUS WORKOUTS</button>
     </div>
 
     <div class="panel pad" id="wk-calc-panel">
@@ -7435,7 +7453,7 @@ function bindWorkoutPageEvents(){
     if(p) startProgramFlow(p);
   });
   document.getElementById('timerInstructionsBtn')?.addEventListener('click', ()=>{ state.instructionsModalOpen=true; renderModal(); });
-  document.getElementById('prevWorkoutsBtn')?.addEventListener('click', ()=>{ state.previousWorkoutsModalOpen=true; renderModal(); });
+  document.getElementById('prevWorkoutsBtn')?.addEventListener('click', ()=>{ state.pwAll = false; state.previousWorkoutsModalOpen=true; renderModal(); });
   document.getElementById('workoutEndBtn')?.addEventListener('click', ()=>endWorkoutFlow(state.workoutNextCtx));
   document.getElementById('firstSetInfoBtn')?.addEventListener('click', ()=>{ state.firstSetInfoModalOpen=true; renderModal(); });
   document.getElementById('startBtn')?.addEventListener('click', ()=>{ wkSoundUnlock(); startWorkoutTimer(); });
