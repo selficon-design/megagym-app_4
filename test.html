@@ -1135,7 +1135,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 /* ============ WORKOUT MODE — χρονόμετρο & υπολογιστής κιλών (πελάτης) ============ */
 .timer-ring{
   --progress:100;--ring-color:#32d36b;
-  position:relative;z-index:1;width:210px;height:210px;margin:18px auto;border-radius:50%;
+  position:relative;z-index:1;width:210px;height:210px;margin:12px auto 16px;border-radius:50%;
   display:grid;place-items:center;
   background:
     radial-gradient(circle at center,#0b1017 0 58%,transparent 59%),
@@ -1182,6 +1182,28 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
   border-radius:9px;padding:5px 12px;font-weight:700;font-family:'Rajdhani',sans-serif;font-size:13.5px;letter-spacing:.04em;margin-bottom:6px;line-height:1.35;
 }
 .timer-set-box .set-emph{font-weight:900;color:#ffb347;}
+.wk-eq-line{font-size:12.5px;color:#9fe8ff;margin:3px 0 2px;letter-spacing:.03em;}
+.wk-eq-line b{color:#fff;font-weight:700;}
+.wk-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 4px;}
+.wk-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-height:72px;padding:6px 2px;border-radius:12px;
+  border:1.5px solid var(--cyan);background:rgba(0,210,255,.06);box-shadow:0 0 12px rgba(0,210,255,.18), inset 0 0 12px rgba(0,210,255,.06);
+  color:#eefcff;font-family:'Rajdhani',sans-serif;cursor:pointer;text-align:center;line-height:1.1;min-width:0;}
+button.wk-tile:active{transform:scale(.97);}
+.wk-tile:disabled{cursor:default;opacity:.45;}
+.wk-tile-t{font-size:9px;font-weight:800;letter-spacing:.01em;color:#9fe8ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.wk-tile-v{font-family:'Orbitron',sans-serif;font-size:19px;font-weight:800;color:#fff;}
+.wk-tile-v.sm{font-size:15px;}
+.wk-tile-v.xs{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:800;letter-spacing:.02em;}
+.wk-tile-s{font-size:8px;font-weight:700;letter-spacing:.01em;color:var(--ink-soft);white-space:nowrap;max-width:100%;overflow:hidden;}
+.wk-tile.is-on .wk-tile-v{color:#39ff88;text-shadow:0 0 8px rgba(57,255,136,.6);}
+.wk-tile.off .wk-tile-v{color:#ff8b90;}
+.wk-tile-set .set-emph{color:#ffb347;}
+.wk-tile-set .set-done-line.live{color:#ffe14d;}
+.wk-tile-set.completed-blink{animation:wkTileDone .9s ease-in-out infinite;}
+.wk-tile-set.wk-bg-flash{animation:wkTileDone .7s ease-in-out 5;}
+@keyframes wkTileDone{0%,100%{border-color:var(--cyan);background:rgba(0,210,255,.06);}50%{border-color:#37e56f;background:rgba(55,229,111,.22);}}
+.wk-set-extra{margin-top:4px;font:700 13px 'Rajdhani',sans-serif;color:#ffe7c2;}
+@media (max-width:360px){ .wk-tiles{gap:5px;} .wk-tile-t{font-size:9.5px;} }
 .timer-set-box.completed-blink{animation:setCompleteBlink 0.9s ease-in-out infinite;}
 @keyframes setCompleteBlink{
   0%,100%{border-color:rgba(255,173,50,.75);background:rgba(255,159,26,.08);}
@@ -6907,16 +6929,16 @@ function getSetBoxContent(){
   // Το set έχει ήδη γίνει όταν τρέχει το διάλειμμα: πάντα «ΕΚΤΕΛΕΣΤΗΚΕ» (κίτρινο όσο μετράει ο χρόνος)
   const done = nextSet - 1;
   const live = timerState.running || timerState.paused;
-  const doneLine = done >= 1 ? `<div class="set-done-line ${live?'live':''}">ΕΚΤΕΛΕΣΤΗΚΕ ΤΟ <span class="set-emph">SET ${done}</span></div>` : '';
+  const doneLine = `<span class="wk-tile-s set-done-line ${live?'live':''}">${done >= 1 ? `ΕΓΙΝΕ ΤΟ ${done}ο` : '&nbsp;'}</span>`;
   if(nextSet <= totalSets){
     const hand = timerState.hands===2 ? `<div class="hand-badge ${timerState.hand==='B'?'b':''}">${limbNow(timerState.hand==='B'?'Β':'Α')}</div>` : '';
     const ex = state.workoutExercise || {};
     const fl = ex.failureSets==='fl2' ? `<div class="set-fail-line ${failureAppliesToSet('fl2', nextSet, totalSets)?'on':''}">${failureAppliesToSet('fl2', nextSet, totalSets) ? `ΣΤΟ SET ${nextSet}: ${escHtml(failureLabel(ex.failure))}` : `ΣΤΟ SET ${nextSet}: ΧΩΡΙΣ UNTIL FAILURE`}</div>` : '';
-    return { cls:'', html: `${doneLine}ΕΠΟΜΕΝΟ <span class="set-emph">SET ${nextSet}</span> ΑΠΟ <span class="set-emph">${totalSets}</span>${fl}${hand}` };
+    return { cls:'', html: `<span class="wk-tile-t">SET</span><span class="wk-tile-v"><span class="set-emph">${nextSet}</span>/${totalSets}</span>${doneLine}`, extra: fl + hand };
   } else if(nextSet === totalSets+1){
-    return { cls:'completed-blink', html: `${doneLine}ΟΛΟΚΛΗΡΩΘΗΚΑΝ ΟΛΑ ΤΑ <span class="set-emph">SET</span>` };
+    return { cls:'completed-blink', html: `<span class="wk-tile-t">SET</span><span class="wk-tile-v">ΤΕΛΟΣ</span><span class="wk-tile-s">ΟΛΑ ΕΓΙΝΑΝ</span>`, extra:'' };
   }
-  return { cls:'', html: `${doneLine}ΕΠΙΠΛΕΟΝ <span class="set-emph">SET ${nextSet}</span>` };
+  return { cls:'', html: `<span class="wk-tile-t">ΕΠΙΠΛΕΟΝ</span><span class="wk-tile-v"><span class="set-emph">${nextSet}</span></span>${doneLine}`, extra:'' };
 }
 // ── «ΚΙΛΑ ΠΟΥ ΠΡΕΠΕΙ ΝΑ ΒΑΛΕΙΣ ΣΤΟ Nο SET» ──
 // 1ο set: από την τελευταία φορά που έγινε η ίδια άσκηση με τον ίδιο εξοπλισμό → «ΠΟΣΑ ΕΠΡΕΠΕ» του 1ου set (στόχος 20 επαναλήψεις)
@@ -6997,6 +7019,7 @@ function updateWorkoutTimerUI(){
     const sc = getSetBoxContent();
     setBox.innerHTML = sc.html;
     setBox.classList.toggle('completed-blink', sc.cls==='completed-blink');
+    const ex2 = document.getElementById('setExtra'); if(ex2){ ex2.innerHTML = sc.extra||''; ex2.style.display = sc.extra ? '' : 'none'; }
   }
   const statusEl=document.getElementById('timerStatus');
   if(statusEl){
@@ -7014,17 +7037,20 @@ function wkPushSupported(){ return 'serviceWorker' in navigator && 'PushManager'
 function wkIsIOS(){ return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints > 1); }
 function wkStandalone(){ return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
 function wkPushOn(){ try{ return wkPushSupported() && Notification.permission==='granted' && localStorage.getItem('forma_push_on')==='1'; }catch(_){ return false; } }
+function wkMuteTileHtml(){ const m = wkMuted();
+  return `<button type="button" class="wk-tile ${m?'off':'is-on'}" id="wkMuteBtn" title="Ήχος στο τέλος του διαλείμματος"><span class="wk-tile-t">ΗΧΟΣ</span><span class="wk-tile-v sm">${m?'OFF':'ON'}</span><span class="wk-tile-s">${m?'ΧΩΡΙΣ ΗΧΟ':'ΣΤΟ ΤΕΛΟΣ'}</span></button>`; }
+function wkPushTileInner(){ const on = wkPushOn();
+  return `<span class="wk-tile-t">ΕΙΔΟΠΟΙΗΣΕΙΣ</span><span class="wk-tile-v sm">${on?'ON':'OFF'}</span><span class="wk-tile-s">ΣΤΟ ΚΙΝΗΤΟ</span>`; }
 function wkPushBtnHtml(){
-  if(auth.status!=='client') return '';
-  if(!wkPushSupported() && !(wkIsIOS() && !wkStandalone())) return '';
-  const on = wkPushOn();
-  return `<button type="button" class="wk-mute-btn ${on?'':'on'}" id="wkPushBtn" title="Ειδοποίηση στο κινητό όταν τελειώνει το διάλειμμα, ακόμα κι αν βγεις από την εφαρμογή">${on ? '📲 ΕΙΔΟΠΟΙΗΣΗ' : '📵 ΕΙΔΟΠΟΙΗΣΗ'}</button>`;
+  const ok = auth.status==='client' && (wkPushSupported() || (wkIsIOS() && !wkStandalone()));
+  if(!ok) return `<button type="button" class="wk-tile off" disabled title="Μόνο για πελάτες, σε κινητό/browser που υποστηρίζει ειδοποιήσεις"><span class="wk-tile-t">ΕΙΔΟΠΟΙΗΣΕΙΣ</span><span class="wk-tile-v sm">—</span><span class="wk-tile-s">ΣΤΟ ΚΙΝΗΤΟ</span></button>`;
+  return `<button type="button" class="wk-tile ${wkPushOn()?'is-on':'off'}" id="wkPushBtn" title="Ειδοποίηση στο κινητό όταν τελειώνει το διάλειμμα, ακόμα κι αν βγεις από την εφαρμογή">${wkPushTileInner()}</button>`;
 }
-function wkPushBtnRefresh(){ const b = document.getElementById('wkPushBtn'); if(b){ const on = wkPushOn(); b.classList.toggle('on', !on); b.textContent = on ? '📲 ΕΙΔΟΠΟΙΗΣΗ' : '📵 ΕΙΔΟΠΟΙΗΣΗ'; } }
+function wkPushBtnRefresh(){ const b = document.getElementById('wkPushBtn'); if(b){ const on = wkPushOn(); b.classList.toggle('is-on', on); b.classList.toggle('off', !on); b.innerHTML = wkPushTileInner(); } }
 function wkPushIosHint(){
   state.choiceModal = { icon:'', color:'var(--cyan-soft)', title:'ΕΙΔΟΠΟΙΗΣΕΙΣ ΣΤΟ iPHONE',
     html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:14px;">Για να χτυπάει το κινητό στο τέλος του διαλείμματος <b>ακόμα κι αν βγεις από την εφαρμογή ή κλειδώσει η οθόνη</b>, η εφαρμογή πρέπει να είναι στην <b>οθόνη Αφετηρίας</b>:</p>
-      <p style="font-size:14px;line-height:1.7;color:#eefcff;margin-bottom:6px;">1. Πάτα <b>Κοινοποίηση ⬆️</b> στο Safari<br>2. <b>«Προσθήκη στην οθόνη Αφετηρίας»</b><br>3. Άνοιξε την εφαρμογή από το εικονίδιο και πάτα <b>📵 ΕΙΔΟΠΟΙΗΣΗ</b></p>`,
+      <p style="font-size:14px;line-height:1.7;color:#eefcff;margin-bottom:6px;">1. Πάτα <b>Κοινοποίηση ⬆️</b> στο Safari<br>2. <b>«Προσθήκη στην οθόνη Αφετηρίας»</b><br>3. Άνοιξε την εφαρμογή από το εικονίδιο και πάτα <b>ΕΙΔΟΠΟΙΗΣΕΙΣ</b></p>`,
     no:null, cancelLabel:'ΕΝΤΑΞΕΙ' };
   renderModal();
 }
@@ -7049,13 +7075,22 @@ async function wkPushEnable(){
     if(error || !r || !r.ok) throw error || new Error('subscribe');
     try{ localStorage.setItem('forma_push_on', '1'); }catch(_){}
     wkPushBtnRefresh();
-    toast('📲 Οι ειδοποιήσεις ενεργοποιήθηκαν! Στο τέλος κάθε διαλείμματος θα χτυπάει το κινητό, ακόμα κι αν βγεις από την εφαρμογή.', 6000);
+    toast('Οι ειδοποιήσεις ενεργοποιήθηκαν! Στο τέλος κάθε διαλείμματος θα χτυπάει το κινητό, ακόμα κι αν βγεις από την εφαρμογή.', 6000);
     if(timerState.running && timerState.endAt) wkPushSchedule();
     return true;
   }catch(e){ console.error(e); toast('Δεν ενεργοποιήθηκαν οι ειδοποιήσεις. Δοκίμασε ξανά.'); return false; }
 }
-function wkPushBtnClick(){
-  if(!wkPushOn()){ wkPushEnable(); return; }
+async function wkPushBtnClick(){
+  if(!wkPushOn()){   // OFF → ON, με δοκιμαστική ειδοποίηση
+    if(await wkPushEnable()){ try{ await sb.functions.invoke('push-timer', { body:{ action:'test', url: location.href } }); }catch(_){} }
+    return;
+  }
+  // ON → OFF
+  try{ localStorage.setItem('forma_push_on','0'); }catch(_){} wkPushCancel(); wkPushBtnRefresh();
+  try{ const reg = await navigator.serviceWorker.getRegistration(); const sub = reg && await reg.pushManager.getSubscription(); if(sub){ await sb.functions.invoke('push-timer', { body:{ action:'unsubscribe', endpoint: sub.endpoint } }); await sub.unsubscribe(); } }catch(_){}
+  toast('Οι ειδοποιήσεις απενεργοποιήθηκαν.');
+}
+function wkPushBtnClickOld(){
   state.choiceModal = { icon:'', color:'var(--cyan-soft)', title:'ΕΙΔΟΠΟΙΗΣΕΙΣ',
     html:`<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:14px;">Οι ειδοποιήσεις είναι <b>ενεργές</b>: στο τέλος κάθε διαλείμματος χτυπάει το κινητό, ακόμα κι αν είσαι εκτός εφαρμογής ή με κλειδωμένη οθόνη.</p>`,
     yes:{ label:'ΔΟΚΙΜΗ ΤΩΡΑ', fn:async ()=>{ const { data } = await sb.functions.invoke('push-timer', { body:{ action:'test', url: location.href } }); toast(data && data.ok ? 'Στάλθηκε δοκιμαστική ειδοποίηση.' : 'Δεν στάλθηκε — δοκίμασε να τις απενεργοποιήσεις και να τις ενεργοποιήσεις ξανά.'); } },
@@ -7541,15 +7576,17 @@ function renderWorkoutPage(){
     </div>` : ''}
     <div class="panel pad" style="margin-bottom:18px;">
       <h2 style="font-size:18px;margin-bottom:2px;">${escHtml(ex.exercise)}</h2>
+      ${(ex.equipment||[]).length===1 && primaryEq && primaryEq.name ? `<div class="wk-eq-line">ΕΞΟΠΛΙΣΜΟΣ: <b>${escHtml(primaryEq.name)}</b></div>` : ''}
       <div class="sub" style="margin-bottom:0;text-transform:uppercase;">${escHtml(ex.groupLabel||'')} · SET ${ex.set} · REP ${escHtml(String(ex.rep))} · TEMPO ${escHtml(ex.tempo||DEFAULT_TEMPO)}${ex.failure!=null ? ` · ${escHtml(failureFull(ex))}` : ''}</div>
 
       <div style="text-align:center;margin-top:16px;">
-        <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-          <button class="btn btn-outline" id="timerInstructionsBtn" style="border:2px solid var(--cyan);display:inline-flex;">Οδηγίες / Instructions</button>
-          <button type="button" class="wk-mute-btn ${wkMuted()?'on':''}" id="wkMuteBtn" title="Ήχος στο τέλος του διαλείμματος">${wkMuted() ? '🔇 MUTE' : '🔔 ΗΧΟΣ'}</button>
+        <div class="wk-tiles">
+          <button type="button" class="wk-tile" id="timerInstructionsBtn"><span class="wk-tile-v xs">ΟΔΗΓΙΕΣ</span><span class="wk-tile-s">INSTRUCTIONS</span></button>
+          ${wkMuteTileHtml()}
           ${wkPushBtnHtml()}
+          <div id="setBox" class="wk-tile wk-tile-set ${setBoxContent.cls}">${setBoxContent.html}</div>
         </div>
-        <div id="setBox" class="timer-set-box ${setBoxContent.cls}">${setBoxContent.html}</div>
+        <div id="setExtra" class="wk-set-extra" style="${setBoxContent.extra ? '' : 'display:none;'}">${setBoxContent.extra||''}</div>
         <div id="timerRing" class="timer-ring" style="--progress:${progress}">
           <div id="timerNumber" class="timer-number">${timerState.remaining}</div>
           <div id="timerDecimal" class="timer-decimal">00</div>
@@ -7640,10 +7677,10 @@ function bindWorkoutPageEvents(){
   document.getElementById('workoutEndBtn')?.addEventListener('click', ()=>endWorkoutFlow(state.workoutNextCtx));
   document.getElementById('firstSetInfoBtn')?.addEventListener('click', ()=>{ state.firstSetInfoModalOpen=true; renderModal(); });
   document.getElementById('startBtn')?.addEventListener('click', ()=>{ wkSoundUnlock(); startWorkoutTimer(); });
-  document.getElementById('wkMuteBtn')?.addEventListener('click', e=>{
+  document.getElementById('wkMuteBtn')?.addEventListener('click', function onMute(e){
     const m = !wkMuted(); try{ localStorage.setItem('forma_timer_mute', m?'1':'0'); }catch(_){}
-    e.currentTarget.classList.toggle('on', m); e.currentTarget.textContent = m ? '🔇 MUTE' : '🔔 ΗΧΟΣ';
-    toast(m ? '🔇 Χωρίς ήχο στο τέλος του διαλείμματος.' : '🔔 Ο ήχος ενεργοποιήθηκε.');
+    e.currentTarget.outerHTML = wkMuteTileHtml(); document.getElementById('wkMuteBtn')?.addEventListener('click', onMute);
+    toast(m ? 'Χωρίς ήχο στο τέλος του διαλείμματος.' : 'Ο ήχος ενεργοποιήθηκε.');
     if(!m) wkSoundUnlock();
   });
   document.getElementById('wkPushBtn')?.addEventListener('click', wkPushBtnClick);
