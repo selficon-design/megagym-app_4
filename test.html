@@ -6342,11 +6342,18 @@ async function sessSave(c, mutate){
     { onConflict: 'customer_code,program_id,log_date,day_index' });
   if(error) console.error('workout_sessions', error);
 }
+// Ο εξοπλισμός με τον οποίο γίνεται η άσκηση (όταν ανοίχτηκε από συγκεκριμένο μηχάνημα)
+function wkEqNameOf(ex){ const e = ex && Array.isArray(ex.equipment) && ex.equipment.length===1 ? ex.equipment[0] : null; return e && typeof e==='object' ? String(e.name||'').trim() : ''; }
+// Ο εξοπλισμός που καταγράφηκε σήμερα για την άσκηση i της ημέρας (progress.eq = { i: όνομα })
+function sessEqName(prog, i){ const m = prog && prog.eq; return m && typeof m==='object' ? String(m[i]||'') : ''; }
+function sessEqHtml(name){ return name ? `<div style="font-size:12.5px;color:#9fe8ff;margin-top:4px;">🏋️ Εξοπλισμός: <b>${escHtml(name)}</b></div>` : ''; }
 function sessRecordSet(){
   const c = state.workoutNextCtx; if(!c || c.src!=='client') return;
   if(wkIsPreview(c.programId)) return;   // δοκιμαστική χρήση: δεν καταγράφεται
   const doneSets = Math.min(timerState.nextSet-1, timerState.totalSets);
-  sessSave(c, prog=>{ prog[c.itemIndex] = Math.max(Number(prog[c.itemIndex])||0, doneSets); });
+  const eqName = wkEqNameOf(state.workoutExercise);
+  sessSave(c, prog=>{ prog[c.itemIndex] = Math.max(Number(prog[c.itemIndex])||0, doneSets);
+    if(eqName){ prog.eq = { ...(prog.eq && typeof prog.eq==='object' ? prog.eq : {}), [c.itemIndex]: eqName }; } });
 }
 function sessRefreshCompletion(){ const c = state.workoutNextCtx; if(c && c.src==='client') sessSave(c, null); }
 /* Ερωτήσεις του expert (πριν) και αξιολόγηση (μετά) — αλλάζουν εδώ */
@@ -6409,7 +6416,7 @@ async function startProgramFlow(p, skipExpert){
       for(let i=0;i<items.length && !resume;i++){
         const it = items[i];
         if(it.type==='cardio'){ if(!state.cardioDone.keys.has(cardioKey(P.name, P.label(di), i, it.equipment||'ΑΕΡΟΒΙΟ'))) resume = { index:i, item:it }; }
-        else { const n = Math.max(1, parseInt(it.set,10)||1), d = Number(progress[i])||0; if(d < n) resume = { index:i, item:it, setN: d+1 }; }
+        else { const n = Math.max(1, parseInt(it.set,10)||1), d = Number(progress[i])||0; if(d < n) resume = { index:i, item:it, setN: d+1, eq: sessEqName(progress, i) }; }
       }
       if(resume){ state.startProgModal = { kind:'resume', p, dayIndex:di, dayLabel:P.label(di), doneSets:r.done, totalSets:r.total, resume }; renderModal(); return; }
     }
@@ -6431,7 +6438,7 @@ function startProgAnswer(yes){
   const rec = m.p.record, cardioOnly = rec.subtype==='cardio';
   actWkSet(m.p.id, cardioOnly ? 0 : m.dayIndex);
   if(m.fresh){ clientOpenDayStart(m.p, m.dayIndex); return; }
-  if(m.kind==='resumeOpen'){ clientResumeAt(m.p, m.dayIndex, m.resume.index, m.resume.setN || 1); return; }
+  if(m.kind==='resumeOpen'){ clientResumeAt(m.p, m.dayIndex, m.resume.index, m.resume.setN || 1, m.resume.eq); return; }
   state.clientNav = { ...state.clientNav, view:'exercise', programId:m.p.id, dayIndex: cardioOnly ? 0 : m.dayIndex, itemIndex:0 };
   renderClientMain(); window.scrollTo(0,0);
 }
@@ -6485,7 +6492,8 @@ async function sessLeftovers(c){
   items.forEach((it,i)=>{
     if(it.type==='cardio'){ if(!(state.cardioDone && state.cardioDone.keys.has(cardioKey(P.name, P.label(c.dayIndex), i, it.equipment||'ΑΕΡΟΒΙΟ')))) left.push(`🏃 Αερόβιο · ${wnDescribe(it).name}`); return; }
     const n = Math.max(1, parseInt(it.set,10)||1), d = Math.min(n, Number(prog[i])||0);
-    if(d < n) left.push(`${it.exercise} — υπολείπονται ${n-d} από ${n} set`);
+    const eqn = sessEqName(prog, i);
+    if(d < n) left.push(`${it.exercise}${eqn ? ' · 🏋️ '+eqn : ''} — υπολείπονται ${n-d} από ${n} set`);
   });
   return { P, started: !!ses, left };
 }
@@ -6655,22 +6663,26 @@ async function clientPrevIncompleteAsk(idx, skip){
   const ses = await sessLoad(c); if(!ses) return false;   // σήμερα δεν έχει ξεκινήσει αυτή η ημέρα
   const prev = items[pi], n = Math.max(1, parseInt(prev.set,10)||1), d = Number(ses.progress[pi])||0;
   if(d >= n) return false;
-  const left = n - d;
+  const left = n - d, prevEq = sessEqName(ses.progress, pi);
   state.choiceModal = { icon:'⏸️', color:'#ffb648', title:'ΥΠΟΛΕΙΠΟΝΤΑΙ SET',
     html: `<p style="font-size:14px;line-height:1.6;color:#eefcff;margin-bottom:12px;">Από την προηγούμενη άσκηση υπολείπονται <b>${left} ${left===1?'set':'set'}</b> (έγιναν ${d} από ${n}).</p>
       <div style="padding:12px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(3,11,18,.6);margin-bottom:14px;">
         <div style="font-size:11px;letter-spacing:1.5px;color:var(--cyan-soft);margin-bottom:4px;">ΠΡΟΗΓΟΥΜΕΝΗ — ${escHtml(prev.groupLabel||'')}</div>
-        <div style="font-size:15px;font-weight:600;color:#fff;">${escHtml(prev.exercise||'')}</div>
+        <div style="font-size:15px;font-weight:600;color:#fff;">${escHtml(prev.exercise||'')}</div>${sessEqHtml(prevEq)}
       </div>
       <p style="font-size:14px;color:#eefcff;margin-bottom:14px;">Θες να σου ανοίξω την προηγούμενη άσκηση για να τα εκτελέσεις, ή να μεταβούμε στην επόμενη;</p>`,
-    yes: { label:'ΑΝΟΙΓΜΑ ΠΡΟΗΓΟΥΜΕΝΗΣ', fn: ()=>{ const p = state.selectedCustomerPrograms.find(x=>x.id===nav.programId); if(p) clientResumeAt(p, nav.dayIndex, pi, d+1); } },
+    yes: { label:'ΑΝΟΙΓΜΑ ΠΡΟΗΓΟΥΜΕΝΗΣ', fn: ()=>{ const p = state.selectedCustomerPrograms.find(x=>x.id===nav.programId); if(p) clientResumeAt(p, nav.dayIndex, pi, d+1, prevEq); } },
     no:  { label:'ΣΤΗΝ ΕΠΟΜΕΝΗ', fn: ()=>clientGoToExercise(idx, { ...skip, prev:true }) } };
   renderModal();
   return true;
 }
 // Άνοιγμα προπόνησης άσκησης από συγκεκριμένο set
-function clientResumeAt(p, dayIndex, idx, setN){
-  const it = getClientDayItems(p.record, dayIndex)[idx]; if(!it) return;
+function clientResumeAt(p, dayIndex, idx, setN, eqName){
+  let it = getClientDayItems(p.record, dayIndex)[idx]; if(!it) return;
+  if(eqName && it.type!=='cardio' && Array.isArray(it.equipment)){   // συνέχεια με τον ίδιο εξοπλισμό
+    const e = it.equipment.find(x=>x && typeof x==='object' && String(x.name||'').trim()===eqName);
+    if(e) it = { ...it, equipment:[e] };
+  }
   if(timerState.interval){ clearInterval(timerState.interval); timerState.interval = null; }
   state.clientNav = { ...state.clientNav, view:'exercise', programId:p.id, dayIndex, itemIndex:idx };
   if(it.type==='cardio'){ if(document.getElementById('setBox')) rebuildClientDashboardShell(); else renderClientMain(); window.scrollTo(0,0); return; }
@@ -8013,7 +8025,7 @@ function renderModal(){
         <div style="padding:12px;border-radius:12px;border:1px solid ${m.resume.item.type==='cardio'?'#39ff88':'var(--line-strong)'};background:rgba(3,11,18,.6);margin-bottom:14px;">
           <div style="font-size:11px;letter-spacing:1.5px;color:var(--cyan-soft);margin-bottom:4px;">${escHtml(m.dayLabel)} · ${escHtml(wnDescribe(m.resume.item).group)}</div>
           <div style="font-size:15px;font-weight:600;color:#fff;">${escHtml(wnDescribe(m.resume.item).name)}</div>
-          ${m.resume.item.type!=='cardio' ? `<div style="font-size:13px;color:#ffd23f;margin-top:4px;">ΑΠΟ ΤΟ SET ${m.resume.setN} ΑΠΟ ${m.resume.item.set}</div>` : ''}
+          ${m.resume.item.type!=='cardio' ? sessEqHtml(m.resume.eq) + `<div style="font-size:13px;color:#ffd23f;margin-top:4px;">ΑΠΟ ΤΟ SET ${m.resume.setN} ΑΠΟ ${m.resume.item.set}</div>` : ''}
         </div>
         <p style="font-size:14px;color:#eefcff;margin-bottom:16px;">${m.resume.item.type==='cardio' ? 'Να ανοίξω το αερόβιο;' : 'Να ανοίξω την άσκηση;'}</p>
         ${yesNo('sp-yes','sp-no')}`;
@@ -11364,7 +11376,9 @@ function clientDoneEnsure(p, dayIndex){
     (res.data||[]).forEach(r=>{
       const k = [p.id, r.day_index, today].join('|');
       const cur = state.sessCache[k] || { progress:{} };
-      Object.entries(r.progress||{}).forEach(([i,v])=>{ cur.progress[i] = Math.max(Number(cur.progress[i])||0, Number(v)||0); });
+      Object.entries(r.progress||{}).forEach(([i,v])=>{
+        if(i==='eq'){ if(v && typeof v==='object') cur.progress.eq = { ...(cur.progress.eq||{}), ...v }; return; }
+        cur.progress[i] = Math.max(Number(cur.progress[i])||0, Number(v)||0); });
       state.sessCache[k] = cur;
       if(r.completed) state.daysDoneToday[p.id+'|'+r.day_index+'|'+today] = true;
     });
