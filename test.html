@@ -1416,7 +1416,6 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .calc-change.negative{color:#ff7a7a;}
 .calc-message{font-size:11.5px;color:var(--ink-soft);margin-top:2px;margin-bottom:14px;line-height:1.5;text-align:center;}
 .calc-message.error{color:#ff9494;}
-.calc-eqswitch-warn{margin-top:8px;padding:9px 11px;border-radius:10px;border:1px solid rgba(255,159,26,.6);background:rgba(255,159,26,.1);color:#ffc77a;font-size:12.5px;text-align:left;}
 .calc-reset-btn{
   width:100%;min-height:46px;border-radius:11px;border:1px solid #666;background:transparent;color:#ccc;
   font-weight:800;font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:.04em;text-transform:uppercase;
@@ -6287,14 +6286,14 @@ function openWorkoutMode(ex, returnFn, focus){
 /* ── Αλλαγή εξοπλισμού στη μέση της άσκησης ── */
 function wkEqSwitchAsk(sw){
   const from = wkEqNameOf(sw.from), to = wkEqNameOf(sw.to), done = Math.max(0, (timerState.nextSet||1)-1);
-  const box = (t, n)=>`<div style="padding:10px 12px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(3,11,18,.6);margin:6px 0 12px;font-size:14px;color:#fff;">🏋️ <b>${escHtml(n)}</b>${t ? `<div style="font-size:12px;color:var(--ink-soft);margin-top:3px;">${t}</div>` : ''}</div>`;
+  const box = (t, n)=>`<div style="padding:10px 12px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(3,11,18,.6);margin:6px 0 12px;font-size:14px;color:#fff;"><b>${escHtml(n)}</b>${t ? `<div style="font-size:12px;color:var(--ink-soft);margin-top:3px;">${t}</div>` : ''}</div>`;
   state.choiceModal = { icon:'', color:'#ffb648', title:'🔄 ΑΛΛΑΓΗ ΕΞΟΠΛΙΣΜΟΥ',
     html: `<div style="text-align:left;font-size:14px;line-height:1.5;color:#eefcff;">Είχες ξεκινήσει την άσκηση <b>${escHtml(sw.from.exercise||'')}</b> με τον εξοπλισμό:
         ${box(`έγιναν ${done} από ${timerState.totalSets} set`, from)}
         Τώρα επέλεξες τον εξοπλισμό:${box('', to)}</div>
       <p style="font-size:14px;color:#eefcff;margin-bottom:14px;">Θέλεις να συνεχίσεις τα επόμενα set με τον νέο εξοπλισμό;</p>`,
     yes:{ label:'ΝΑΙ, ΣΥΝΕΧΙΖΩ ΜΕ ΤΟΝ ΝΕΟ', fn:()=>wkEqSwitchApply(sw) },
-    no:{ label:'ΟΧΙ, ΜΕΝΩ ΣΤΟΝ ΠΡΟΗΓΟΥΜΕΝΟ', fn:null }, cancelLabel:'Άκυρο — μένω στον προηγούμενο' };
+    no:{ label:'ΟΧΙ, ΜΕΝΩ ΣΤΟΝ ΠΡΟΗΓΟΥΜΕΝΟ', fn:null }, noCancel:true };
   renderModal();
 }
 async function wkEqSwitchApply(sw){
@@ -6320,11 +6319,11 @@ async function wkEqSwitchApply(sw){
   const S = timerState.eqSwitch; if(!S || S.to!==to || S.atSet!==at) return;
   S.loading = false; S.kg = kg; S.date = date ? date.toISOString() : null;
   wkKgHintUpdate(true); wkTimerSave();
-  const rec = pendingOld ? `<div style="padding:10px 12px;border-radius:12px;border:1px solid rgba(255,182,72,.6);background:rgba(255,182,72,.08);margin-bottom:14px;font-size:13.5px;line-height:1.55;color:#ffe2b0;text-align:left;">📝 <b>Μην ξεχάσεις:</b> γράψε πρώτα στον υπολογιστή κιλών τις επαναλήψεις και τα κιλά που έκανες στο <b>${done}ο SET</b> με το <b>${escHtml(from)}</b> και πάτα υπολογισμό. Σε κάθε περίπτωση πρέπει να καταγραφούν στον υπολογιστή κιλών, αλλιώς δεν θα γραφτούν στο πρόγραμμά σου.</div>` : '';
+  const rec = pendingOld ? `<div style="padding:10px 12px;border-radius:12px;border:1px solid rgba(255,182,72,.6);background:rgba(255,182,72,.08);margin-bottom:14px;font-size:13.5px;line-height:1.55;color:#ffe2b0;text-align:left;">Σε κάθε περίπτωση πρέπει να καταγράψεις στον υπολογιστή κιλών τις επαναλήψεις και τα κιλά που έκανες στο <b>${done}ο SET</b> με το <b>${escHtml(from)}</b>, για να καταγραφεί η άσκηση στο πρόγραμμά σου.</div>` : '';
   const body = kg!=null
     ? `Βρήκα πόσα κιλά έβαλες στο <b>${at}ο SET</b> με τον <b>${escHtml(to)}</b> σε προηγούμενη προπόνηση. Θα τα δεις <b>κάτω από το χρονόμετρο</b>, στο «ΚΙΛΑ ΠΟΥ ΠΡΕΠΕΙ ΝΑ ΒΑΛΕΙΣ ΣΤΟ ${at}ο SET».`
     : `Δεν βρήκα κιλά για το <b>${at}ο SET</b> με τον <b>${escHtml(to)}</b> σε προηγούμενη προπόνηση. Γράψε στον υπολογιστή κιλών τις επαναλήψεις και τα κιλά του προηγούμενου set με το <b>${escHtml(from)}</b>, και χρησιμοποίησε τα κιλά που θα σου βγάλει, προσέχοντας ότι είναι από το προηγούμενο μηχάνημα.`;
-  state.choiceModal = { icon:'', color:'#ffb648', title:'⚠️ ΠΡΟΣΟΧΗ ΣΤΑ ΚΙΛΑ',
+  state.choiceModal = { icon:'', color:'#ffb648', title:'ΠΡΟΣΟΧΗ ΣΤΑ ΚΙΛΑ',
     html: `<p style="font-size:14px;line-height:1.55;color:#eefcff;margin-bottom:10px;text-align:left;">Ο υπολογιστής κιλών δεν μπορεί να βγάλει σωστά τα κιλά για τον νέο εξοπλισμό, γιατί τα κιλά του προηγούμενου μηχανήματος δεν είναι ίδια με αυτά του νέου.</p>
       <p style="font-size:14px;line-height:1.55;color:#eefcff;margin-bottom:14px;text-align:left;">${body}</p>${rec}`,
     yes:{ label:'ΕΝΤΑΞΕΙ', fn:null } };
@@ -6401,7 +6400,7 @@ async function sessSave(c, mutate){
 function wkEqNameOf(ex){ const e = ex && Array.isArray(ex.equipment) && ex.equipment.length===1 ? ex.equipment[0] : null; return e && typeof e==='object' ? String(e.name||'').trim() : ''; }
 // Ο εξοπλισμός που καταγράφηκε σήμερα για την άσκηση i της ημέρας (progress.eq = { i: όνομα })
 function sessEqName(prog, i){ const m = prog && prog.eq; return m && typeof m==='object' ? String(m[i]||'') : ''; }
-function sessEqHtml(name){ return name ? `<div style="font-size:12.5px;color:#9fe8ff;margin-top:4px;">🏋️ Εξοπλισμός: <b>${escHtml(name)}</b></div>` : ''; }
+function sessEqHtml(name){ return name ? `<div style="font-size:12.5px;color:#9fe8ff;margin-top:4px;">Εξοπλισμός: <b>${escHtml(name)}</b></div>` : ''; }
 function sessRecordSet(){
   const c = state.workoutNextCtx; if(!c || c.src!=='client') return;
   if(wkIsPreview(c.programId)) return;   // δοκιμαστική χρήση: δεν καταγράφεται
@@ -6548,7 +6547,7 @@ async function sessLeftovers(c){
     if(it.type==='cardio'){ if(!(state.cardioDone && state.cardioDone.keys.has(cardioKey(P.name, P.label(c.dayIndex), i, it.equipment||'ΑΕΡΟΒΙΟ')))) left.push(`🏃 Αερόβιο · ${wnDescribe(it).name}`); return; }
     const n = Math.max(1, parseInt(it.set,10)||1), d = Math.min(n, Number(prog[i])||0);
     const eqn = sessEqName(prog, i);
-    if(d < n) left.push(`${it.exercise}${eqn ? ' · 🏋️ '+eqn : ''} — υπολείπονται ${n-d} από ${n} set`);
+    if(d < n) left.push(`${it.exercise}${eqn ? ' · '+eqn : ''} — υπολείπονται ${n-d} από ${n} set`);
   });
   return { P, started: !!ses, left };
 }
@@ -6954,9 +6953,9 @@ function wkKgHintInner(){
   } else if(timerState.eqSwitch && timerState.eqSwitch.atSet===n){
     const S = timerState.eqSwitch, C = timerState.calcKg;
     if(S.loading) val = '…';
-    else if(S.kg!=null){ val = formatCalcNum(S.kg)+' kg'; sub = `Νέος εξοπλισμός: όσα έβαλες στο ${n}ο set με ${S.to}, στην προπόνηση της ${new Date(S.date).toLocaleDateString('el-GR')}`; }
-    else if(C && C.set===n){ val = formatCalcNum(C.kg)+' kg (από τον υπολογιστή κιλών)'; sub = `Δεν βρήκα κιλά για το ${n}ο set με ${S.to}. Αυτά είναι με βάση το προηγούμενο μηχάνημα (${S.from}).`; }
-    else sub = `Δεν βρήκα κιλά για το ${n}ο set με ${S.to}. Γράψε στον υπολογιστή κιλών τις επαναλήψεις και τα κιλά του προηγούμενου set με ${S.from} και θα σου βγάλει κιλά.`;
+    else if(S.kg!=null){ val = formatCalcNum(S.kg)+' kg'; sub = `${S.to} · ${new Date(S.date).toLocaleDateString('el-GR')}`; }
+    else if(C && C.set===n){ val = formatCalcNum(C.kg)+' kg'; sub = `από τον προηγούμενο εξοπλισμό (${S.from})`; }
+    else sub = 'Γράψε τα κιλά του προηγούμενου set στον υπολογιστή κιλών.';
   } else {
     const C = timerState.calcKg;
     if(C && C.set===n){ val = formatCalcNum(C.kg)+' kg'; sub = 'από τον υπολογιστή κιλών'; }
@@ -7446,11 +7445,16 @@ function performWorkoutCalculation(){
   const SW = timerState.eqSwitch && timerState.eqSwitch.pendingOld ? timerState.eqSwitch : null;   // το set που γράφεται έγινε με τον προηγούμενο εξοπλισμό
   const cm=document.getElementById('calcMessage');
   if(cm){ cm.classList.remove('error'); cm.textContent = explanation+` Υπολογισμένη μεταβολή: ${weightPercent>=0?'+':''}${formatCalcNum(weightPercent)}%. Στρογγυλοποίηση ανά ${formatCalcNum(roundingStep)} kg.`;
-    if(SW){ const w = document.createElement('div'); w.className = 'calc-eqswitch-warn';
-      w.innerHTML = SW.kg!=null
-        ? `⚠️ Αυτά τα κιλά υπολογίστηκαν με βάση το προηγούμενο set με <b>${escHtml(SW.from)}</b> και μπορεί να μην ταιριάζουν στον <b>${escHtml(SW.to)}</b>. Δες και τα κιλά που είχες βάλει στο ${SW.atSet}ο set με τον ${escHtml(SW.to)}, <b>κάτω από το χρονόμετρο</b>.`
-        : `⚠️ Αυτά τα κιλά υπολογίστηκαν με βάση το προηγούμενο set με <b>${escHtml(SW.from)}</b>. Δεν βρήκα κιλά για το ${SW.atSet}ο set με <b>${escHtml(SW.to)}</b>, οπότε ξεκίνα με αυτά και προσάρμοσέ τα αν χρειαστεί.`;
-      cm.appendChild(w); }
+  }
+  if(SW){
+    const p2 = SW.kg!=null
+      ? `Βρήκα το ${SW.atSet}ο set της ίδιας άσκησης με τον <b>${escHtml(SW.to)}</b> σε προηγούμενη προπόνηση. Τα κιλά που πρέπει να βάλεις στο νέο μηχάνημα είναι <b>${formatCalcNum(SW.kg)} kg</b> και αναγράφονται κάτω από το χρονόμετρο.`
+      : `Δεν βρήκα κιλά για το ${SW.atSet}ο set με τον <b>${escHtml(SW.to)}</b>. Βάλε τα κιλά που βγήκαν με βάση τον προηγούμενο εξοπλισμό, <b>${formatCalcNum(nextWeight)} kg</b>. Αναγράφονται κάτω από το χρονόμετρο.`;
+    state.choiceModal = { icon:'', color:'#ffb648', title:'ΠΡΟΣΟΧΗ ΣΤΑ ΚΙΛΑ',
+      html:`<p style="font-size:14px;line-height:1.55;color:#eefcff;margin-bottom:10px;text-align:left;">Αυτά τα κιλά αφορούν το προηγούμενο μηχάνημα (<b>${escHtml(SW.from)}</b>), αλλά καλά έκανες και τα καταχώρησες, γιατί πρέπει να καταγραφεί η άσκηση.</p>
+        <p style="font-size:14px;line-height:1.55;color:#eefcff;margin-bottom:14px;text-align:left;">${p2}</p>`,
+      yes:{ label:'ΕΝΤΑΞΕΙ', fn:null } };
+    setTimeout(renderModal, 0);
   }
 
   const logCtx = state.workoutLogContext;
@@ -8046,7 +8050,7 @@ function renderModal(){
         <button class="btn btn-primary" style="justify-content:center;font-size:12.5px;" id="choice-yes">${escHtml(m.yes.label)}</button>
         <button class="btn btn-outline" style="justify-content:center;font-size:12.5px;" id="choice-no">${escHtml(m.no.label)}</button>
       </div>
-      <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;font-size:12px;" id="choice-cancel">${escHtml(m.cancelLabel || 'Άκυρο')}</button>`
+      ${m.noCancel ? '' : `<button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;font-size:12px;" id="choice-cancel">${escHtml(m.cancelLabel || 'Άκυρο')}</button>`}`
       : `<button class="btn btn-primary" style="width:100%;justify-content:center;font-size:12.5px;" id="choice-yes">${escHtml(m.yes.label)}</button>`}
     </div></div>`;
     const done = fn=>{ state.choiceModal = null; renderModal(); fn && fn(); };
