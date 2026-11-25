@@ -1416,6 +1416,7 @@ body.hand-mode :is(input[type=text], input[type=number], input:not([type]), text
 .calc-change.negative{color:#ff7a7a;}
 .calc-message{font-size:11.5px;color:var(--ink-soft);margin-top:2px;margin-bottom:14px;line-height:1.5;text-align:center;}
 .calc-message.error{color:#ff9494;}
+.calc-eqswitch-warn{margin-top:8px;padding:9px 11px;border-radius:10px;border:1px solid rgba(255,159,26,.6);background:rgba(255,159,26,.1);color:#ffc77a;font-size:12.5px;text-align:left;}
 .calc-reset-btn{
   width:100%;min-height:46px;border-radius:11px;border:1px solid #666;background:transparent;color:#ccc;
   font-weight:800;font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:.04em;text-transform:uppercase;
@@ -6258,6 +6259,13 @@ function openWorkoutMode(ex, returnFn, focus){
     isFreshOpen = true;
     wkTimerClear();   // νέα άσκηση: το αποθηκευμένο διάλειμμα της προηγούμενης δεν ισχύει πια
   }
+  // Ίδια άσκηση, άλλος εξοπλισμός, στη μέση των set: πρώτα ερώτηση — μέχρι τότε μένει ο προηγούμενος εξοπλισμός
+  let eqSwitchAsk = null;
+  { const oldEq = wkEqNameOf(state.workoutExercise), newEq = wkEqNameOf(ex);
+    if(!isFreshOpen && oldEq && newEq && oldEq!==newEq && state.workoutExercise.exercise===ex.exercise
+       && (timerState.nextSet||1) > 1 && (timerState.nextSet||1) <= (timerState.totalSets||1)){
+      eqSwitchAsk = { from: state.workoutExercise, to: ex }; ex = state.workoutExercise;
+    } }
   timerState.hands = workoutHands(ex); timerState.limb = workoutLimb(ex); if(timerState.hands!==2) timerState.hand = 'A'; else if(!timerState.hand) timerState.hand = 'A';
   state.workoutExercise = ex;
   if(returnFn) workoutReturnRender = returnFn;
@@ -6268,12 +6276,59 @@ function openWorkoutMode(ex, returnFn, focus){
   renderWorkoutPage();
   wkFocus(focus || 'timer');
   const logCode = state.workoutLogContext && state.workoutLogContext.customerCode;
-  if(logCode && !state.skipDoneTodayCheck) checkExerciseAlreadyDoneToday(logCode, ex.exercise);
+  if(logCode && !state.skipDoneTodayCheck && !eqSwitchAsk) checkExerciseAlreadyDoneToday(logCode, ex.exercise);   // στην αλλαγή εξοπλισμού συνεχίζεις την ίδια άσκηση
   if(isFreshOpen){
     const primaryEq = (ex.equipment && ex.equipment[0]) || null;
     // οι οδηγίες ανοίγουν ΜΟΝΟ με το κόκκινο κουμπί «ΟΔΗΓΙΕΣ ΕΚΤΕΛΕΣΗΣ ΠΡΩΤΟΥ SET»
     if(primaryEq && primaryEq.calcType === 'CALALT_2_5'){ state.calAltWarningModalOpen = true; renderModal(); }
   }
+  if(eqSwitchAsk) wkEqSwitchAsk(eqSwitchAsk);
+}
+/* ── Αλλαγή εξοπλισμού στη μέση της άσκησης ── */
+function wkEqSwitchAsk(sw){
+  const from = wkEqNameOf(sw.from), to = wkEqNameOf(sw.to), done = Math.max(0, (timerState.nextSet||1)-1);
+  const box = (t, n)=>`<div style="padding:10px 12px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(3,11,18,.6);margin:6px 0 12px;font-size:14px;color:#fff;">🏋️ <b>${escHtml(n)}</b>${t ? `<div style="font-size:12px;color:var(--ink-soft);margin-top:3px;">${t}</div>` : ''}</div>`;
+  state.choiceModal = { icon:'', color:'#ffb648', title:'🔄 ΑΛΛΑΓΗ ΕΞΟΠΛΙΣΜΟΥ',
+    html: `<div style="text-align:left;font-size:14px;line-height:1.5;color:#eefcff;">Είχες ξεκινήσει την άσκηση <b>${escHtml(sw.from.exercise||'')}</b> με τον εξοπλισμό:
+        ${box(`έγιναν ${done} από ${timerState.totalSets} set`, from)}
+        Τώρα επέλεξες τον εξοπλισμό:${box('', to)}</div>
+      <p style="font-size:14px;color:#eefcff;margin-bottom:14px;">Θέλεις να συνεχίσεις τα επόμενα set με τον νέο εξοπλισμό;</p>`,
+    yes:{ label:'ΝΑΙ, ΣΥΝΕΧΙΖΩ ΜΕ ΤΟΝ ΝΕΟ', fn:()=>wkEqSwitchApply(sw) },
+    no:{ label:'ΟΧΙ, ΜΕΝΩ ΣΤΟΝ ΠΡΟΗΓΟΥΜΕΝΟ', fn:null }, cancelLabel:'Άκυρο — μένω στον προηγούμενο' };
+  renderModal();
+}
+async function wkEqSwitchApply(sw){
+  const from = wkEqNameOf(sw.from), to = wkEqNameOf(sw.to);
+  const done = Math.max(0, (timerState.nextSet||1)-1), at = timerState.nextSet||1;
+  const fromEq = sw.from.equipment[0];
+  // Το τελευταίο set με τον προηγούμενο εξοπλισμό έχει γραφτεί στον υπολογιστή κιλών;
+  const pendingOld = done > 0 && (Number(timerState.lastCalcAtSet)||0) < done;
+  state.workoutExercise = sw.to;
+  if(state.lastWorkout) state.lastWorkout.ex = sw.to;
+  timerState.eqSwitch = { from, fromCalc: (fromEq && fromEq.calcType) || DEFAULT_CALC_TYPE, to, atSet: at, doneOld: done, pendingOld, loading: true, kg: null, date: null };
+  workoutCalcValues = { reps:'', kg:'' }; workoutCalcField = null; workoutCalcRevealed = { reps:false, kg:false }; workoutFailureQuality = null;
+  renderWorkoutPage(); wkFocus('timer'); wkTimerSave();
+  // Πόσα κιλά έβαλε στο ίδιο set με τον νέο εξοπλισμό, την τελευταία φορά (και σήμερα, αν έγινε)
+  let kg = null, date = null;
+  try{
+    const code = (state.workoutLogContext && state.workoutLogContext.customerCode) || getCurrentLogCustomerCode();
+    if(code){
+      const days = await loadPreviousWorkoutsForExercise(code, sw.to.exercise, to);
+      for(const d of days){ const e = d.entries.find(x=>Number(x.set_number)===at && x.kg!=null); if(e){ kg = Number(e.kg); date = d.dateObj; break; } }
+    }
+  }catch(e){ console.error(e); }
+  const S = timerState.eqSwitch; if(!S || S.to!==to || S.atSet!==at) return;
+  S.loading = false; S.kg = kg; S.date = date ? date.toISOString() : null;
+  wkKgHintUpdate(true); wkTimerSave();
+  const rec = pendingOld ? `<div style="padding:10px 12px;border-radius:12px;border:1px solid rgba(255,182,72,.6);background:rgba(255,182,72,.08);margin-bottom:14px;font-size:13.5px;line-height:1.55;color:#ffe2b0;text-align:left;">📝 <b>Μην ξεχάσεις:</b> γράψε πρώτα στον υπολογιστή κιλών τις επαναλήψεις και τα κιλά που έκανες στο <b>${done}ο SET</b> με το <b>${escHtml(from)}</b> και πάτα υπολογισμό. Σε κάθε περίπτωση πρέπει να καταγραφούν στον υπολογιστή κιλών, αλλιώς δεν θα γραφτούν στο πρόγραμμά σου.</div>` : '';
+  const body = kg!=null
+    ? `Βρήκα πόσα κιλά έβαλες στο <b>${at}ο SET</b> με τον <b>${escHtml(to)}</b> σε προηγούμενη προπόνηση. Θα τα δεις <b>κάτω από το χρονόμετρο</b>, στο «ΚΙΛΑ ΠΟΥ ΠΡΕΠΕΙ ΝΑ ΒΑΛΕΙΣ ΣΤΟ ${at}ο SET».`
+    : `Δεν βρήκα κιλά για το <b>${at}ο SET</b> με τον <b>${escHtml(to)}</b> σε προηγούμενη προπόνηση. Γράψε στον υπολογιστή κιλών τις επαναλήψεις και τα κιλά του προηγούμενου set με το <b>${escHtml(from)}</b>, και χρησιμοποίησε τα κιλά που θα σου βγάλει, προσέχοντας ότι είναι από το προηγούμενο μηχάνημα.`;
+  state.choiceModal = { icon:'', color:'#ffb648', title:'⚠️ ΠΡΟΣΟΧΗ ΣΤΑ ΚΙΛΑ',
+    html: `<p style="font-size:14px;line-height:1.55;color:#eefcff;margin-bottom:10px;text-align:left;">Ο υπολογιστής κιλών δεν μπορεί να βγάλει σωστά τα κιλά για τον νέο εξοπλισμό, γιατί τα κιλά του προηγούμενου μηχανήματος δεν είναι ίδια με αυτά του νέου.</p>
+      <p style="font-size:14px;line-height:1.55;color:#eefcff;margin-bottom:14px;text-align:left;">${body}</p>${rec}`,
+    yes:{ label:'ΕΝΤΑΞΕΙ', fn:null } };
+  renderModal();
 }
 async function checkExerciseAlreadyDoneToday(customerCode, exerciseName){
   if(!customerCode || !exerciseName) return;
@@ -6896,6 +6951,12 @@ function wkKgHintInner(){
     if(!F || F.key!==wkFirstKgKey() || F.loading){ val = '…'; if(!F || F.key!==wkFirstKgKey()) setTimeout(wkFirstKgLoad, 0); }
     else if(F.kg!=null){ val = formatCalcNum(F.kg)+' kg'; sub = `από την προπόνηση της ${F.date.toLocaleDateString('el-GR')}`; }
     else sub = 'Πρώτη φορά σε αυτή την άσκηση — δες «Υπολογισμός κιλών πρώτου set».';
+  } else if(timerState.eqSwitch && timerState.eqSwitch.atSet===n){
+    const S = timerState.eqSwitch, C = timerState.calcKg;
+    if(S.loading) val = '…';
+    else if(S.kg!=null){ val = formatCalcNum(S.kg)+' kg'; sub = `Νέος εξοπλισμός: όσα έβαλες στο ${n}ο set με ${S.to}, στην προπόνηση της ${new Date(S.date).toLocaleDateString('el-GR')}`; }
+    else if(C && C.set===n){ val = formatCalcNum(C.kg)+' kg (από τον υπολογιστή κιλών)'; sub = `Δεν βρήκα κιλά για το ${n}ο set με ${S.to}. Αυτά είναι με βάση το προηγούμενο μηχάνημα (${S.from}).`; }
+    else sub = `Δεν βρήκα κιλά για το ${n}ο set με ${S.to}. Γράψε στον υπολογιστή κιλών τις επαναλήψεις και τα κιλά του προηγούμενου set με ${S.from} και θα σου βγάλει κιλά.`;
   } else {
     const C = timerState.calcKg;
     if(C && C.set===n){ val = formatCalcNum(C.kg)+' kg'; sub = 'από τον υπολογιστή κιλών'; }
@@ -6905,7 +6966,7 @@ function wkKgHintInner(){
 }
 function wkKgHintUpdate(force){
   const el = document.getElementById('wkKgHint'); if(!el) return;
-  const sig = (timerState.nextSet||1)+'|'+JSON.stringify(timerState.calcKg||null)+'|'+JSON.stringify(state.wkFirstKg||null);
+  const sig = (timerState.nextSet||1)+'|'+JSON.stringify(timerState.calcKg||null)+'|'+JSON.stringify(state.wkFirstKg||null)+'|'+JSON.stringify(timerState.eqSwitch||null);
   if(!force && el.dataset.sig===sig) return;
   el.dataset.sig = sig; const h = wkKgHintInner(); el.innerHTML = h; el.style.display = h ? '' : 'none';
 }
@@ -7108,7 +7169,7 @@ function wkTimerSave(){
       date: athensDateStr(), savedAt: Date.now(), ex: state.workoutExercise, nextCtx: state.workoutNextCtx || null, logCtx: state.workoutLogContext || null,
       preview: state.wkPreview || null,
       t: { exerciseKey:t.exerciseKey, max:t.max, remaining:t.remaining, totalSets:t.totalSets, nextSet:t.nextSet, running:!!t.running, paused:!!t.paused, endAt:t.endAt||null,
-           lastAdvanceSource:t.lastAdvanceSource||null, skipNextAdvance:!!t.skipNextAdvance, hands:t.hands||1, hand:t.hand||'A', recordedSets:t.recordedSets, calcKg:t.calcKg||null }
+           lastAdvanceSource:t.lastAdvanceSource||null, skipNextAdvance:!!t.skipNextAdvance, hands:t.hands||1, hand:t.hand||'A', recordedSets:t.recordedSets, calcKg:t.calcKg||null, eqSwitch:t.eqSwitch||null, lastCalcAtSet:t.lastCalcAtSet||null }
     }));
   }catch(_){}
 }
@@ -7128,7 +7189,7 @@ function wkTimerRestore(){
   state.skipDoneTodayCheck = true;
   openWorkoutMode(d.ex, rebuildClientDashboardShell, 'timer');
   state.skipDoneTodayCheck = false;
-  Object.assign(timerState, { max:t.max, totalSets:t.totalSets, nextSet:t.nextSet, lastAdvanceSource:t.lastAdvanceSource, skipNextAdvance:t.skipNextAdvance, hands:t.hands, hand:t.hand, calcKg:t.calcKg||null });
+  Object.assign(timerState, { max:t.max, totalSets:t.totalSets, nextSet:t.nextSet, lastAdvanceSource:t.lastAdvanceSource, skipNextAdvance:t.skipNextAdvance, hands:t.hands, hand:t.hand, calcKg:t.calcKg||null, eqSwitch:t.eqSwitch||null, lastCalcAtSet:t.lastCalcAtSet||null });
   if(t.recordedSets != null) timerState.recordedSets = t.recordedSets;
   if(t.running && t.endAt && t.endAt > now){
     timerState.endAt = t.endAt; timerState.running = true; timerState.paused = false;
@@ -7382,12 +7443,19 @@ function performWorkoutCalculation(){
     else if(change<0){ cr.textContent=`${formatCalcNum(change)} KG`; cr.classList.add('negative'); cb?.classList.add('negative'); }
     else cr.textContent='0 KG';
   }
+  const SW = timerState.eqSwitch && timerState.eqSwitch.pendingOld ? timerState.eqSwitch : null;   // το set που γράφεται έγινε με τον προηγούμενο εξοπλισμό
   const cm=document.getElementById('calcMessage');
-  if(cm){ cm.classList.remove('error'); cm.textContent = explanation+` Υπολογισμένη μεταβολή: ${weightPercent>=0?'+':''}${formatCalcNum(weightPercent)}%. Στρογγυλοποίηση ανά ${formatCalcNum(roundingStep)} kg.`; }
+  if(cm){ cm.classList.remove('error'); cm.textContent = explanation+` Υπολογισμένη μεταβολή: ${weightPercent>=0?'+':''}${formatCalcNum(weightPercent)}%. Στρογγυλοποίηση ανά ${formatCalcNum(roundingStep)} kg.`;
+    if(SW){ const w = document.createElement('div'); w.className = 'calc-eqswitch-warn';
+      w.innerHTML = SW.kg!=null
+        ? `⚠️ Αυτά τα κιλά υπολογίστηκαν με βάση το προηγούμενο set με <b>${escHtml(SW.from)}</b> και μπορεί να μην ταιριάζουν στον <b>${escHtml(SW.to)}</b>. Δες και τα κιλά που είχες βάλει στο ${SW.atSet}ο set με τον ${escHtml(SW.to)}, <b>κάτω από το χρονόμετρο</b>.`
+        : `⚠️ Αυτά τα κιλά υπολογίστηκαν με βάση το προηγούμενο set με <b>${escHtml(SW.from)}</b>. Δεν βρήκα κιλά για το ${SW.atSet}ο set με <b>${escHtml(SW.to)}</b>, οπότε ξεκίνα με αυτά και προσάρμοσέ τα αν χρειαστεί.`;
+      cm.appendChild(w); }
+  }
 
   const logCtx = state.workoutLogContext;
   if(logCtx && logCtx.customerCode){
-    const setNumber = timerState.nextSet||1;
+    const setNumber = SW && SW.doneOld ? SW.doneOld : (timerState.nextSet||1);   // το set που έγινε με τον προηγούμενο εξοπλισμό
     const fq = FAILURE_QUALITY_OPTIONS.find(f=>f.key===workoutFailureQuality) || FAILURE_QUALITY_OPTIONS[0];
     const wv = kg * reps;
     const awv = wv * (fq.pct/100);
@@ -7399,8 +7467,8 @@ function performWorkoutCalculation(){
       set_number: setNumber,
       reps: reps,
       kg: kg,
-      calc_type: calcType.key,
-      equipment_name: primaryEq ? primaryEq.name : null,
+      calc_type: SW ? ((CALC_TYPES[SW.fromCalc]||calcType).key) : calcType.key,
+      equipment_name: SW ? SW.from : (primaryEq ? primaryEq.name : null),
       wv: wv,
       awv: awv,
       failure_quality: fq.key,
@@ -7413,6 +7481,8 @@ function performWorkoutCalculation(){
   } else {
     toast('Προεπισκόπηση — δεν καταγράφεται σε ημερολόγιο πελάτη.');
   }
+  timerState.lastCalcAtSet = timerState.nextSet||1;   // αυτό το set γράφτηκε στον υπολογιστή κιλών
+  if(SW) SW.pendingOld = false;
 
   // Το "ΕΠΟΜΕΝΟ SET" προχωράει όποτε πατηθεί ο υπολογιστής κιλών — εκτός αν το
   // χρονόμετρο έχει ήδη προχωρήσει το set αυτό (ώστε να μην αυξάνεται διπλά).
