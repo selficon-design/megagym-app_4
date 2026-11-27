@@ -6924,6 +6924,9 @@ function wkBgTick(){
 }
 function wkPillClick(){ if(state.wkBg) wkBgReturn(false); else actWkReturn(); }
 setInterval(()=>{ if(state.wkBg || document.getElementById('wk-bg-pill') || auth.status==='client') wkBgTick(); }, 500);
+// Ποιο set γράφεται στον υπολογιστή κιλών: αν πατήθηκε πρώτα START, το χρονόμετρο έχει ήδη περάσει
+// στο επόμενο set — άρα αυτό που γράφεται είναι το προηγούμενο (αυτό που μόλις τελείωσε).
+function wkCalcSetNumber(){ const n = timerState.nextSet||1; return timerState.lastAdvanceSource==='timer' ? Math.max(1, n-1) : n; }
 function getSetBoxContent(){
   const { nextSet, totalSets } = timerState;
   // Το set έχει ήδη γίνει όταν τρέχει το διάλειμμα: πάντα «ΕΚΤΕΛΕΣΤΗΚΕ» (κίτρινο όσο μετράει ο χρόνος)
@@ -7494,7 +7497,7 @@ function performWorkoutCalculation(){
 
   const logCtx = state.workoutLogContext;
   if(logCtx && logCtx.customerCode){
-    const setNumber = SW && SW.doneOld ? SW.doneOld : (timerState.nextSet||1);   // το set που έγινε με τον προηγούμενο εξοπλισμό
+    const setNumber = SW && SW.doneOld ? SW.doneOld : wkCalcSetNumber();   // το set που μόλις έγινε (με τον προηγούμενο εξοπλισμό, αν άλλαξε)
     const fq = FAILURE_QUALITY_OPTIONS.find(f=>f.key===workoutFailureQuality) || FAILURE_QUALITY_OPTIONS[0];
     const wv = kg * reps;
     const awv = wv * (fq.pct/100);
@@ -7520,7 +7523,7 @@ function performWorkoutCalculation(){
   } else {
     toast('Προεπισκόπηση — δεν καταγράφεται σε ημερολόγιο πελάτη.');
   }
-  timerState.lastCalcAtSet = timerState.nextSet||1;   // αυτό το set γράφτηκε στον υπολογιστή κιλών
+  timerState.lastCalcAtSet = wkCalcSetNumber();   // αυτό το set γράφτηκε στον υπολογιστή κιλών
   if(SW) SW.pendingOld = false;
 
   // Το "ΕΠΟΜΕΝΟ SET" προχωράει όποτε πατηθεί ο υπολογιστής κιλών — εκτός αν το
